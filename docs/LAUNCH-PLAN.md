@@ -29,7 +29,7 @@ is (Porto block frozen); fixes are ported by hand.
 
 | Source | Self-host | Hosted | Notes |
 |---|---|---|---|
-| Garmin | Garmin **Personal** key (free, own data) — optional legacy password login, flagged experimental | Garmin **Starter** program (free, business entity, push only, ~1 000 users, no history before connect) | Apply now; declare the paid model (agreement §5.2(e) needs written OK). History via Garmin data-export ZIP import. `garmin-connect` npm is unmaintained since 01/2024 — no password logins in the hosted app |
+| Garmin | Password login with the user's own credentials (`garmin` source, experimental) — later Garmin **Personal** key (free, own data) | **Password login with each user's own credentials** (Livius' decision, Phase 3; consent text, encrypted, experimental) — later Garmin **Starter** program (free, business entity, push only, ~1 000 users, no history before connect) as a second source | Apply now; declare the paid model (agreement §5.2(e) needs written OK). History via Garmin data-export ZIP import. `garmin-connect` npm is unmaintained since 01/2024 and has no MFA — the official API is the long-term path; the adapter lets both run side by side |
 | Apple Health | Runmate iOS Shortcut posting to a per-user secret link (exists: `/api/health/[token]`) | same, per-user token | HealthKit proper needs a native iOS app → later |
 | File import | FIT / GPX / TCX / Garmin export ZIP | same | Account-free; fills history for Starter |
 | Strava | OAuth | OAuth, ≤ 10 athletes without review | 2026 terms: 7-day cache limit, no AI use, own data only → import trigger, not source of record. Later |
@@ -58,7 +58,8 @@ with a neutral `source` + `source_activity_id` on activities; `parseDetailStream
 
 ### Phase 3 · Data sources
 - `ActivitySource` adapter; Garmin behind it (per-user encrypted credentials, no process-global client).
-- Garmin official API (Personal for self-host, Starter for hosted, once approved); FIT/GPX/ZIP import.
+- Garmin login for self-host **and hosted** (Livius, 01.11.); official API as a placeholder source until approved
+  (Personal for self-host, Starter for hosted); FIT/GPX/TCX/ZIP import. Done: [docs/phases/03-sources/](phases/03-sources/).
 - Apple Health shortcut per user (install guide). Strava OAuth after launch.
 
 ### Phase 4 · Billing + legal

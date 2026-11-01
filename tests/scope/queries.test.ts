@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto'
 import { runAsUser } from '@/lib/server/scope'
 import { getSetting, setSetting } from '@/lib/db/settings'
 import { rotateLinkToken, userForLinkToken } from '@/lib/links/tokens'
-import { garminAccountStatus, saveGarminCredentials } from '@/lib/garmin/account'
+import { garminAccountStatus, saveGarminAccount } from '@/lib/sources/garmin-login/account'
 import { UnauthorizedError } from '@/lib/scope'
 import { useFakeDb, type Query } from './fake-db'
 
@@ -67,16 +67,17 @@ describe('Geheime Links: Token → Nutzer', () => {
 
 describe('Garmin-Zugang je Nutzer', () => {
   it('speichert nur verschlüsselt und gibt nie Werte zurück', async () => {
-    fake = useFakeDb((q: Query) => (q.sql.startsWith('select') ? [[1700000000, 1700000000]] : []))
-    await asUser('user-a', () => saveGarminCredentials('runner@example.com', 'hunter2-secret'))
+    fake = useFakeDb((q: Query) => (q.sql.startsWith('select') ? [[1700000000, 1700000100, 1700000000, null, null]] : []))
+    await asUser('user-a', () => saveGarminAccount('runner@example.com', 'hunter2-secret', { oauth1: { oauth_token: 'tok-1', oauth_token_secret: 'sec-1' }, oauth2: { access_token: 'acc-1' } }))
     const ins = fake.log[0]
     const sent = JSON.stringify(ins.params)
     expect(sent).not.toContain('runner@example.com')
     expect(sent).not.toContain('hunter2-secret')
+    for (const secret of ['tok-1', 'sec-1', 'acc-1']) expect(sent).not.toContain(secret)
     expect(ins.params[0]).toBe('user-a')
     expect(String(ins.params[1])).toMatch(/^v1\./)
     const status = await asUser('user-a', () => garminAccountStatus())
-    expect(status).toEqual({ hasCredentials: true, hasSession: true, sessionUpdatedAt: 1700000000 })
+    expect(status).toEqual({ hasCredentials: true, hasSession: true, sessionUpdatedAt: 1700000000, syncedAt: 1700000100, consentedAt: 1700000000, errorCode: null, errorAt: null })
     expect(fake.log.at(-1)!.sql).toMatch(/"garmin_accounts"\."user_id" = \$1/)
   })
 })

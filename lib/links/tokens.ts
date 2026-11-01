@@ -34,3 +34,8 @@ export async function userForLinkToken(kind: LinkKind, token: string): Promise<s
   const [row] = await db.select({ userId: linkTokens.userId }).from(linkTokens).where(and(eq(linkTokens.token, token), eq(linkTokens.kind, kind))).limit(1)
   return row?.userId ?? null
 }
+
+// Remove this user's link of that kind (the old URL stops working; a new one can be created any time).
+export async function deleteLinkToken(kind: LinkKind) {
+  await db.delete(linkTokens).where(own(linkTokens, eq(linkTokens.kind, kind)))
+}

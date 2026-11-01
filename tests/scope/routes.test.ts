@@ -10,16 +10,16 @@ const clerk = vi.hoisted(() => ({ userId: null as string | null }))
 vi.mock('@clerk/nextjs/server', () => ({ auth: async () => ({ userId: clerk.userId }) }))
 
 const syncs = vi.hoisted(() => ({ seen: [] as { user: string | null; hrMax: number }[] }))
-vi.mock('@/lib/garmin/sync-job', () => ({
-  runGarminSync: async () => {
+vi.mock('@/lib/sources/sync', () => ({
+  runSync: async () => {
     const s = currentScope()
     await new Promise((r) => setTimeout(r, Math.random() * 5))
     syncs.seen.push({ user: s.userId, hrMax: s.profile.hrMax })
-    if (s.userId === 'u2') throw new Error('Garmin-Anmeldung fehlgeschlagen')
-    return { inserted: 0, updated: 0, enriched: 0, failed: 0, remaining: 0, log: [] }
+    if (s.userId === 'u2') throw Object.assign(new Error('Garmin hat die Anmeldung abgelehnt'), { code: 'auth' })
+    return { inserted: 0, updated: 0, duplicates: 0, enriched: 0, failed: 0, remaining: 0, log: [], errors: [] }
   },
 }))
-vi.mock('@/lib/garmin/account', () => ({ garminUserIds: async () => ['u1', 'u2', 'u3', 'u4', 'u5'] }))
+vi.mock('@/lib/sources/registry', () => ({ usersToSync: async () => ['u1', 'u2', 'u3', 'u4', 'u5'] }))
 
 const { withUser } = await import('@/lib/server/scope')
 const { GET: cron } = await import('@/app/api/cron/daily-sync/route')

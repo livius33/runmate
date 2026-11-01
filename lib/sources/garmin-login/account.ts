@@ -1,18 +1,30 @@
-// Each user's Garmin account (Phase 2): credentials and the persisted session, encrypted at rest (lib/crypto.ts).
-// Nothing here is ever returned by an API or logged; routes only learn whether an account exists.
-// Phase 3 turns this into one ActivitySource among several; logging in with the user's own credentials stays one option.
+// Each user's Garmin login (the `garmin` source): credentials and the persisted session, encrypted at rest
+// (lib/crypto.ts), plus consent and the last error state as a code. Nothing secret is ever returned by an API or logged;
+// routes only learn whether an account exists and what state it is in.
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { garminAccounts } from '@/lib/db/schema'
 import { mine, own } from '@/lib/db/owned'
 import { decrypt, encrypt } from '@/lib/crypto'
+import type { SourceErrorCode } from '@/lib/sources/types'
 
 export interface GarminSession { oauth1: { oauth_token: string; oauth_token_secret: string }; oauth2: unknown }
 
 const now = () => Math.floor(Date.now() / 1000)
 
-export async function saveGarminCredentials(username: string, password: string) {
-  const set = { usernameEnc: encrypt(username), passwordEnc: encrypt(password), sessionEnc: null, sessionAt: null, updatedAt: now() }
+// Only after a successful login (lib/sources/garmin-login/index.ts connect): credentials, the fresh session, consent.
+export async function saveGarminAccount(username: string, password: string, session: GarminSession | null) {
+  const t = now()
+  const set = {
+    usernameEnc: encrypt(username),
+    passwordEnc: encrypt(password),
+    sessionEnc: session ? encrypt(JSON.stringify(session)) : null,
+    sessionAt: session ? t : null,
+    consentedAt: t,
+    errorCode: null,
+    errorAt: null,
+    updatedAt: t,
+  }
   await db.insert(garminAccounts).values(mine(set)).onConflictDoUpdate({ target: garminAccounts.userId, set })
 }
 
@@ -22,8 +34,18 @@ export async function deleteGarminAccount() {
 
 // Status only: never the values.
 export async function garminAccountStatus() {
-  const [row] = await db.select({ sessionAt: garminAccounts.sessionAt, updatedAt: garminAccounts.updatedAt }).from(garminAccounts).where(own(garminAccounts)).limit(1)
-  return { hasCredentials: !!row, hasSession: !!row?.sessionAt, sessionUpdatedAt: row?.sessionAt ?? null }
+  const [row] = await db
+    .select({ sessionAt: garminAccounts.sessionAt, syncedAt: garminAccounts.syncedAt, consentedAt: garminAccounts.consentedAt, errorCode: garminAccounts.errorCode, errorAt: garminAccounts.errorAt })
+    .from(garminAccounts).where(own(garminAccounts)).limit(1)
+  return {
+    hasCredentials: !!row,
+    hasSession: !!row?.sessionAt,
+    sessionUpdatedAt: row?.sessionAt ?? null,
+    syncedAt: row?.syncedAt ?? null,
+    consentedAt: row?.consentedAt ?? null,
+    errorCode: (row?.errorCode ?? null) as SourceErrorCode | null,
+    errorAt: row?.errorAt ?? null,
+  }
 }
 
 export async function loadGarminAccount(): Promise<{ username: string; password: string; session: GarminSession | null } | null> {
@@ -40,8 +62,10 @@ export async function saveGarminSession(session: GarminSession) {
   await db.update(garminAccounts).set({ sessionEnc: encrypt(JSON.stringify(session)), sessionAt: now() }).where(own(garminAccounts))
 }
 
-export async function markGarminSynced() {
-  await db.update(garminAccounts).set({ syncedAt: now() }).where(own(garminAccounts))
+// After every sync attempt: when, and the error code (null = it worked).
+export async function markGarminSynced(errorCode: SourceErrorCode | null = null) {
+  const t = now()
+  await db.update(garminAccounts).set({ syncedAt: t, errorCode, errorAt: errorCode ? t : null }).where(own(garminAccounts))
 }
 
 // Users the daily cron syncs: everyone with a Garmin account, the least recently synced first.

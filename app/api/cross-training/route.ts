@@ -34,6 +34,7 @@ export const POST = withUser(async (req: Request) => {
   try {
     const row = {
       id: `${MANUAL_ID_PREFIX}${Date.now()}`,
+      source: 'manual',
       type: e.type,
       sportType: 'manual',
       name: e.name,

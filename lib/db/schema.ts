@@ -43,7 +43,7 @@ export const linkTokens = pgTable('link_tokens', {
   createdAt: integer('created_at').notNull().default(unixNow),
 }, (t) => [unique('link_tokens_user_kind').on(t.userId, t.kind)])
 
-// ─── Garmin (per user; every secret AES-256-GCM encrypted, lib/crypto.ts) ─────
+// ─── Garmin login source (per user; every secret AES-256-GCM encrypted, lib/crypto.ts) ─
 
 // Credentials and the persisted session (OAuth1 + OAuth2 JSON). Serverless invocations restore the session rather than
 // logging in on every request.
@@ -54,6 +54,9 @@ export const garminAccounts = pgTable('garmin_accounts', {
   sessionEnc: text('session_enc'),               // { oauth1, oauth2 } as JSON, encrypted
   sessionAt: integer('session_at'),
   syncedAt: integer('synced_at'),                // last sync attempt (the cron starts with the oldest)
+  consentedAt: integer('consented_at'),          // when the user agreed to the consent text in Settings
+  errorCode: text('error_code'),                 // last login/sync error (lib/sources/types.ts SourceErrorCode), null = ok
+  errorAt: integer('error_at'),
   updatedAt: integer('updated_at').notNull().default(unixNow),
 })
 
@@ -62,8 +65,11 @@ export const garminAccounts = pgTable('garmin_accounts', {
 export const activities = pgTable('activities', {
   userId: userId(),
   id: text('id').notNull(),
-  stravaId: text('strava_id'),                          // legacy — populated for pre-Garmin rows
-  garminActivityId: text('garmin_activity_id'),
+  // Where the row came from (lib/sources/registry.ts: 'garmin', 'apple-health', 'file', … or 'manual') and the id it
+  // has there (null for manual entries). Unique per user and source.
+  source: text('source').notNull(),
+  sourceActivityId: text('source_activity_id'),
+  startedAt: integer('started_at'),                     // UTC epoch seconds (duplicate check across sources)
   type: text('type').notNull(),
   sportType: text('sport_type'),                        // e.g. 'TrailRun', 'Race'
   workoutType: integer('workout_type'),                 // 0=default 1=race 2=long 3=workout
@@ -91,7 +97,7 @@ export const activities = pgTable('activities', {
   startTime: text('start_time'),                        // 'HH:MM:SS'
   summaryPolyline: text('summary_polyline'),
   bestEffortsJson: text('best_efforts_json'),
-  splitsMetricJson: text('splits_metric_json'),
+  splitsMetricJson: text('splits_metric_json'),         // laps as the source reported them (lib/sources/types.ts Lap)
   hasDetailedData: boolean('has_detailed_data').notNull().default(false),
   hasStreams: boolean('has_streams').notNull().default(false),
   date: text('date').notNull(),
@@ -101,8 +107,9 @@ export const activities = pgTable('activities', {
   syncedAt: integer('synced_at').notNull().default(unixNow),
 }, (t) => [
   primaryKey({ columns: [t.userId, t.id] }),
-  unique('activities_user_garmin').on(t.userId, t.garminActivityId),
+  unique('activities_user_source_id').on(t.userId, t.source, t.sourceActivityId),
   index('activities_user_date').on(t.userId, t.date),
+  index('activities_user_started').on(t.userId, t.startedAt),
 ])
 
 // ─── Training Plan (history before the first block; one row per user) ─────────
@@ -118,7 +125,6 @@ export const trainingPlan = pgTable('training_plan', {
 export const activityStreams = pgTable('activity_streams', {
   userId: userId(),
   activityId: text('activity_id').notNull(),
-  stravaId: text('strava_id'),                          // kept for legacy lookups
   timeJson: text('time_json'),
   distanceJson: text('distance_json'),
   altitudeJson: text('altitude_json'),

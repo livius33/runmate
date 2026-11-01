@@ -24,7 +24,9 @@ import { RunFeedback, type FeedbackValue } from '@/components/runs/RunFeedback'
 
 interface RunDetail {
   run: RunSummary
-  garminActivityId: string | null
+  source: string
+  external: { url: string; label: string } | null
+  canReload: boolean
   metrics: RunMetrics | null
   planned: PlanSession | null
   plannedDate: string | null
@@ -94,19 +96,21 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
           </div>
         </div>
         <div className="flex gap-2">
-          {data.garminActivityId && (
-            <a href={`https://connect.garmin.com/modern/activity/${data.garminActivityId}`} target="_blank" rel="noreferrer"
+          {data.external && (
+            <a href={data.external.url} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-secondary">
-              <ExternalLink className="h-3.5 w-3.5" /> In Garmin öffnen
+              <ExternalLink className="h-3.5 w-3.5" /> {data.external.label}
             </a>
           )}
-          <button onClick={() => reload.mutate()} disabled={reload.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-50">
-            <RefreshCw className={cn('h-3.5 w-3.5', reload.isPending && 'animate-spin')} /> {reload.isPending ? 'Lädt…' : 'Neu laden'}
-          </button>
+          {data.canReload && (
+            <button onClick={() => reload.mutate()} disabled={reload.isPending}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-50">
+              <RefreshCw className={cn('h-3.5 w-3.5', reload.isPending && 'animate-spin')} /> {reload.isPending ? 'Lädt…' : 'Neu laden'}
+            </button>
+          )}
         </div>
       </div>
-      {reload.isError && <p className="text-sm text-brand">Garmin-Daten konnten nicht geladen werden. Später noch einmal versuchen.</p>}
+      {reload.isError && <p className="text-sm text-brand">Detaildaten konnten nicht geladen werden. Später noch einmal versuchen.</p>}
 
       {planned && (
         <div className={cn('max-w-2xl rounded-xl px-4 py-3 text-sm', planMatches ? 'bg-teal-soft/70' : 'bg-amber-50')}>
@@ -143,7 +147,7 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
       </div>
 
       {!m && (
-        <p className="rounded-xl bg-secondary px-4 py-3 text-sm">Für diesen Lauf fehlen noch die Detaildaten. „Neu laden“ holt sie von Garmin.</p>
+        <p className="rounded-xl bg-secondary px-4 py-3 text-sm">Für diesen Lauf fehlen noch die Detaildaten.{data.canReload && ' „Neu laden“ holt sie von der Quelle.'}</p>
       )}
 
       <div className="grid gap-4 lg:grid-cols-12">
