@@ -1,6 +1,6 @@
 # Runmate — notes for AI coding agents
 
-Adaptive running-plan app: Garmin/Apple Health data in, a training plan generated from methodology templates and adapted
+Adaptive running-plan app: activity data in (Garmin login, Apple Health, file import — all behind one adapter), a training plan generated from methodology templates and adapted
 by a rule engine out. UI is German; code, comments and docs are English.
 
 - **Stack:** Next.js 15 App Router, TypeScript, Tailwind CSS, Drizzle ORM, Neon Postgres, Clerk auth, Vercel hosting.
@@ -10,12 +10,14 @@ by a rule engine out. UI is German; code, comments and docs are English.
 
 ```
 app/(dashboard)/         — pages: / (Plan), /plan/neu, /plan/anpassen, /running (Analyse), /running/activities, /season, /race, /settings
-app/api/                 — API routes (garmin sync, running/*, season, calendar + health token routes, cron)
+app/api/                 — API routes (sources/*, import, running/*, season, calendar + health token routes, cron)
 components/              — runs/, analyse/, plan/, settings/
 lib/db/                  — Neon connection (lazy), Drizzle schema, owned.ts (own/mine), settings.ts (per-user key/value)
 lib/scope.ts, lib/server/scope.ts — per-request user scope (user id, profile, live blocks); withUser/runAsUser
 lib/profile.ts           — the runner's profile (HFmax, rest, LTHR, zone model, PB, weight, time zone) + defaults
-lib/api-clients/garmin.ts — Garmin Connect client (unofficial login, per user; lib/garmin/account.ts, encrypted)
+lib/sources/              — data sources: types.ts (ActivitySource contract), registry.ts, ingest.ts (the only writer of
+                           source activities; dedupe.ts), sync.ts; garmin-login/ (unofficial, per user, encrypted),
+                           garmin-api.ts (placeholder), apple-health.ts, file/ (FIT/GPX/TCX/ZIP parsers, browser batching)
 lib/analytics/           — hr.ts (the one HR model, from the profile), run-metrics, load (TRIMP, CTL/ATL/TSB, ACWR), progress
 lib/plan/                — blocks registry, generator/, methodology/, engine, effective (edits), pause, events, race week/day
 lib/plan/plan-files.ts   — hand-written plan files that are always registered (empty by default)
@@ -40,6 +42,10 @@ scripts/                 — backfill-run-metrics.mts, check-methodologies.mts, 
   (lib/athlete.ts) and `todayLocal()` (lib/dates.ts) follow the current user's profile. Call them inside functions,
   never at module level.
 - Secrets (Garmin login/session) are encrypted with `ENCRYPTION_KEY` (lib/crypto.ts), never logged, never returned.
+  Source errors reach users and logs only as `SourceError` (code + German message), never as library output.
+- Data sources: implement `ActivitySource` (lib/sources/types.ts) and register it; store activities only through
+  lib/sources/ingest.ts (`source` + `source_activity_id`, cross-source dedupe). Never read a source-specific id column.
+  `tests/sources/contract.test.ts` runs every registered source against fixtures.
 - The block registry starts empty. Code must work with no block (`hasBlocks()`, `NO_BLOCK`) and must not special-case a
   block id; use block properties (`handWritten`, `base`, `paces`, `engine`).
 - After changing `lib/analytics/run-metrics.ts`: bump `METRICS_VERSION` and run
