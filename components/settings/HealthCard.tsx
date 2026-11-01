@@ -18,7 +18,7 @@ const FIELDS: [string, string][] = [
 ]
 
 // Apple Health via an iOS Shortcut: private upload link, step-by-step guide, last upload.
-export function HealthCard() {
+export function HealthCard({ otherRunSource }: { otherRunSource: boolean }) {
   const qc = useQueryClient()
   const { data } = useQuery<Link>({ queryKey: ['health-link'], queryFn: () => fetch('/api/health-link').then((r) => r.json()) })
   const [confirm, setConfirm] = useState(false)
@@ -33,7 +33,10 @@ export function HealthCard() {
       <h2 className="flex items-center gap-2 text-[15px] font-semibold"><HeartPulse className="h-4 w-4 text-brand" /> Apple Health</h2>
       <p className="mt-1.5 text-sm text-muted-foreground">
         Ein Kurzbefehl auf dem iPhone schickt jeden Abend Schlaf, Ruhepuls, HRV, Schritte, aktive Energie und Gewicht an Runmate.
-        Läufe kommen weiter nur von Garmin. Der Link ist privat – nicht teilen.
+        {otherRunSource
+          ? ' Läufe kommen von deiner anderen Quelle; Lauf-Workouts aus Apple Health werden ignoriert, damit nichts doppelt zählt.'
+          : ' Ohne andere Laufquelle übernimmt Runmate Lauf-Workouts aus Apple Health (mit Distanz) als Läufe.'}
+        {' '}Der Link ist privat – nicht teilen.
       </p>
       <p className="mt-2 text-sm">
         Letzte Übertragung: {last ? <b className="font-medium">{new Date(last.at).toLocaleString('de-DE', { timeZone: timeZone(), day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })} · {last.values} Werte für {last.date.split('-').reverse().join('.')}</b> : <span className="text-muted-foreground">noch keine</span>}
@@ -65,7 +68,10 @@ export function HealthCard() {
             </ol>
             <p className="mt-2 text-xs text-muted-foreground">
               Die Aktionsnamen können je nach iOS-Version leicht abweichen. Workouts der Apple Watch (z. B. Krafttraining) kann der Kurzbefehl optional als
-              Liste <code>workouts</code> mit type, start, minutes, kcal, avgHr mitschicken; Läufe werden dabei ignoriert.
+              Liste <code>workouts</code> mit type, start, minutes, kcal, avgHr mitschicken.
+              {otherRunSource
+                ? ' Läufe darin werden ignoriert, solange eine andere Laufquelle verbunden ist.'
+                : <> Für Läufe zusätzlich <code>distanceKm</code> angeben; doppelte Läufe (gleicher Start ±2 Minuten, Distanz ±3 %) werden erkannt.</>}
             </p>
           </details>
           {confirm ? (
