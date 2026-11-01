@@ -1,17 +1,17 @@
 // Everything per block (07-20): the race a date belongs to decides distance, HR limits, tests and texts; Porto unchanged.
 import { describe, expect, it } from 'vitest'
-import { HR_MAX, raceHr } from '@/lib/analytics/hr'
-import { ATHLETE } from '@/lib/athlete'
+import { hrMax, raceHr } from '@/lib/analytics/hr'
+import { athlete } from '@/lib/athlete'
 
 describe('Renn-HF je Distanz (paces.md 2.1)', () => {
   // Shares of HFmax (lib/analytics/hr.ts); at HFmax 200: marathon 170/175, half 178/183, 10 km 185/190.
   it('Marathon: Z4-Obergrenze, 5 Schläge darüber zu hart', () => {
-    expect(raceHr(42.195)).toEqual({ cap: ATHLETE.raceHrCap, hard: ATHLETE.raceHrCap + 5 })
-    expect(raceHr(42.195).cap).toBe(Math.round(HR_MAX * 0.85))
+    expect(raceHr(42.195)).toEqual({ cap: athlete().raceHrCap, hard: athlete().raceHrCap + 5 })
+    expect(raceHr(42.195).cap).toBe(Math.round(hrMax() * 0.85))
   })
   it('Halbmarathon 89 %, 10 km 92,5 % von HFmax; immer 5 Schläge Abstand, kürzer = höher', () => {
-    expect(raceHr(21.0975)).toEqual({ cap: Math.round(HR_MAX * 0.89), hard: Math.round(HR_MAX * 0.89) + 5 })
-    expect(raceHr(10)).toEqual({ cap: Math.round(HR_MAX * 0.925), hard: Math.round(HR_MAX * 0.925) + 5 })
+    expect(raceHr(21.0975)).toEqual({ cap: Math.round(hrMax() * 0.89), hard: Math.round(hrMax() * 0.89) + 5 })
+    expect(raceHr(10)).toEqual({ cap: Math.round(hrMax() * 0.925), hard: Math.round(hrMax() * 0.925) + 5 })
     expect(raceHr(10).cap).toBeGreaterThan(raceHr(21.0975).cap)
     for (const d of [5, 10, 21.1, 42.2]) expect(raceHr(d).hard - raceHr(d).cap).toBe(5)
   })

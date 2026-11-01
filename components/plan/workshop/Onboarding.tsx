@@ -9,7 +9,7 @@ import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Check, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import {
   EXPERIENCE_LABEL, RANGES, WEEKDAYS, inRange, validProfile, type AthleteProfile, type Experience, type RangedField, type Weekday,
 } from '@/lib/plan/athlete-profile'
@@ -85,7 +85,7 @@ export function Onboarding({ initial, events, connections, onSave, saving, error
             <Num field="weightKg" label="Gewicht" unit="kg" value={p.weightKg} onChange={(v) => set('weightKg', v)} decimals={1} />
             <Num field="heightCm" label="Größe" unit="cm" value={p.heightCm} onChange={(v) => set('heightCm', v)} />
             <p className="text-xs text-muted-foreground sm:col-span-3">
-              HFmax {ATHLETE.hrMax} und die Pulszonen kommen aus Runmates Pulsmodell und bleiben dort. Das Gewicht nutzt Runmate für die Kohlenhydrat-Mengen.
+              HFmax {athlete().hrMax} und die Pulszonen kommen aus Runmates Pulsmodell und bleiben dort. Das Gewicht nutzt Runmate für die Kohlenhydrat-Mengen.
             </p>
           </div>
         )}
@@ -250,7 +250,7 @@ export function ProfileOverview({ profile: p, events, connections, onEdit, onBac
           <div className="grid grid-cols-3 gap-3">
             {big('Alter', p.age ?? '–', 'Jahre')}
             {big('Gewicht', p.weightKg != null ? String(p.weightKg).replace('.', ',') : '–', 'kg')}
-            {big('HFmax', ATHLETE.hrMax, 'Pulsmodell')}
+            {big('HFmax', athlete().hrMax, 'Pulsmodell')}
           </div>
         ))}
         {section(2, (

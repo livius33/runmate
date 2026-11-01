@@ -8,8 +8,8 @@ import { addDays, format, parseISO } from 'date-fns'
 import type { Distance, WorkoutKind } from '../methodology/schema'
 import type { Phase } from '../methodology/describe'
 import { SAFETY } from '../methodology/safety'
-import { HR_ZONES, raceHr } from '@/lib/analytics/hr'
-import { ATHLETE } from '@/lib/athlete'
+import { hrZones, raceHr } from '@/lib/analytics/hr'
+import { athlete } from '@/lib/athlete'
 import type { PlanSession } from '../types'
 import type { DaysPlan } from './days'
 import type { Skeleton } from './skeleton'
@@ -35,9 +35,9 @@ export const WORKOUT_RULES = {
 
 const W = WORKOUT_RULES
 const SLOT_KINDS: WorkoutKind[] = ['threshold', 'tempo', 'marathon_pace', 'half_marathon_pace', 'progression', 'intervals_vo2', 'hills', 'medium_long']
-const Z1 = HR_ZONES[0]
-const Z2 = HR_ZONES[1]
-const Z4 = HR_ZONES[3]
+const Z1 = () => hrZones()[0]
+const Z2 = () => hrZones()[1]
+const Z4 = () => hrZones()[3]
 const STEP = 0.5
 const roundKm = (n: number) => Math.round(n / STEP) * STEP
 const floorKm = (n: number) => Math.floor(n / STEP + 1e-9) * STEP
@@ -93,10 +93,10 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
     s.notes = `${num(warm)} ${longWords ? 'locker' : 'ein'} → ${block} @ ${s.pace}${rec} → ${num(cool)} ${longWords ? 'ausrollen' : 'aus'}. ${hint}`.trim()
   }
   const easyNotes = (s: PlanSession, extra = '') => {
-    if (s.type === 'recovery') s.notes = `Regeneration, sehr locker: Puls unter ${Z1.max}.${extra}`
-    else if (s.type === 'long') s.notes = `Ruhig, Puls ≤ ${Z2.max}.${(s.km ?? 0) >= SAFETY.longRunMinKmForHard ? ' Verpflegung üben.' : ''}${extra}`
+    if (s.type === 'recovery') s.notes = `Regeneration, sehr locker: Puls unter ${Z1().max}.${extra}`
+    else if (s.type === 'long') s.notes = `Ruhig, Puls ≤ ${Z2().max}.${(s.km ?? 0) >= SAFETY.longRunMinKmForHard ? ' Verpflegung üben.' : ''}${extra}`
     else if (s.title === 'Shakeout') s.notes = 'Locker mit 3 × 20 s Steigerungen.'
-    else s.notes = `Locker, Puls ≤ ${Z2.max}.${extra}`
+    else s.notes = `Locker, Puls ≤ ${Z2().max}.${extra}`
     delete s.pace
     // A quality slot made easy is an easy run (07-21, audit finding 14): not 'tempo', not key.
     if (s.type === 'tempo' || s.type === 'intervals') { s.type = 'easy'; s.key = false; s.title = 'Locker' }
@@ -104,12 +104,12 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
   // A key slot without a fitting workout becomes an easy run with strides — type and key flag too, so the engine and the
   // week review do not treat it as hard (logic audit 2026-10-26, finding 14).
   const relaxed = (s: PlanSession, why: string) => {
-    s.notes = `Locker mit 4 × 20 s Steigerungen – ${why}. Puls ≤ ${Z2.max}.`; delete s.pace
+    s.notes = `Locker mit 4 × 20 s Steigerungen – ${why}. Puls ≤ ${Z2().max}.`; delete s.pace
     s.type = 'easy'; s.key = false; s.title = 'Locker mit Steigerungen'
   }
-  const hintOf = (kind: WorkoutKind) => kind === 'threshold' || kind === 'tempo' ? `Schwelle: Puls ${Z4.min}–${Z4.max}.`
+  const hintOf = (kind: WorkoutKind) => kind === 'threshold' || kind === 'tempo' ? `Schwelle: Puls ${Z4().min}–${Z4().max}.`
     : kind === 'intervals_vo2' ? 'VO2max: zügig, in der Trabpause ganz ruhig.'
-    : kind === 'marathon_pace' ? `Marathontempo, Puls unter ${ATHLETE.raceHrCap}.`
+    : kind === 'marathon_pace' ? `Marathontempo, Puls unter ${athlete().raceHrCap}.`
     : kind === 'half_marathon_pace' ? 'HM-Tempo, gleichmäßig.' : 'Gleichmäßig steigern.'
   const capOf = (kind: WorkoutKind, weekKm: number) => Math.min(SAFETY.qualityKmPerSessionMax * weekKm,
     kind === 'threshold' || kind === 'tempo' ? W.cap.threshold * weekKm
@@ -210,7 +210,7 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
     for (const { s, e, q: q0 } of plan) {
       if (!e) { relaxed(s, s.date >= lastHardFrom ? 'Frische vor dem Rennen' : 'keine passende Einheit in der Vorlage'); continue }
       if (e.kind === 'hills') { s.notes = `${num(s.km ?? 0)} km locker, darin ${Math.round(q0)} × 45 s zügig bergauf, locker zurück.`; delete s.pace; continue }
-      if (e.kind === 'medium_long') { s.notes = `Mittellanger Lauf, ruhig: Puls ≤ ${Z2.max}.`; delete s.pace; continue }
+      if (e.kind === 'medium_long') { s.notes = `Mittellanger Lauf, ruhig: Puls ≤ ${Z2().max}.`; delete s.pace; continue }
       const q = floorKm(q0 * f)
       const paceS = paceOf(e.kind)
       if (q < 1) { relaxed(s, 'zu kurz für eine Qualitätseinheit'); continue }

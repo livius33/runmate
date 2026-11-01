@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { activities } from '@/lib/db/schema'
 import { inArray } from 'drizzle-orm'
+import { own } from '@/lib/db/owned'
 import { RUN_ACTIVITY_TYPES, effectiveType, parseMetrics } from '@/lib/analytics/run-view'
+import { withUser } from '@/lib/server/scope'
 
 // Compact row per run for the Analyse page; all aggregation happens client-side so the
 // period switch is instant. ~500 runs ≈ 60 KB.
-export async function GET() {
+export const GET = withUser(async () => {
   try {
-    const rows = await db.select().from(activities).where(inArray(activities.type, RUN_ACTIVITY_TYPES))
+    const rows = await db.select().from(activities).where(own(activities, inArray(activities.type, RUN_ACTIVITY_TYPES)))
     const out = rows.map((r) => {
       const m = parseMetrics(r)
       return {
@@ -31,7 +33,7 @@ export async function GET() {
     console.error('[analytics GET]', err.message)
     return NextResponse.json({ error: 'Analyse konnte nicht geladen werden' }, { status: 500 })
   }
-}
+})
 
 export type AnalyticsRun = {
   id: string; date: string; km: number; movingS: number; elevationM: number; hr: number | null

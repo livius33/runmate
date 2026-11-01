@@ -5,8 +5,8 @@
 //   "10 locker → 15 km @ 4:23 → 5 ausrollen. Verpflegung üben: 60–90 g KH/h."
 import { fmtKm, paceToS } from './format'
 import { activeBlock, blockFor, blockPaces } from './blocks'
-import { todayInHamburg } from '@/lib/dates'
-import { HR_ZONES } from '@/lib/analytics/hr'
+import { todayLocal } from '@/lib/dates'
+import { hrZones } from '@/lib/analytics/hr'
 
 export interface Structure {
   prefix: string            // text before the structure ("Früh starten wie am Renntag: ")
@@ -60,7 +60,7 @@ function paceName(pace: string, goalPaceS: number) {
 }
 
 // Plain German, one line per part. Paces are named against the goal pace of the active block's race.
-export function describeStructure(s: Structure, goalPaceS = activeBlock(todayInHamburg()).race.goalPaceS): string[] {
+export function describeStructure(s: Structure, goalPaceS = activeBlock(todayLocal()).race.goalPaceS): string[] {
   const warm = s.warmWord === 'ein' ? 'einlaufen' : 'locker einlaufen'
   const cool = s.coolWord === 'aus' ? 'auslaufen' : 'locker ausrollen'
   const block = s.reps > 1
@@ -138,7 +138,7 @@ export const GLOSSARY: Record<string, string> = {
   Trabpause: 'Lockeres, langsames Traben zwischen zwei schnellen Abschnitten, damit sich der Puls etwas erholt. Nicht stehen bleiben.',
   Einlaufen: 'Ruhiger Beginn im Grundlagentempo, bevor es schnell wird. Wärmt Muskeln und Kreislauf auf.',
   Auslaufen: 'Ruhiges Ende nach dem schnellen Teil, damit sich der Körper herunterfährt.',
-  'Zone 2': `Lockerer Puls zwischen ${HR_ZONES[1].min} und ${HR_ZONES[1].max}. Man kann sich noch gut unterhalten. Baut die Ausdauer auf.`,
+  'Zone 2': `Lockerer Puls zwischen ${hrZones()[1].min} und ${hrZones()[1].max}. Man kann sich noch gut unterhalten. Baut die Ausdauer auf.`,
   Renntempo: 'Das Zieltempo des Rennens, auf das der Block hinarbeitet.',
   Schwelle: 'Zügiges, aber kontrolliertes Tempo knapp unter dem, was man eine Stunde halten könnte (hier 4:15/km). Hebt das Tempo, das sich noch locker anfühlt.',
   Regeneration: 'Sehr lockerer, kurzer Lauf zur Erholung. Lieber zu langsam als zu schnell.',

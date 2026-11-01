@@ -1,6 +1,6 @@
 // Per-run metrics computed once from Garmin's per-sample streams and stored in
 // activities.metrics_json. Pure: no DB access, so it can be tested and re-run freely.
-import { HR_ZONES, zoneIndex } from './hr'
+import { hrZones, zoneIndex } from './hr'
 
 export const METRICS_VERSION = 4   // 4: run type from the swap-aware paired session
 
@@ -76,7 +76,7 @@ export function computeRunMetrics(s: StreamSet | null, run: RunBasics, planned?:
     movingS: Math.round(movingS),
     splits: base?.splits ?? [],
     best: base?.best ?? {},
-    zonesS: base?.zonesS ?? HR_ZONES.map(() => 0),
+    zonesS: base?.zonesS ?? hrZones().map(() => 0),
     decouplingPct: base?.decouplingPct ?? null,
     effMpb,
     fastS: Math.round(fastS),
@@ -215,7 +215,7 @@ function fromStreams(s: StreamSet) {
   }
 
   // Time in zones, weighted by moving time between samples
-  const zonesS = HR_ZONES.map(() => 0)
+  const zonesS = hrZones().map(() => 0)
   for (let i = 1; i < p.length; i++) {
     const dt = p[i].mv - p[i - 1].mv
     const hr = p[i].hr

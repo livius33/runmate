@@ -15,9 +15,15 @@ function connect(): DB {
   return instance
 }
 
+// Tests swap in a fake (drizzle's pg-proxy driver) to see the SQL the scoped helpers produce.
+let override: DB | null = null
+export function setDbForTests(d: unknown) {
+  override = d as DB | null
+}
+
 export const db = new Proxy({} as DB, {
   get(_, prop) {
-    const d = connect()
+    const d = override ?? connect()
     const v = Reflect.get(d, prop, d)
     return typeof v === 'function' ? v.bind(d) : v
   },

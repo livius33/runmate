@@ -3,6 +3,7 @@
 import { addDays, format, parseISO } from 'date-fns'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtKm } from '@/lib/plan/format'
+import { timeZone } from '@/lib/dates'
 import { TYPE_LABEL } from '@/components/plan/ui'
 import { sessionTargets } from '@/lib/insights/today'
 import { describeStructure, sessionStructure } from '@/lib/plan/structure'
@@ -52,11 +53,11 @@ export const eventContent = (s: PlanSession) => [eventTitle(s), eventDescription
 
 const icsTime = (iso: string) => iso.replace(/[-:]/g, '').replace(/\.\d{3}/, '')
 
-export function buildIcs(sessions: PlanSession[], now = new Date(), versions: Record<string, EventVersion> = {}) {
+export function buildIcs(sessions: PlanSession[], now = new Date(), versions: Record<string, EventVersion> = {}, tz = timeZone()) {
   const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
   const lines = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:${PRODID}`, 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-    'X-WR-CALNAME:Runmate Training', 'X-WR-TIMEZONE:Europe/Berlin',
+    'X-WR-CALNAME:Runmate Training', `X-WR-TIMEZONE:${tz}`,
     'REFRESH-INTERVAL;VALUE=DURATION:PT1H', 'X-PUBLISHED-TTL:PT1H',
   ]
   for (const s of [...sessions].sort((a, b) => a.date.localeCompare(b.date))) {

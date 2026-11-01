@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { garminTokens } from '@/lib/db/schema'
+import { garminAccountStatus } from '@/lib/garmin/account'
 import { loadLastSync } from '@/lib/garmin/sync-job'
+import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
 
-export async function GET() {
-  const hasCreds = !!(process.env.GARMIN_USERNAME && process.env.GARMIN_PASSWORD)
-  const [token] = await db.select().from(garminTokens).limit(1)
-
-  return NextResponse.json({
-    hasCredentials: hasCreds,
-    hasSession: !!token,
-    sessionUpdatedAt: token?.updatedAt ?? null,
-    lastSync: await loadLastSync(),
-  })
-}
+// Whether this user has Garmin set up and when it last synced; never the credentials themselves.
+export const GET = withUser(async () => {
+  const [status, lastSync] = await Promise.all([garminAccountStatus(), loadLastSync()])
+  return NextResponse.json({ ...status, lastSync })
+})

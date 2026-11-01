@@ -4,20 +4,21 @@ import { activities, activityStreams } from '@/lib/db/schema'
 import { loadPlan } from '@/lib/plan/load'
 import { blocks } from '@/lib/plan/blocks'
 import { gte, inArray } from 'drizzle-orm'
+import { own } from '@/lib/db/owned'
 import { subDays, subMonths, format, startOfWeek, endOfWeek, eachDayOfInterval, parseISO, differenceInCalendarDays } from 'date-fns'
 import { RUN_ACTIVITY_TYPES as RUN_TYPES } from '@/lib/analytics/run-view'
 
 // Races of all blocks, read per request (live blocks are registered at runtime).
 const races = () => blocks().filter((b) => !b.base).map((b) => ({ name: b.race.name, date: b.race.date }))
 
-import { HR_ZONES } from '@/lib/analytics/hr'
+import { hrZones } from '@/lib/analytics/hr'
 import { acwr as acwrOf, acwrSeries } from '@/lib/analytics/load'
-import { hamburgDate } from '@/lib/dates'
+import { localDate } from '@/lib/dates'
 
 function computeHrZones(hr: number[]): Record<string, number> {
   const zones: Record<string, number> = { Z1: 0, Z2: 0, Z3: 0, Z4: 0, Z5: 0 }
   for (const bpm of hr) {
-    for (const z of HR_ZONES) {
+    for (const z of hrZones()) {
       if (bpm >= z.min && bpm < z.max) {
         zones[z.name]++
         break
@@ -30,6 +31,7 @@ function computeHrZones(hr: number[]): Record<string, number> {
 export type { PlanSession } from '@/lib/plan/types'
 import type { PlanSession } from '@/lib/plan/types'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
+import { withUser } from '@/lib/server/scope'
 
 export interface WeekDay {
   date: string
@@ -38,16 +40,16 @@ export interface WeekDay {
   actual: { km: number; type: string; name: string } | null
 }
 
-export async function GET() {
+export const GET = withUser(async () => {
   await ensureLiveBlocks()
   try {
   // Sync-connected proxy: true if we have any activity in the DB.
   // Replaced with a real Garmin session check once /api/garmin/login lands.
-  const [existing] = await db.select({ id: activities.id }).from(activities).limit(1)
+  const [existing] = await db.select({ id: activities.id }).from(activities).where(own(activities)).limit(1)
   const stravaConnected = !!existing
 
-  // All windows on Hamburg's calendar date (the server runs in UTC).
-  const now = hamburgDate()
+  // All windows on the runner's calendar date (the server runs in UTC).
+  const now = localDate()
   const since28d = format(subDays(now, 28), 'yyyy-MM-dd')
   const since6m = format(subMonths(now, 6), 'yyyy-MM-dd')
 
@@ -55,7 +57,7 @@ export async function GET() {
   const allActivities6m = await db
     .select()
     .from(activities)
-    .where(gte(activities.date, since6m))
+    .where(own(activities, gte(activities.date, since6m)))
 
   const runs28d = allActivities6m.filter(
     (a) => RUN_TYPES.includes(a.type) && a.date >= since28d
@@ -123,30 +125,23 @@ export async function GET() {
     .map(([month, km]) => ({ month, km: Math.round(km * 10) / 10 }))
 
   // HR zone breakdown from streams (last 28 days)
-  const runsWithStreams = runs28d.filter((r) => r.hasStreams && r.stravaId)
+  const runsWithStreams = runs28d.filter((r) => r.hasStreams)
   let hrZones28d: Record<string, number> | null = null
 
   if (runsWithStreams.length > 0) {
     const streamRows = await db
-      .select({ stravaId: activityStreams.stravaId, heartrateJson: activityStreams.heartrateJson })
+      .select({ activityId: activityStreams.activityId, heartrateJson: activityStreams.heartrateJson })
       .from(activityStreams)
-      .where(
-        gte(
-          activityStreams.stravaId,
-          runsWithStreams[0].stravaId ?? ''
-        )
-      )
+      .where(own(activityStreams, inArray(activityStreams.activityId, runsWithStreams.map((r) => r.id))))
 
-    // Map by stravaId for fast lookup
-    const streamMap = new Map(streamRows.map((s) => [s.stravaId, s.heartrateJson]))
+    const streamMap = new Map(streamRows.map((s) => [s.activityId, s.heartrateJson]))
     const combined: number[] = []
     for (const run of runsWithStreams) {
-      if (!run.stravaId) continue
-      const hrJson = streamMap.get(run.stravaId)
+      const hrJson = streamMap.get(run.id)
       if (!hrJson) continue
       try {
-        const arr: number[] = JSON.parse(hrJson)
-        combined.push(...arr)
+        const arr: (number | null)[] = JSON.parse(hrJson)
+        combined.push(...arr.filter((v): v is number => v != null))
       } catch { /* skip */ }
     }
     if (combined.length > 0) {
@@ -156,7 +151,7 @@ export async function GET() {
 
   // Enrichment status (runs: cross-training rows carry no detail data)
   const allRuns = await db.select({ total: activities.id, detail: activities.hasDetailedData, streams: activities.hasStreams }).from(activities)
-    .where(inArray(activities.type, RUN_TYPES))
+    .where(own(activities, inArray(activities.type, RUN_TYPES)))
   const totalActivities = allRuns.length
   const withDetail = allRuns.filter((r) => r.detail).length
   const withStreams = allRuns.filter((r) => r.streams).length
@@ -183,4 +178,4 @@ export async function GET() {
     console.error('[stats GET]', err.message)
     return NextResponse.json({ stravaConnected: false, weeklyKm: 0, acwr: 0, acwrRecent: [], weekDays: [], recentRuns: [], raceCountdowns: [], monthlyKm: [], hasPlan: false })
   }
-}
+})

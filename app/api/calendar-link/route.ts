@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server'
-import { getCalendarToken, rotateCalendarToken } from '@/lib/calendar/token'
+import { getLinkToken, rotateLinkToken } from '@/lib/links/tokens'
 import { appHost } from '@/lib/app-host'
+import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
 
 const link = (req: Request, token: string | null) => (token ? `${appHost(req)}/api/calendar/${token}.ics` : null)
 
-// Behind Clerk: show or (re)create the private calendar link.
-export async function GET(req: Request) {
-  return NextResponse.json({ path: link(req, await getCalendarToken()) })
-}
+// Behind Clerk: show or (re)create this user's private calendar link.
+export const GET = withUser(async (req: Request) => {
+  return NextResponse.json({ path: link(req, await getLinkToken('calendar')) })
+})
 
-export async function POST(req: Request) {
-  return NextResponse.json({ path: link(req, await rotateCalendarToken()) })
-}
+export const POST = withUser(async (req: Request) => {
+  return NextResponse.json({ path: link(req, await rotateLinkToken('calendar')) })
+})

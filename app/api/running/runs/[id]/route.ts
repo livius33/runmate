@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { activities, activityStreams } from '@/lib/db/schema'
 import { eq, inArray } from 'drizzle-orm'
+import { own } from '@/lib/db/owned'
 import { loadPlan } from '@/lib/plan/load'
 import { RUN_TYPES } from '@/lib/analytics/run-metrics'
 import { RUN_ACTIVITY_TYPES, parseMetrics, runSummary, toDatedRun } from '@/lib/analytics/run-view'
@@ -10,6 +11,7 @@ import { matchSessionRuns } from '@/lib/plan/pace-check'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { NOTE_MAX, RPE_MAX, RPE_MIN, withEntry, type Feel } from '@/lib/feedback/run'
 import { loadRunFeedback, saveRunFeedback } from '@/lib/feedback/run-store'
+import { withUser } from '@/lib/server/scope'
 
 type Params = { params: Promise<{ id: string }> }
 type Series = (number | null)[]
@@ -19,17 +21,17 @@ const parse = (json: string | null | undefined): Series | null => {
   try { return JSON.parse(json) } catch { return null }
 }
 
-export async function GET(_req: Request, { params }: Params) {
+export const GET = withUser(async (_req: Request, { params }: Params) => {
   await ensureLiveBlocks()
   try {
     const { id } = await params
-    const [row] = await db.select().from(activities).where(eq(activities.id, id)).limit(1)
+    const [row] = await db.select().from(activities).where(own(activities, eq(activities.id, id))).limit(1)
     if (!row) return NextResponse.json({ error: 'Lauf nicht gefunden' }, { status: 404 })
-    const [st] = await db.select().from(activityStreams).where(eq(activityStreams.activityId, id)).limit(1)
+    const [st] = await db.select().from(activityStreams).where(own(activityStreams, eq(activityStreams.activityId, id))).limit(1)
 
     const run = runSummary(row)
     const metrics = parseMetrics(row)
-    const all = await db.select().from(activities).where(inArray(activities.type, RUN_ACTIVITY_TYPES))
+    const all = await db.select().from(activities).where(own(activities, inArray(activities.type, RUN_ACTIVITY_TYPES)))
 
     // The session this run belongs to — swap-aware: a run can stand in for the day before or after.
     const dayMs = 86_400_000
@@ -96,7 +98,7 @@ export async function GET(_req: Request, { params }: Params) {
     console.error('[run GET]', err.message)
     return NextResponse.json({ error: 'Lauf konnte nicht geladen werden' }, { status: 500 })
   }
-}
+})
 
 const Patch = z.object({
   runType: z.enum(RUN_TYPES as [string, ...string[]]).nullable().optional(),
@@ -108,13 +110,13 @@ const Patch = z.object({
 
 // Correct the detected run type (null = back to automatic), or save feedback (07-25): rpe → activities.perceived_exertion,
 // feel/pain/note → settings 'run_feedback' (an entry needs a Gefühl; null clears a field).
-export async function PATCH(req: Request, { params }: Params) {
+export const PATCH = withUser(async (req: Request, { params }: Params) => {
   await ensureLiveBlocks()
   const { id } = await params
   const body = Patch.safeParse(await req.json().catch(() => null))
   if (!body.success) return NextResponse.json({ error: 'Ungültige Eingabe' }, { status: 400 })
   const b = body.data
-  const [row] = await db.select({ id: activities.id }).from(activities).where(eq(activities.id, id)).limit(1)
+  const [row] = await db.select({ id: activities.id }).from(activities).where(own(activities, eq(activities.id, id))).limit(1)
   if (!row) return NextResponse.json({ error: 'Lauf nicht gefunden' }, { status: 404 })
 
   const set: Partial<typeof activities.$inferInsert> = {}
@@ -125,6 +127,6 @@ export async function PATCH(req: Request, { params }: Params) {
     if (!next) return NextResponse.json({ error: 'Erst das Gefühl wählen' }, { status: 400 })
     await saveRunFeedback(next)
   }
-  if (Object.keys(set).length) await db.update(activities).set(set).where(eq(activities.id, id))
+  if (Object.keys(set).length) await db.update(activities).set(set).where(own(activities, eq(activities.id, id)))
   return NextResponse.json({ ok: true })
-}
+})

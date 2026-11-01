@@ -1,7 +1,10 @@
 import { GarminConnect } from 'garmin-connect'
 import { db } from '@/lib/db'
-import { activities, activityStreams, garminTokens } from '@/lib/db/schema'
+import { activities, activityStreams } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { mine, own, uid } from '@/lib/db/owned'
+import { currentScope } from '@/lib/scope'
+import { loadGarminAccount, saveGarminSession, type GarminSession } from '@/lib/garmin/account'
 import { storeRunMetrics } from '@/lib/analytics/store-metrics'
 import { crossTypeForKey } from '@/lib/analytics/cross-training'
 import { RUN_ACTIVITY_TYPES } from '@/lib/analytics/run-view'
@@ -81,68 +84,43 @@ const GC_RUNNING_TYPE_KEY = ['running', 'trail_running', 'street_running', 'trac
 // Imported: runs, plus cross-training (08-01: strength, swim, ride, gym — lib/analytics/cross-training.ts). Everything else stays out.
 const imported = (a: GarminListActivity) => GC_RUNNING_TYPE_KEY.includes(a.activityType.typeKey) || crossTypeForKey(a.activityType.typeKey) != null
 
-function creds() {
-  const u = process.env.GARMIN_USERNAME
-  const p = process.env.GARMIN_PASSWORD
-  if (!u || !p) throw new Error('GARMIN_USERNAME / GARMIN_PASSWORD env vars not set')
-  return { username: u, password: p }
-}
-
-async function loadSavedTokens() {
-  const [row] = await db.select().from(garminTokens).limit(1)
-  if (!row) return null
-  try {
-    const oauth2 = row.oauth2Json ? JSON.parse(row.oauth2Json) : null
-    return {
-      oauth1: { oauth_token: row.oauth1Token, oauth_token_secret: row.oauth1Secret },
-      oauth2,
-    }
-  } catch { return null }
-}
-
-async function saveTokens(gc: GarminConnect) {
-  const tok = gc.exportToken()
-  const now = Math.floor(Date.now() / 1000)
-  await db.delete(garminTokens)
-  await db.insert(garminTokens).values({
-    oauth1Token: tok.oauth1.oauth_token,
-    oauth1Secret: tok.oauth1.oauth_token_secret,
-    oauth2Json: JSON.stringify(tok.oauth2),
-    updatedAt: now,
-  })
-}
-
-let cachedClient: GarminConnect | null = null
+// One client per request and user (lib/scope.ts cache), built from that user's encrypted account: never shared
+// between users or kept across requests in module state.
+const CLIENT_KEY = 'garmin.client'
 
 export async function getGarminClient(): Promise<GarminConnect> {
-  if (cachedClient) return cachedClient
+  uid()                                     // a user scope, or 401
+  const cache = currentScope().cache
+  const hit = cache.get(CLIENT_KEY) as Promise<GarminConnect> | undefined
+  if (hit) return hit
+  const p = connectGarmin().catch((err) => { cache.delete(CLIENT_KEY); throw err })
+  cache.set(CLIENT_KEY, p)
+  return p
+}
 
-  const { username, password } = creds()
+async function connectGarmin(): Promise<GarminConnect> {
+  const account = await loadGarminAccount()
+  if (!account) throw new Error('Kein Garmin-Konto hinterlegt (Einstellungen → Garmin)')
+  const { username, password, session } = account
   const gc = new GarminConnect({ username, password })
-
-  const saved = await loadSavedTokens()
-  if (saved?.oauth2) {
+  if (session?.oauth2) {
     try {
-      gc.loadToken(saved.oauth1, saved.oauth2)
+      gc.loadToken(session.oauth1 as never, session.oauth2 as never)
       // Cheap probe: getUserProfile — if OAuth2 expired, this throws.
       await gc.getUserProfile()
-      cachedClient = gc
       return gc
     } catch {
       // token stale → fall through to full login
     }
   }
-
-  await gc.login(username, password)
-  await saveTokens(gc)
-  cachedClient = gc
+  try {
+    await gc.login(username, password)
+  } catch {
+    // The library's message may echo request details; say only what failed.
+    throw new Error('Garmin-Anmeldung fehlgeschlagen (Zugangsdaten prüfen)')
+  }
+  await saveGarminSession(gc.exportToken() as unknown as GarminSession)
   return gc
-}
-
-// Reset the in-process cache so the next call re-logs in. Used by /api/garmin/login
-// after credentials are changed.
-export function clearGarminSession() {
-  cachedClient = null
 }
 
 // ─── Mapping ──────────────────────────────────────────────────────────────────
@@ -228,18 +206,18 @@ async function upsertRow(row: ReturnType<typeof toActivityRow>) {
   const [existing] = await db
     .select({ id: activities.id })
     .from(activities)
-    .where(eq(activities.garminActivityId, row.garminActivityId!))
+    .where(own(activities, eq(activities.garminActivityId, row.garminActivityId!)))
     .limit(1)
 
   if (existing) {
     const { id: _drop, garminActivityId: _drop2, ...rest } = row
     const updatable = { ...rest }
     for (const field of ENRICHMENT_OWNED_FIELDS) delete (updatable as any)[field]
-    await db.update(activities).set(updatable).where(eq(activities.id, existing.id))
+    await db.update(activities).set(updatable).where(own(activities, eq(activities.id, existing.id)))
     return { inserted: 0, updated: 1 }
   }
 
-  await db.insert(activities).values(row)
+  await db.insert(activities).values(mine(row))
   return { inserted: 1, updated: 0 }
 }
 
@@ -298,7 +276,7 @@ export async function syncGarminActivitiesPage(page: number, pageSize = 50) {
 
 // Splits, streams and run metrics are run data: a cross-training row (08-01) is never enriched.
 async function assertRun(garminActivityId: string) {
-  const [row] = await db.select({ type: activities.type }).from(activities).where(eq(activities.garminActivityId, garminActivityId)).limit(1)
+  const [row] = await db.select({ type: activities.type }).from(activities).where(own(activities, eq(activities.garminActivityId, garminActivityId))).limit(1)
   if (row && !RUN_ACTIVITY_TYPES.includes(row.type)) throw new Error(`Activity ${garminActivityId} is ${row.type}, not a run: no detail data`)
 }
 
@@ -324,7 +302,7 @@ export async function enrichActivityDetail(garminActivityId: string) {
       splitsMetricJson: splits.length ? JSON.stringify(splits) : null,
       hasDetailedData: true,
     })
-    .where(eq(activities.garminActivityId, garminActivityId))
+    .where(own(activities, eq(activities.garminActivityId, garminActivityId)))
 }
 
 // Garmin's per-sample chart data → aligned series. Every series has one entry per sample
@@ -370,7 +348,7 @@ export async function enrichActivityStreams(garminActivityId: string, plan?: Pla
   const [act] = await db
     .select({ id: activities.id })
     .from(activities)
-    .where(eq(activities.garminActivityId, garminActivityId))
+    .where(own(activities, eq(activities.garminActivityId, garminActivityId)))
     .limit(1)
   if (!act) throw new Error(`Activity ${garminActivityId} not in DB`)
 
@@ -390,13 +368,13 @@ export async function enrichActivityStreams(garminActivityId: string, plan?: Pla
   }
   await db
     .insert(activityStreams)
-    .values({ activityId: act.id, stravaId: null, ...values })
-    .onConflictDoUpdate({ target: activityStreams.activityId, set: values })
+    .values(mine({ activityId: act.id, stravaId: null, ...values }))
+    .onConflictDoUpdate({ target: [activityStreams.userId, activityStreams.activityId], set: values })
 
   await db
     .update(activities)
     .set({ hasStreams: true })
-    .where(eq(activities.id, act.id))
+    .where(own(activities, eq(activities.id, act.id)))
 
   await storeRunMetrics(act.id, plan)
 }

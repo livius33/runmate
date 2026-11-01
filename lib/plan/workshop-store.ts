@@ -1,13 +1,16 @@
 // DB side of the Plan-Werkstatt and the training profile: inputs, apply, undo, log (settings 'plan_workshop_log').
-import { hamburgDate } from '@/lib/dates'
-import { eq } from 'drizzle-orm'
+import { localDate } from '@/lib/dates'
 import { db } from '@/lib/db'
-import { activities, settings } from '@/lib/db/schema'
+import { activities } from '@/lib/db/schema'
+import { own } from '@/lib/db/owned'
+import { getSettingJson, setSettingJson } from '@/lib/db/settings'
+import { timeZone } from '@/lib/dates'
+import { getLinkToken } from '@/lib/links/tokens'
 import { RUN_ACTIVITY_TYPES, toDatedRun } from '@/lib/analytics/run-view'
 import { acwr, acwrSeries, fitnessSeries } from '@/lib/analytics/load'
 import { allGoals, storedGoals } from '@/lib/season/goals'
 import { activeBlock } from './blocks'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { loadOverrides, loadPlan, saveOverrides } from './load'
 import { runAndSaveEngine } from './engine-store'
 import { isHard } from './effective'
@@ -25,15 +28,8 @@ const LOG_KEY = 'plan_workshop_log'
 const PROFILE_KEY = 'athlete_profile'
 const LOG_MAX = 50
 
-async function getSetting<T>(key: string): Promise<T | null> {
-  const [row] = await db.select().from(settings).where(eq(settings.key, key))
-  if (!row) return null
-  try { return JSON.parse(row.value) as T } catch { return null }
-}
-async function setSetting(key: string, v: unknown) {
-  const value = JSON.stringify(v)
-  await db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } })
-}
+const getSetting = getSettingJson
+const setSetting = setSettingJson
 
 export const loadProfile = () => getSetting<AthleteProfile>(PROFILE_KEY)
 export async function saveProfile(p: AthleteProfile) {
@@ -52,7 +48,7 @@ async function loadEvents(plan: { date: string; title: string; type: string; anc
 }
 
 async function loadInputs(today: string) {
-  const [plan, manual, rows, profile, fb, weeks] = await Promise.all([loadPlan(), loadOverrides(), db.select().from(activities), loadProfile(), loadRunFeedback(), loadWeekFeedback()])
+  const [plan, manual, rows, profile, fb, weeks] = await Promise.all([loadPlan(), loadOverrides(), db.select().from(activities).where(own(activities)), loadProfile(), loadRunFeedback(), loadWeekFeedback()])
   const runRows = rows.filter((r) => RUN_ACTIVITY_TYPES.includes(r.type))
   // Feedback (07-25): RPE from the row, Gefühl/Schmerzen from settings 'run_feedback', the week entry from 07-26's 'week_feedback'.
   const feedback: FeedbackInput = {
@@ -61,7 +57,7 @@ async function loadInputs(today: string) {
   }
   const actual = new Map<string, number>()
   for (const r of runRows) actual.set(r.date, Math.round(((actual.get(r.date) ?? 0) + r.distanceM / 1000) * 10) / 10)
-  const now = hamburgDate()        // Hamburg's day, like the fitness and stats routes (07-20)
+  const now = localDate()        // the runner's day, like the fitness and stats routes (07-20)
   const series = fitnessSeries(rows, now)
   const ratio = acwr(runRows, now).acwr
   const fitness = { tsb: series.length ? series[series.length - 1].tsb : null, acwr: ratio > 0 ? ratio : null, acwrRecent: acwrSeries(runRows, now) }
@@ -131,7 +127,7 @@ export async function profilePrefill(today: string): Promise<AthleteProfile> {
   const weekdayMax = Math.max(0, ...recent.filter((s) => isoDay(s.date) <= 5 && s.type !== 'race').map((s) => s.km ?? 0))
   const weekendMax = Math.max(0, ...recent.filter((s) => isoDay(s.date) >= 6 && s.type !== 'race').map((s) => s.km ?? 0))
   return {
-    v: 1, age: null, weightKg: ATHLETE.weightKg, heightCm: null,
+    v: 1, age: null, weightKg: athlete().weightKg, heightCm: null,
     experience: 'advanced', weeklyKm: Math.round(km4 / 4),
     availableDays: [1, 2, 3, 4, 5, 6, 7],
     longRunDay, qualityDays: mostCommon(hardDays.filter((d) => d !== longRunDay), 2), kbDays: [2, 4],
@@ -143,10 +139,10 @@ export async function profilePrefill(today: string): Promise<AthleteProfile> {
 
 // For the onboarding's "Verbindungen" step.
 export async function connections() {
-  const [sync, cal, health] = await Promise.all([getSetting<{ at: string; error?: string }>('garmin_last_sync'), getSetting<unknown>('calendar_token'), getSetting<unknown>('health_token')])
+  const [sync, cal, health] = await Promise.all([getSetting<{ at: string; error?: string }>('garmin_last_sync'), getLinkToken('calendar'), getLinkToken('health')])
   const at = sync && !sync.error ? new Date(sync.at) : null
   return {
-    garminSync: at ? at.toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : null,
+    garminSync: at ? at.toLocaleString('de-DE', { timeZone: timeZone(), day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : null,
     calendar: cal != null, appleHealth: health != null,
   }
 }

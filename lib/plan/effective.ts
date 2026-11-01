@@ -5,7 +5,7 @@ import { de } from 'date-fns/locale'
 import { type PlanSession, type PlanWeek } from './types'
 import { WEEKDAY_NAME, allSessions, allWeeks, firstPlanStart, raceOf, recoveryWeekday } from './blocks'
 import { fmtKm } from './format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { fitSession, formatNotes, parseStructure, rescale } from './structure'
 import { rulesFor } from './rules'
 import { pauseLayer, type PauseInput } from './pause'
@@ -193,7 +193,7 @@ export function setZone2(overrides: Overrides, date: string, sessions: PlanSessi
   const { was: _was, ...orig } = s!
   const next: PlanSession = {
     date, type: 'easy', km: s!.km, title: s!.anchor ? `${s!.title} locker (Z2)` : 'Locker (Z2)',
-    notes: `Zone 2 (HF ${ATHLETE.zone2[0]}–${ATHLETE.zone2[1]}) statt ${s!.title}.`,
+    notes: `Zone 2 (HF ${athlete().zone2[0]}–${athlete().zone2[1]}) statt ${s!.title}.`,
     ...(s!.anchor ? { anchor: true } : {}), was: orig,
   }
   return { ...overrides, [date]: next }

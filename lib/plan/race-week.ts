@@ -1,17 +1,17 @@
 // Race week, day by day: what matters each day, carbs in grams, and a checklist with due days.
 // Every race builds its week from its own block's sessions plus carbs per distance (07-15). Pure; amounts come from
-// ATHLETE.weightKg and the race.
+// athlete().weightKg and the race.
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { blockFor, raceOf } from './blocks'
 import { gelPlan, racePlan } from './race-day'
 import { fmtKm, fmtPace } from './format'
-import { todayInHamburg } from '@/lib/dates'
+import { todayLocal } from '@/lib/dates'
 import type { RaceInfo } from './types'
 
 const round5 = (n: number) => Math.round(n / 5) * 5
-const g = (lo: number, hi: number) => `${round5(ATHLETE.weightKg * lo)}–${round5(ATHLETE.weightKg * hi)} g`
-const kg = ATHLETE.weightKg.toLocaleString('de-DE')
+const g = (lo: number, hi: number) => `${round5(athlete().weightKg * lo)}–${round5(athlete().weightKg * hi)} g`
+const kg = () => athlete().weightKg.toLocaleString('de-DE')
 
 export interface RaceWeekDay { date: string; title: string; focus: string[] }
 
@@ -41,7 +41,7 @@ const shift = (start: string, min: number) => {
 }
 
 // The week before a race, built from the race's block.
-export function raceWeek(race: RaceInfo = raceOf(todayInHamburg())): RaceWeek {
+export function raceWeek(race: RaceInfo = raceOf(todayLocal())): RaceWeek {
   const at = (n: number) => format(addDays(parseISO(race.date), n), 'yyyy-MM-dd')
   const start = race.startTime ?? DEFAULT_START
   const wake = shift(start, -195)
@@ -61,7 +61,7 @@ export function raceWeek(race: RaceInfo = raceOf(todayInHamburg())): RaceWeek {
     const s = sessions.find((x) => x.date === date)
     const focus = n === 0 ? [] : [sessionLine(date)]
     if (n === -4) focus.push(`Wetter prüfen${race.arrival ? ', Anreise und Unterkunft bestätigen' : ''}.`)
-    if (marathon && (n === -2 || n === -1)) focus.push(`${g(8, 10)} Kohlenhydrate über den Tag (8–10 g/kg bei ${kg} kg), wenig Ballaststoffe und Fett.`)
+    if (marathon && (n === -2 || n === -1)) focus.push(`${g(8, 10)} Kohlenhydrate über den Tag (8–10 g/kg bei ${kg()} kg), wenig Ballaststoffe und Fett.`)
     if (!marathon && n === -1) focus.push(`Kohlenhydratbetont essen: ${g(6, 8)} (6–8 g/kg), viel trinken.`)
     if (n === -2) focus.push('Tasche packen: Schuhe, Rennkleidung, Gels.')
     if (n === -1) focus.push('Startunterlagen abholen, Startnummer und Chip befestigen.', `Früh ins Bett, Wecker ${wake}.`)

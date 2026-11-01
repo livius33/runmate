@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { syncGarminActivitiesPage } from '@/lib/api-clients/garmin'
+import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-export async function POST(req: Request) {
+export const POST = withUser(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({}))
     const page = Number(body.page ?? 0)
@@ -14,4 +15,4 @@ export async function POST(req: Request) {
     console.error('[garmin/sync-full]', err)
     return NextResponse.json({ ok: false, error: err.message ?? String(err) }, { status: 500 })
   }
-}
+})

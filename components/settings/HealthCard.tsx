@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, HeartPulse, RefreshCw } from 'lucide-react'
+import { timeZone } from '@/lib/dates'
 
 type Link = { url: string | null; last: { at: string; date: string; values: number } | null }
 
@@ -35,7 +36,7 @@ export function HealthCard() {
         Läufe kommen weiter nur von Garmin. Der Link ist privat – nicht teilen.
       </p>
       <p className="mt-2 text-sm">
-        Letzte Übertragung: {last ? <b className="font-medium">{new Date(last.at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })} · {last.values} Werte für {last.date.split('-').reverse().join('.')}</b> : <span className="text-muted-foreground">noch keine</span>}
+        Letzte Übertragung: {last ? <b className="font-medium">{new Date(last.at).toLocaleString('de-DE', { timeZone: timeZone(), day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })} · {last.values} Werte für {last.date.split('-').reverse().join('.')}</b> : <span className="text-muted-foreground">noch keine</span>}
       </p>
       {!data?.url ? (
         <button onClick={() => rotate.mutate()} disabled={rotate.isPending} className="mt-4 rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white disabled:opacity-60">

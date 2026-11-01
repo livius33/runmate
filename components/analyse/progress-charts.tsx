@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import type { BlockProgress, ProgressWeek, QualityPoint } from '@/lib/analytics/progress'
-import { HR_ZONES } from '@/lib/analytics/hr'
+import { hrZones } from '@/lib/analytics/hr'
 import { fmtNum, fmtPace } from '@/components/runs/format'
 import { Readout, niceStep } from './charts'
 
@@ -155,7 +155,7 @@ export function Zone2Pace({ p }: { p: BlockProgress }) {
   const { weeks } = p
   const [hover, setHover] = useState<number | null>(null)
   const W = 460, H = 220, L = 40, R = 26, T = 12, B = 24
-  const z2 = HR_ZONES[1]
+  const z2 = hrZones()[1]
   const pts = weeks.map((w, i) => ({ w, i })).filter(({ w }) => w.z2PaceS != null)
   if (pts.length < 2) return <p className="text-sm text-muted-foreground">Noch zu wenige Wochen mit mindestens 4 sauberen Kilometern in Zone 2 ({z2.min}–{z2.max}).</p>
   const n = weeks.length

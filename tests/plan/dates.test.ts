@@ -2,7 +2,7 @@
 // Hamburg midnight. Helpers are run under several process time zones (Vercel = UTC, browser = Berlin).
 import { afterAll, describe, expect, it } from 'vitest'
 import { differenceInCalendarDays, getISOWeek, parseISO } from 'date-fns'
-import { hamburgDate, todayInHamburg } from '@/lib/dates'
+import { localDate, todayLocal } from '@/lib/dates'
 import { datesOf, periodFor } from '@/lib/plan/workshop'
 import { weekDates } from '@/lib/plan/effective'
 import { isoDay } from '@/lib/plan/athlete-profile'
@@ -25,15 +25,15 @@ describe('Hamburg-Datum um Mitternacht und bei Zeitumstellung', () => {
     ['2027-03-28T22:30:00Z', '2027-03-29'],   // 00:30 CEST
     ['2026-12-31T23:30:00Z', '2027-01-01'],   // New Year, 00:30
   ]
-  it('todayInHamburg gibt in jeder Server-Zeitzone das Hamburger Datum', () => {
+  it('todayLocal gibt in jeder Server-Zeitzone das Hamburger Datum', () => {
     eachZone((tz) => {
-      for (const [instant, want] of cases) expect({ tz, instant, got: todayInHamburg(new Date(instant)) }).toEqual({ tz, instant, got: want })
+      for (const [instant, want] of cases) expect({ tz, instant, got: todayLocal(new Date(instant)) }).toEqual({ tz, instant, got: want })
     })
   })
-  it('hamburgDate ist lokale Mitternacht des Hamburger Datums', () => {
+  it('localDate ist lokale Mitternacht des Hamburger Datums', () => {
     eachZone((tz) => {
       for (const [instant, want] of cases) {
-        const d = hamburgDate(new Date(instant))
+        const d = localDate(new Date(instant))
         expect({ tz, y: d.getFullYear(), m: d.getMonth() + 1, day: d.getDate(), h: d.getHours() })
           .toEqual({ tz, y: Number(want.slice(0, 4)), m: Number(want.slice(5, 7)), day: Number(want.slice(8)), h: 0 })
       }

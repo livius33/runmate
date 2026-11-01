@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { todayInHamburg } from '@/lib/dates'
+import { todayLocal } from '@/lib/dates'
 import { applySuggestion, undoWorkshop, workshop } from '@/lib/plan/workshop-store'
 import type { PeriodChoice } from '@/lib/plan/workshop'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
+import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,20 +19,20 @@ function choiceOf(p: string | null, from: string | null, to: string | null): Per
   return null
 }
 
-export async function GET(req: Request) {
+export const GET = withUser(async (req: Request) => {
   await ensureLiveBlocks()
   const q = new URL(req.url).searchParams
   const choice = choiceOf(q.get('p'), q.get('from'), q.get('to'))
   if (!choice) return NextResponse.json({ error: 'Zeitraum: event, 2w, 4w oder range mit from/to' }, { status: 400 })
-  const { input: _input, ...rest } = await workshop(choice, todayInHamburg())
+  const { input: _input, ...rest } = await workshop(choice, todayLocal())
   return NextResponse.json(rest)
-}
+})
 
 // { action: 'apply', p, from?, to?, id } | { action: 'undo', entryId }
-export async function POST(req: Request) {
+export const POST = withUser(async (req: Request) => {
   await ensureLiveBlocks()
   const b = await req.json().catch(() => null)
-  const today = todayInHamburg()
+  const today = todayLocal()
   if (b?.action === 'apply' && typeof b.id === 'string') {
     const choice = choiceOf(b.p ?? null, b.from ?? null, b.to ?? null)
     if (!choice) return NextResponse.json({ error: 'Zeitraum fehlt' }, { status: 400 })
@@ -43,4 +44,4 @@ export async function POST(req: Request) {
     return 'error' in r ? NextResponse.json(r, { status: 409 }) : NextResponse.json(r)
   }
   return NextResponse.json({ error: 'Unbekannte Aktion' }, { status: 400 })
-}
+})

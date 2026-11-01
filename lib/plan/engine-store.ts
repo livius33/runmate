@@ -1,9 +1,10 @@
 // Loads and saves the plan engine's state (settings key 'plan_engine') and runs it against the
 // current plan, manual edits and synced runs.
-import { eq } from 'drizzle-orm'
 import { addDays, format, parseISO } from 'date-fns'
 import { db } from '@/lib/db'
-import { activities, settings } from '@/lib/db/schema'
+import { activities } from '@/lib/db/schema'
+import { own } from '@/lib/db/owned'
+import { getSettingJson, setSettingJson } from '@/lib/db/settings'
 import { RUN_ACTIVITY_TYPES, parseMetrics } from '@/lib/analytics/run-view'
 import { acwr, acwrSeries, fitnessSeries } from '@/lib/analytics/load'
 import { firstPlanStart } from './blocks'
@@ -15,24 +16,21 @@ import { loadPauses } from './pause-store'
 const ENGINE_KEY = 'plan_engine'
 
 export async function loadEngineState(): Promise<EngineState> {
-  const [row] = await db.select().from(settings).where(eq(settings.key, ENGINE_KEY))
-  if (!row) return EMPTY_ENGINE
-  try { return { ...EMPTY_ENGINE, ...JSON.parse(row.value) } } catch { return EMPTY_ENGINE }
+  const v = await getSettingJson<Partial<EngineState>>(ENGINE_KEY)
+  return v ? { ...EMPTY_ENGINE, ...v } : EMPTY_ENGINE
 }
 
 async function saveEngineState(state: EngineState) {
-  const value = JSON.stringify(state)
-  await db.insert(settings).values({ key: ENGINE_KEY, value }).onConflictDoUpdate({ target: settings.key, set: { value } })
+  await setSettingJson(ENGINE_KEY, state)
 }
 
-import { todayInHamburg, hamburgDate } from '@/lib/dates'
+import { todayLocal, localDate } from '@/lib/dates'
 import { ensureLiveBlocks } from './live-blocks'
-export { todayInHamburg as todayBerlin }
 
 // Runs of the plan window plus today's form (TSB) and load ratio (ACWR), from the shared model.
 async function loadRunsAndFitness(): Promise<{ runs: DatedRun[]; fitness: Fitness }> {
-  const rows = await db.select().from(activities)
-  const now = hamburgDate()        // Hamburg's day, like the fitness and stats routes (07-20)
+  const rows = await db.select().from(activities).where(own(activities))
+  const now = localDate()        // the runner's day, like the fitness and stats routes (07-20)
   const series = fitnessSeries(rows, now)
   const runRows = rows.filter((r) => RUN_ACTIVITY_TYPES.includes(r.type))
   const ratio = acwr(runRows, now).acwr
@@ -52,19 +50,15 @@ async function loadRunsAndFitness(): Promise<{ runs: DatedRun[]; fitness: Fitnes
   return { runs, fitness }
 }
 
-// Last day fully covered by the latest successful sync: the day before the sync (Hamburg date).
+// Last day fully covered by the latest successful sync: the day before the sync (the runner's date).
 // A failed sync covers nothing new. No sync record → null (nothing counts as missed).
 async function loadSyncedThrough(): Promise<string | null> {
-  const [row] = await db.select().from(settings).where(eq(settings.key, 'garmin_last_sync'))
-  if (!row) return null
-  try {
-    const s = JSON.parse(row.value) as { at: string; error?: string }
-    if (s.error) return null
-    return format(addDays(parseISO(todayInHamburg(new Date(s.at))), -1), 'yyyy-MM-dd')
-  } catch { return null }
+  const s = await getSettingJson<{ at: string; error?: string }>('garmin_last_sync')
+  if (!s || s.error || typeof s.at !== 'string' || Number.isNaN(Date.parse(s.at))) return null
+  return format(addDays(parseISO(todayLocal(new Date(s.at))), -1), 'yyyy-MM-dd')
 }
 
-export async function runAndSaveEngine(today = todayInHamburg()): Promise<EngineState> {
+export async function runAndSaveEngine(today = todayLocal()): Promise<EngineState> {
   await ensureLiveBlocks()
   const [manual, state, { runs, fitness }, syncedThrough, pauses] = await Promise.all([loadOverrides(), loadEngineState(), loadRunsAndFitness(), loadSyncedThrough(), loadPauses()])
   const r = runEngine({ today, at: new Date().toISOString(), manual, state, runs, fitness, syncedThrough, pauses })

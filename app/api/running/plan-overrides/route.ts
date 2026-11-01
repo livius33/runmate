@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { loadOverrides, saveOverrides } from '@/lib/plan/load'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
+import { withUser } from '@/lib/server/scope'
 
 const Session = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -17,15 +18,15 @@ const Body = z.object({
 })
 
 // Plan edits made on the home page (moved sessions, carried-over km, rebalancing).
-export async function GET() {
+export const GET = withUser(async () => {
   await ensureLiveBlocks()
   return NextResponse.json({ overrides: await loadOverrides() })
-}
+})
 
-export async function PUT(req: Request) {
+export const PUT = withUser(async (req: Request) => {
   await ensureLiveBlocks()
   const parsed = Body.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid overrides' }, { status: 400 })
   await saveOverrides(parsed.data.overrides)
   return NextResponse.json({ ok: true })
-}
+})

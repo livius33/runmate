@@ -1,12 +1,12 @@
 // The "Heute" insight: today's session with targets, why it looks like that, yesterday's result
 // and one piece of advice. Pure and rule-based — every sentence comes from fixed priorities.
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
-import { HR_ZONES, blockHrCap, isRacePaceWork } from '@/lib/analytics/hr'
+import { hrZones, blockHrCap, isRacePaceWork } from '@/lib/analytics/hr'
 import { racePlan } from '@/lib/plan/race-day'
 import { activeBlock, raceOf, blockPaces } from '@/lib/plan/blocks'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtClock, fmtKm, fmtPace, paceToS } from '@/lib/plan/format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { dayLabel, isHard, type Overrides } from '@/lib/plan/effective'
 import { checkPace, matchSessionRuns, type DatedRun } from '@/lib/plan/pace-check'
 import { tired, type EngineChange } from '@/lib/plan/engine'
@@ -25,8 +25,8 @@ export interface TodayInsight {
   caution?: string               // 07-23: ACWR high, but not on enough days to change the plan
 }
 
-const Z2 = HR_ZONES[1]
-const Z4 = HR_ZONES[3]
+const Z2 = () => hrZones()[1]
+const Z4 = () => hrZones()[3]
 const day = (d: string, n: number) => format(addDays(parseISO(d), n), 'yyyy-MM-dd')
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0')
 
@@ -40,9 +40,9 @@ export function sessionTargets(s: PlanSession): string[] {
     const cap = main?.hrCap ?? first.hrCap
     return [`Ziel ${fmtClock(race.goalS)}`, `${fmtPace(race.goalPaceS)}/km`, ...(cap ? [`HF unter ${cap} bis km ${fmtKm((main ?? first).to)}`] : [])]
   }
-  if (!s.pace) return [`HF ${Z2.min}–${Z2.max}`, `ca. ${blockPaces(s.date).easy}/km`]
+  if (!s.pace) return [`HF ${Z2().min}–${Z2().max}`, `ca. ${blockPaces(s.date).easy}/km`]
   if (isRacePaceWork(paceToS(s.pace), race)) return [`Block @ ${s.pace}/km`, `HF unter ${blockHrCap(paceToS(s.pace), race)}`]
-  return [`Block @ ${s.pace}/km`, `HF ${Z4.min}–${Z4.max}`]
+  return [`Block @ ${s.pace}/km`, `HF ${Z4().min}–${Z4().max}`]
 }
 
 // Starts from what was actually run yesterday and finds the session that run stood in for
@@ -112,16 +112,16 @@ export function todayInsight({ today, sessions, manual, engineLog, runs, tsb, ac
   } else if (daysToRace < 0 && state === 'rest') {
     advice = 'Ruhetag: Erholung ist Training. Beine hoch, früh schlafen.'
   } else if (daysToRace < 0) {
-    advice = `Erholungslauf: sehr locker, HF unter ${Z2.max}. Bei Schmerzen lieber Pause.`
+    advice = `Erholungslauf: sehr locker, HF unter ${Z2().max}. Bei Schmerzen lieber Pause.`
   } else if (tired(fitness, rules)) {
     advice = `Sehr müde (${tiredWhy}): heute locker, notfalls kürzen.`
   } else if (state === 'rest') {
     advice = 'Ruhetag: Beine hoch, früh schlafen.'
   } else if (state === 'hard') {
-    const cap = s!.pace ? blockHrCap(paceToS(s!.pace), block.race) : Z4.max
+    const cap = s!.pace ? blockHrCap(paceToS(s!.pace), block.race) : Z4().max
     advice = `Erholt starten; wenn die HF im Block über ${cap} steigt, Tempo rausnehmen.`
   } else {
-    advice = `Wirklich locker: HF unter ${Z2.max}, lieber langsamer als zu schnell.`
+    advice = `Wirklich locker: HF unter ${Z2().max}, lieber langsamer als zu schnell.`
   }
 
   return {

@@ -1,7 +1,7 @@
 // Fortschritt im Block (07-27): the numbers behind the progress charts on the Analyse page, per training block.
 // Pure — no database, no dates "now": the caller passes the block, the effective plan, the block's runs and today.
 // Every takeaway is a fixed rule in German; no AI text.
-import { HR_ZONES, isRacePaceWork, raceHr } from './hr'
+import { hrZones, isRacePaceWork, raceHr } from './hr'
 import type { RunType } from './run-metrics'
 import type { PlanSession, PlanWeek, TrainingBlock } from '@/lib/plan/types'
 import { fmtKm, fmtPace, paceToS, qualityKm } from '@/lib/plan/format'
@@ -107,7 +107,7 @@ export function phasesOf(weeks: { phase: string }[]): Phase[] {
 // Treadmill pace is not GPS pace and a race is not a steady run: both are left out.
 export function z2Splits(run: ProgressRun): ProgressSplit[] {
   if (run.type === 'Laufband' || run.type === 'Rennen') return []
-  const z2 = HR_ZONES[1]
+  const z2 = hrZones()[1]
   return run.splits.filter((s) => s.km >= 2 && s.distM >= 950 && s.gainM < Z2_MAX_GAIN_M && s.hr != null && s.hr >= z2.min && s.hr < z2.max && s.paceS > 0)
 }
 

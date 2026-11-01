@@ -2,16 +2,18 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { activities } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { own } from '@/lib/db/owned'
 import { enrichActivityDetail, enrichActivityStreams } from '@/lib/api-clients/garmin'
+import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 // POST …/enrich loads missing Garmin data; POST …/enrich?force=1 re-imports it.
-export async function POST(
+export const POST = withUser(async (
   req: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params
 
   const [act] = await db
@@ -21,7 +23,7 @@ export async function POST(
       hasStreams: activities.hasStreams,
     })
     .from(activities)
-    .where(eq(activities.id, id))
+    .where(own(activities, eq(activities.id, id)))
     .limit(1)
 
   if (!act) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -41,4 +43,4 @@ export async function POST(
     console.error('[activity enrich]', err)
     return NextResponse.json({ error: err.message ?? String(err) }, { status: 500 })
   }
-}
+})

@@ -1,7 +1,7 @@
 // Erholung nach dem Rennen (any block with a recovery part, 07-22): is the recovery block going as planned? Same shape as the Rennbereitschaft
 // card (verdict + one rated line per criterion). Pure and rule-based.
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
-import { HR_ZONES } from '@/lib/analytics/hr'
+import { hrZones } from '@/lib/analytics/hr'
 import { activeBlock } from '@/lib/plan/blocks'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtKm } from '@/lib/plan/format'
@@ -15,7 +15,7 @@ export type RecoveryVerdict = 'Erholung läuft' | 'Etwas zu viel' | 'Erholung be
 const OVER_SHARE = 1.1     // up to 10 % more than planned is fine
 const OVER_KM = 1          // … plus a rounding km
 const HR_OVER_SHARE = 0.25 // more than a quarter of the runs above Z2: too fast for recovery
-const Z2 = HR_ZONES[1]
+const Z2 = () => hrZones()[1]
 const WEEKS: Record<number, string> = { 1: 'Eine Woche', 2: 'Zwei Wochen', 3: 'Drei Wochen', 4: 'Vier Wochen' }
 
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0')
@@ -73,13 +73,13 @@ export function recoveryStatus({ today, sessions, runs, fitness }: {
   // 3. Easy really easy: share of runs since the race with Ø HR above Zone 2
   const withHr = after.filter((r) => r.avgHr != null)
   if (withHr.length) {
-    const over = withHr.filter((r) => r.avgHr! > Z2.max)
+    const over = withHr.filter((r) => r.avgHr! > Z2().max)
     const share = over.length / withHr.length
     lines.push(share > HR_OVER_SHARE
-      ? { tone: 'warn', label: 'Puls', text: `${over.length} von ${withHr.length} Läufen über HF ${Z2.max}: zu schnell für die Erholung.` }
-      : { tone: 'ok', label: 'Puls', text: `${withHr.length === 1 ? 'Der Lauf' : `${withHr.length - over.length} von ${withHr.length} Läufen`} unter HF ${Z2.max}: locker genug.` })
+      ? { tone: 'warn', label: 'Puls', text: `${over.length} von ${withHr.length} Läufen über HF ${Z2().max}: zu schnell für die Erholung.` }
+      : { tone: 'ok', label: 'Puls', text: `${withHr.length === 1 ? 'Der Lauf' : `${withHr.length - over.length} von ${withHr.length} Läufen`} unter HF ${Z2().max}: locker genug.` })
   } else {
-    lines.push({ tone: 'open', label: 'Puls', text: `Noch kein Lauf seit dem Rennen. Erste Läufe unter HF ${Z2.max}.` })
+    lines.push({ tone: 'open', label: 'Puls', text: `Noch kein Lauf seit dem Rennen. Erste Läufe unter HF ${Z2().max}.` })
   }
 
   // 4. What comes next

@@ -1,6 +1,9 @@
 import { and, desc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { activities, settings } from '@/lib/db/schema'
+import { activities } from '@/lib/db/schema'
+import { own } from '@/lib/db/owned'
+import { getSettingJson, setSettingJson } from '@/lib/db/settings'
+import { markGarminSynced } from '@/lib/garmin/account'
 import { enrichActivityDetail, enrichActivityStreams, syncGarminActivities } from '@/lib/api-clients/garmin'
 import { RUN_ACTIVITY_TYPES } from '@/lib/analytics/run-view'
 import { runAndSaveEngine } from '@/lib/plan/engine-store'
@@ -33,21 +36,11 @@ const missingDetail = and(
 )
 
 async function saveLastSync(s: LastSync) {
-  const value = JSON.stringify(s)
-  await db
-    .insert(settings)
-    .values({ key: LAST_SYNC_KEY, value })
-    .onConflictDoUpdate({ target: settings.key, set: { value } })
+  await Promise.all([setSettingJson(LAST_SYNC_KEY, s), markGarminSynced()])
 }
 
 export async function loadLastSync(): Promise<LastSync | null> {
-  const [row] = await db.select().from(settings).where(eq(settings.key, LAST_SYNC_KEY))
-  if (!row) return null
-  try {
-    return JSON.parse(row.value) as LastSync
-  } catch {
-    return null
-  }
+  return getSettingJson<LastSync>(LAST_SYNC_KEY)
 }
 
 // List the last `days` from Garmin, then load detail data (splits, streams, metrics) for
@@ -69,7 +62,7 @@ export async function runGarminSync({ days = 28, enrichLimit = 8 } = {}): Promis
         hasStreams: activities.hasStreams,
       })
       .from(activities)
-      .where(missingDetail)
+      .where(own(activities, missingDetail))
       .orderBy(desc(activities.date))
       .limit(enrichLimit)
 
@@ -87,7 +80,7 @@ export async function runGarminSync({ days = 28, enrichLimit = 8 } = {}): Promis
     }
     log.push(`enriched: ${r.enriched} activities`)
 
-    const [counts] = await db.select({ n: sql<number>`count(*)::int` }).from(activities).where(missingDetail)
+    const [counts] = await db.select({ n: sql<number>`count(*)::int` }).from(activities).where(own(activities, missingDetail))
     r.remaining = counts?.n ?? 0
     log.push(`remaining without detail: ${r.remaining}`)
 

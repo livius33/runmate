@@ -1,18 +1,19 @@
 import { NextResponse } from 'next/server'
-import { getHealthToken, rotateHealthToken } from '@/lib/health/token'
+import { getLinkToken, rotateLinkToken } from '@/lib/links/tokens'
 import { lastUpload } from '@/lib/health/store'
 import { appHost } from '@/lib/app-host'
+import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
 
 const link = (req: Request, token: string | null) => (token ? `https://${appHost(req)}/api/health/${token}` : null)
 
-// Behind Clerk: show or (re)create the private upload link, plus the last upload.
-export async function GET(req: Request) {
-  const [token, last] = await Promise.all([getHealthToken(), lastUpload()])
+// Behind Clerk: show or (re)create this user's private upload link, plus the last upload.
+export const GET = withUser(async (req: Request) => {
+  const [token, last] = await Promise.all([getLinkToken('health'), lastUpload()])
   return NextResponse.json({ url: link(req, token), last })
-}
+})
 
-export async function POST(req: Request) {
-  return NextResponse.json({ url: link(req, await rotateHealthToken()), last: await lastUpload() })
-}
+export const POST = withUser(async (req: Request) => {
+  return NextResponse.json({ url: link(req, await rotateLinkToken('health')), last: await lastUpload() })
+})

@@ -1,6 +1,6 @@
 import { Route, Mountain, Flag, Timer } from 'lucide-react'
 import { fmtPace, fmtClock } from '@/lib/plan/format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { elapsedAt, racePlan } from '@/lib/plan/race-day'
 import type { Course } from '@/lib/plan/course'
 import type { RaceInfo } from '@/lib/plan/types'
@@ -49,7 +49,7 @@ export function RaceStrategy({ course, race: RACE }: { course: Course | null; ra
         </table>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Fallback: {fmtPace(RACE.fallbackPaceS)}/km gleichmäßig → {fmtClock(RACE.fallbackS)}. Bestzeit {ATHLETE.pb.time} ({ATHLETE.pb.race}).
+        Fallback: {fmtPace(RACE.fallbackPaceS)}/km gleichmäßig → {fmtClock(RACE.fallbackS)}. Bestzeit {athlete().pb.time} ({athlete().pb.race}).
       </p>
     </Card>
   )
