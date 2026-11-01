@@ -19,7 +19,11 @@ import { decidePlan } from '../lib/plan/race-day'
 import { fitnessSeries } from '../lib/analytics/load'
 import { PlanHeader } from '../components/plan/PlanHeader'
 
+import { setProcessScope } from '../lib/scope'
+import { EXAMPLE_PROFILE } from '../examples/porto-2026/profile'
+
 registerBuiltInBlocks([PORTO_2026]);   // the simulator runs over the example block
+setProcessScope(null, EXAMPLE_PROFILE);  // …as the example runner (Phase 2: zones and today come from the profile)
 
 // Components are compiled with the classic JSX runtime outside Next.js.
 (globalThis as { React?: typeof React }).React = React

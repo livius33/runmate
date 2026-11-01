@@ -10,6 +10,7 @@ recovery weeks). It shows what a plan file looks like and is the fixture most pl
 | `runmate-porto-2026.md` | A methodology template that reproduces this plan's structure |
 | `template.ts` | Loads that template (it is not in `methodologies/`, so the app never offers it) |
 | `season.ts` | Example season goals after the block (used by the tests) |
+| `profile.ts` | The runner profile the tests and `scripts/snapshot-plan.mts` use (HFmax 190, rest 60, Europe/Berlin) |
 | `porto-marathon.gpx` | The course (2024 route) for the course map |
 
 ## Use it in the app
