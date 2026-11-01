@@ -5,7 +5,7 @@ import { ChevronRight } from 'lucide-react'
 import { activeBlock } from '@/lib/plan/blocks'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtPace } from '@/lib/plan/format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { checkPace, matchSessionRuns, type DatedRun, type PaceCheck } from '@/lib/plan/pace-check'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
 import { cn } from '@/lib/utils'
@@ -83,7 +83,7 @@ function Row({ s, c, ranOn }: { s: PlanSession; c: PaceCheck; ranOn: string | nu
         <div className="mt-0.5 text-xs text-muted-foreground">
           Ziel {fmtPace(c.targetS)} · Ist {c.actualS != null ? fmtPace(c.actualS) : '–'}
           {c.actualS != null && <> ({KIND_LABEL[c.kind]})</>}
-          {c.blockHr != null && <> · Block-HF <span className={c.blockHr >= ATHLETE.raceHrCap ? 'text-brand' : undefined}>{c.blockHr}</span></>}
+          {c.blockHr != null && <> · Block-HF <span className={c.blockHr >= athlete().raceHrCap ? 'text-brand' : undefined}>{c.blockHr}</span></>}
           {c.hr && c.hr.avg != null && <> · Ø HF <span className={c.hr.avg > c.hr.cap ? 'text-brand' : undefined}>{c.hr.avg}</span> / {c.hr.cap}</>}
           {ranOn && <> · gelaufen am {format(parseISO(ranOn), 'd.M.')}</>}
         </div>

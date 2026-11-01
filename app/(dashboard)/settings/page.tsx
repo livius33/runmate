@@ -8,6 +8,8 @@ import { de } from 'date-fns/locale'
 import type { LastSync } from '@/lib/garmin/sync-job'
 import { CalendarCard } from '@/components/settings/CalendarCard'
 import { HealthCard } from '@/components/settings/HealthCard'
+import { ProfileCard } from '@/components/settings/ProfileCard'
+import { GarminLogin } from '@/components/settings/GarminLogin'
 
 const syncCounts = (s: { inserted: number; updated: number; enriched: number }) =>
   `${s.inserted} neu · ${s.updated} aktualisiert · ${s.enriched} ergänzt`
@@ -75,6 +77,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl space-y-8">
       <h1 className="text-lg font-semibold">Settings</h1>
 
+      <ProfileCard />
       <CalendarCard />
       <HealthCard />
 
@@ -87,16 +90,7 @@ export default function SettingsPage() {
           }
         </div>
 
-        {!status?.hasCredentials && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs space-y-1">
-            <p className="font-medium text-amber-500">Missing credentials</p>
-            <p className="text-muted-foreground">
-              Set <code className="font-mono text-foreground">GARMIN_USERNAME</code> and{' '}
-              <code className="font-mono text-foreground">GARMIN_PASSWORD</code> env vars
-              (<code className="font-mono">.env.local</code> for dev, Vercel dashboard for prod), then reload.
-            </p>
-          </div>
-        )}
+        <GarminLogin key={String(!!status?.hasCredentials)} hasCredentials={!!status?.hasCredentials} />
 
         {status?.hasCredentials && !status?.hasSession && (
           <p className="text-xs text-muted-foreground">

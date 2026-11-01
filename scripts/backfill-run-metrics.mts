@@ -3,15 +3,19 @@
 //   npx tsx --env-file=.env.local scripts/backfill-run-metrics.mts            # Garmin + metrics, all runs
 //   npx tsx --env-file=.env.local scripts/backfill-run-metrics.mts --metrics  # recompute from stored streams only
 //   ... --since 2026-08-01   only runs on/after that date
-//   ... --limit 20           at most N runs
+//   ... --limit 20           at most N runs (per user)
+//   ... --user <clerk id>    only this user (default: every user with activities)
 //
-// Garmin needs GARMIN_USERNAME / GARMIN_PASSWORD only if the saved session has expired.
+// Each user runs in their own scope (their profile, plan and Garmin account; Phase 2). Garmin streams need the user's
+// Garmin login (Einstellungen → Garmin) and ENCRYPTION_KEY.
 import { db } from '@/lib/db'
 import { activities } from '@/lib/db/schema'
-import { and, desc, gte, inArray, isNotNull } from 'drizzle-orm'
+import { desc, gte, inArray, isNotNull } from 'drizzle-orm'
+import { own } from '@/lib/db/owned'
 import { enrichActivityStreams } from '@/lib/api-clients/garmin'
 import { storeRunMetrics } from '@/lib/analytics/store-metrics'
 import { loadPlan } from '@/lib/plan/load'
+import { runAsUser } from '@/lib/server/scope'
 
 const arg = (name: string) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : undefined }
 const metricsOnly = process.argv.includes('--metrics')
@@ -19,17 +23,19 @@ const since = arg('--since') ?? '0000-00-00'
 const limit = Number(arg('--limit') ?? Infinity)
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+const types: Record<string, number> = {}
+const failed: string[] = []
+const started = Date.now()
+
+async function backfill(user: string) {
 const plan = await loadPlan()
 const runs = (await db
   .select({ id: activities.id, date: activities.date, garminActivityId: activities.garminActivityId })
   .from(activities)
-  .where(and(inArray(activities.type, ['Run', 'TrailRun', 'VirtualRun']), gte(activities.date, since), isNotNull(activities.garminActivityId)))
+  .where(own(activities, inArray(activities.type, ['Run', 'TrailRun', 'VirtualRun']), gte(activities.date, since), isNotNull(activities.garminActivityId)))
   .orderBy(desc(activities.date))).slice(0, limit)
 
-console.log(`${runs.length} runs · ${metricsOnly ? 'metrics only' : 'Garmin streams + metrics'}`)
-const types: Record<string, number> = {}
-const failed: string[] = []
-const started = Date.now()
+console.log(`${user}: ${runs.length} runs · ${metricsOnly ? 'metrics only' : 'Garmin streams + metrics'}`)
 
 for (const [n, r] of runs.entries()) {
   try {
@@ -56,9 +62,15 @@ for (const [n, r] of runs.entries()) {
 }
 
 if (!metricsOnly) {
-  const rows = await db.select({ m: activities.metricsJson }).from(activities).where(inArray(activities.id, runs.map((r) => r.id)))
+  const rows = await db.select({ m: activities.metricsJson }).from(activities).where(own(activities, inArray(activities.id, runs.map((r) => r.id))))
   for (const row of rows) { const t = row.m ? JSON.parse(row.m).runType : 'none'; types[t] = (types[t] ?? 0) + 1 }
 }
+}
+
+const only = arg('--user')
+// cross-user: a maintenance script lists the users, then works on each in their own scope
+const users = only ? [only] : (await db.selectDistinct({ userId: activities.userId }).from(activities)).map((r) => r.userId)
+for (const user of users) await runAsUser(user, () => backfill(user))
 console.log('run types:', types)
 if (failed.length) console.log('failed:\n  ' + failed.join('\n  '))
 process.exit(failed.length ? 1 : 0)

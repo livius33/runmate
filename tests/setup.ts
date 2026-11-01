@@ -9,3 +9,8 @@ if (seed) fc.configureGlobal({ seed: Number(seed) })
 import { registerBuiltInBlocks } from '@/lib/plan/blocks'
 import { PORTO_2026 } from '@/examples/porto-2026/plan'
 registerBuiltInBlocks([PORTO_2026])
+
+// Tests run as one runner (the process scope, lib/scope.ts) with the example profile; tests/scope/ covers several users.
+import { setProcessScope } from '@/lib/scope'
+import { EXAMPLE_PROFILE } from '@/examples/porto-2026/profile'
+setProcessScope(null, EXAMPLE_PROFILE)

@@ -48,7 +48,7 @@ export function parseRpe(v: unknown): { ok: true; rpe: number | null } | { ok: f
   return { ok: true, rpe: n }
 }
 
-// A manual session as it comes from the form. `today` bounds the date (Hamburg's day).
+// A manual session as it comes from the form. `today` bounds the date (the runner's day).
 export function parseCrossEntry(body: unknown, today: string): { ok: true; entry: CrossEntry } | { ok: false; error: string } {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, error: 'JSON-Objekt erwartet' }
   const b = body as Record<string, unknown>

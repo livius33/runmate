@@ -68,24 +68,17 @@ export const FATIGUE_LABEL: Record<Score, string> = { 1: 'frisch', 2: 'leicht m�
 
 // ─── Store (server only; the db module is loaded on first use so pure callers and tests never touch it) ───────────
 
-async function table() {
-  const [{ db }, { settings }, { eq }] = await Promise.all([import('@/lib/db'), import('@/lib/db/schema'), import('drizzle-orm')])
-  return { db, settings, eq }
-}
+const store = () => import('@/lib/db/settings')
 
 export async function loadWeekFeedback(): Promise<WeekFeedback> {
-  const { db, settings, eq } = await table()
-  const [row] = await db.select().from(settings).where(eq(settings.key, WEEK_FEEDBACK_KEY))
-  if (!row) return EMPTY_WEEK_FEEDBACK
-  try { return storedWeekFeedback(JSON.parse(row.value)) } catch { return EMPTY_WEEK_FEEDBACK }
+  const raw = await (await store()).getSettingJson<unknown>(WEEK_FEEDBACK_KEY)
+  return raw == null ? EMPTY_WEEK_FEEDBACK : storedWeekFeedback(raw)
 }
 
 // Merges one week into the stored map and returns the new whole.
 export async function saveWeekFeedback(week: string, entry: WeekFeedbackEntry): Promise<WeekFeedback> {
-  const { db, settings } = await table()
   const current = await loadWeekFeedback()
   const next: WeekFeedback = { v: 1, byWeek: { ...current.byWeek, [week]: entry } }
-  const value = JSON.stringify(next)
-  await db.insert(settings).values({ key: WEEK_FEEDBACK_KEY, value }).onConflictDoUpdate({ target: settings.key, set: { value } })
+  await (await store()).setSettingJson(WEEK_FEEDBACK_KEY, next)
   return next
 }

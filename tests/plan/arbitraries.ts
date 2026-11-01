@@ -5,7 +5,7 @@ import { addDays, format, parseISO, differenceInCalendarDays } from 'date-fns'
 import { PLAN_START, RECOVERY_END, SESSIONS } from '@/examples/porto-2026/plan'
 import { type PlanSession } from '@/lib/plan/types'
 import { paceToS } from '@/lib/plan/format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { applyMove, effectiveSessions, setDayKm, setZone2, type ActualKm, type MoveMode, type Overrides } from '@/lib/plan/effective'
 import type { DatedRun } from '@/lib/plan/pace-check'
 import type { Fitness } from '@/lib/plan/engine'
@@ -14,7 +14,7 @@ import type { AthleteProfile, Weekday } from '@/lib/plan/athlete-profile'
 export const plus = (d: string, n: number) => format(addDays(parseISO(d), n), 'yyyy-MM-dd')
 export const PLAN_DAYS = differenceInCalendarDays(parseISO(RECOVERY_END), parseISO(PLAN_START)) + 1
 export const planDate = (i: number) => plus(PLAN_START, i)
-export const easyPaceS = paceToS(ATHLETE.easyPace)
+export const easyPaceS = paceToS(athlete().easyPace)
 
 export const dateArb = fc.integer({ min: 0, max: PLAN_DAYS - 1 }).map(planDate)
 // "Today" from the second plan day on, so there is always a past.

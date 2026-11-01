@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { activities } from '@/lib/db/schema'
 import { gte } from 'drizzle-orm'
+import { own } from '@/lib/db/owned'
 import { allWeeks } from '@/lib/plan/blocks'
 import { RUN_ACTIVITY_TYPES as RUN_TYPES, parseMetrics } from '@/lib/analytics/run-view'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
+import { withUser } from '@/lib/server/scope'
 
 export interface DayActual {
   date: string
@@ -14,7 +16,7 @@ export interface DayActual {
 }
 
 // Synced runs per day across the plan window, for plan-vs-actual on the home page.
-export async function GET() {
+export const GET = withUser(async () => {
   await ensureLiveBlocks()
   try {
     const rows = await db
@@ -29,7 +31,7 @@ export async function GET() {
         metricsJson: activities.metricsJson,
       })
       .from(activities)
-      .where(gte(activities.date, allWeeks()[0].start))
+      .where(own(activities, gte(activities.date, allWeeks()[0]?.start ?? '9999-12-31')))
 
     const byDate = new Map<string, DayActual>()
     for (const r of rows) {
@@ -49,4 +51,4 @@ export async function GET() {
     console.error('[plan-actuals GET]', err.message)
     return NextResponse.json([], { status: 500 })
   }
-}
+})

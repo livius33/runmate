@@ -4,18 +4,18 @@ import { addDays, format, parseISO } from 'date-fns'
 import { inRaceWindow, raceOf } from '@/lib/plan/blocks'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtClock, paceToS, qualityKm } from '@/lib/plan/format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { raceHr } from '@/lib/analytics/hr'
 import { matchSessionRuns, qualityBlock, type DatedRun } from '@/lib/plan/pace-check'
 
 const WINDOW_DAYS = 42
 const HR_PENALTY_S = 1.5               // s/km per bpm above the reference HR; no bonus below
-// Per race distance. Marathon: reference = the HR of the marathon PB (ATHLETE.pb.hr); fade from block to race
+// Per race distance. Marathon: reference = the HR of the marathon PB (athlete().pb.hr); fade from block to race
 // 10 / 5 / 0 s/km (intervals / short / ≥ 15 km continuous: 20 km at race pace under the race HR cap means starting on
 // the goal pace).
 // Shorter races fade less over a shorter distance (convention): half 5 / 3 / 0 from 10 km, 10 km 3 / 0 / 0 from 6 km.
 function model(distanceKm: number) {
-  if (distanceKm > 30) return { minKm: 6, hr: ATHLETE.pb.hr, fade: { interval: 10, short: 5, long: 0 }, longKm: 15 }
+  if (distanceKm > 30) return { minKm: 6, hr: athlete().pb.hr, fade: { interval: 10, short: 5, long: 0 }, longKm: 15 }
   if (distanceKm > 15) return { minKm: 4, hr: raceHr(distanceKm).cap - 2, fade: { interval: 5, short: 3, long: 0 }, longKm: 10 }
   return { minKm: 3, hr: raceHr(distanceKm).cap - 2, fade: { interval: 3, short: 0, long: 0 }, longKm: 6 }
 }

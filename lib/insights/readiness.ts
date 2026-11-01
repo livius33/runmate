@@ -1,12 +1,12 @@
 // Rennbereitschaft: is the runner ready for the race of today's block? One rated line per criterion, each with what the
 // number means and what follows. Limits, HR and texts follow the race's distance (07-20). Pure.
 import { differenceInCalendarDays, parseISO } from 'date-fns'
-import { HR_ZONES, isRacePaceWork, raceHr } from '@/lib/analytics/hr'
+import { hrZones, isRacePaceWork, raceHr } from '@/lib/analytics/hr'
 import { projectForm, trimp } from '@/lib/analytics/load'
 import { activeBlock, inRaceWindow, raceOf } from '@/lib/plan/blocks'
 import { type PlanSession, type RaceInfo } from '@/lib/plan/types'
 import { estimateDurationS, fmtClock, fmtKm, fmtPace, paceToS, qualityKm } from '@/lib/plan/format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { weekOf } from '@/lib/plan/blocks'
 import { dayLabel } from '@/lib/plan/effective'
 import { matchSessionRuns, qualityBlock, type DatedRun } from '@/lib/plan/pace-check'
@@ -27,8 +27,7 @@ const ACWR_OK = 1.3
 const ACWR_LOW = 0.8
 // Fresh on race day: the usual range for an A race after a 2-week taper.
 const RACE_TSB = [10, 25] as const
-const Z2_MID = (HR_ZONES[1].min + HR_ZONES[1].max) / 2
-const Z4_MID = (HR_ZONES[3].min + HR_ZONES[3].max) / 2
+const zoneMid = (i: number) => (hrZones()[i].min + hrZones()[i].max) / 2
 
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0')
 const de = (n: number, digits = 2) => n.toLocaleString('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits })
@@ -37,12 +36,12 @@ const de = (n: number, digits = 2) => n.toLocaleString('de-DE', { minimumFractio
 export function plannedLoad(s: PlanSession): number {
   if (s.type === 'rest' || !s.km) return 0
   const race = raceOf(s.date)
-  if (s.type === 'race') return trimp(race.goalS, race.distanceKm > 30 ? ATHLETE.pb.hr : raceHr(race.distanceKm).cap - 2)
+  if (s.type === 'race') return trimp(race.goalS, race.distanceKm > 30 ? athlete().pb.hr : raceHr(race.distanceKm).cap - 2)
   const total = estimateDurationS(s)
-  if (!s.pace) return trimp(total, Z2_MID)
+  if (!s.pace) return trimp(total, zoneMid(1))
   const q = qualityKm(s), qS = q * paceToS(s.pace)
-  const qHr = isRacePaceWork(paceToS(s.pace), race) ? raceHr(race.distanceKm).cap - 5 : Z4_MID
-  return trimp(qS, qHr) + trimp(Math.max(0, total - qS), Z2_MID)
+  const qHr = isRacePaceWork(paceToS(s.pace), race) ? raceHr(race.distanceKm).cap - 5 : zoneMid(3)
+  return trimp(qS, qHr) + trimp(Math.max(0, total - qS), zoneMid(1))
 }
 
 export function raceReadiness({ today, sessions, runs, prediction, fitness, acwr }: {

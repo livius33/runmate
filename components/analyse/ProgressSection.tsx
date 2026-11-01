@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import type { ProgressResponse } from '@/app/api/running/progress/route'
 import type { Tone } from '@/lib/analytics/progress'
-import { HR_ZONES } from '@/lib/analytics/hr'
+import { hrZones } from '@/lib/analytics/hr'
 import { activeBlock, blocks } from '@/lib/plan/blocks'
 import { Panel } from '@/components/runs/format'
 import { cn } from '@/lib/utils'
@@ -36,7 +36,7 @@ export function ProgressSection({ today, className }: { today: string; className
     staleTime: 10 * 60 * 1000,
   })
   const p = data?.progress
-  const z2 = HR_ZONES[1]
+  const z2 = hrZones()[1]
   const range = data ? `${format(parseISO(data.block.planStart), 'd.M.')}–${format(parseISO(data.block.end), 'd.M.yy')}` : ''
 
   return (

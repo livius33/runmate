@@ -1,7 +1,7 @@
 // Go live (07-14): a draft becomes a training block — weeks, sessions with workouts, the race as anchor and RaceInfo
 // from the season goal. A frozen block no longer follows template, profile or run changes; it is what the plan, the
 // engine, the cards and the calendar read from then on. Pure.
-import { HR_ZONES } from '@/lib/analytics/hr'
+import { hrZones } from '@/lib/analytics/hr'
 import { DEFAULT_STOP_RULES as STOP_RULES } from '../rules'
 import type { SeasonGoal } from '@/lib/season/goals'
 import type { RaceInfo, TrainingBlock } from '../types'
@@ -43,7 +43,7 @@ export function freezeDraft(d: Draft, goal: SeasonGoal, templateName: string, te
     rules: [
       `Vorlage: ${templateName}. Spitze ${String(d.skeleton.peakKm).replace('.', ',')} km pro Woche.`,
       `${runs} Läufe pro Woche; Schlüsseleinheiten nie am Tag nach dem Longrun, nie drei harte Tage hintereinander.`,
-      `Lockere Läufe wirklich locker: Puls ≤ ${HR_ZONES[1].max}, ca. ${d.paces.fmt.easy}/km.`,
+      `Lockere Läufe wirklich locker: Puls ≤ ${hrZones()[1].max}, ca. ${d.paces.fmt.easy}/km.`,
       'Höchstens drei steigende Wochen am Stück, dann hält oder sinkt der Umfang; die letzten zwei Wochen vor dem Taper bleiben Belastung.',
       'Der Longrun wird nie mehr als 10 % länger als dein längster Lauf der letzten 30 Tage.',
       `Renntempo ${fmtPace(race.goalPaceS)}/km; Plan B ${fmtPace(race.fallbackPaceS)}/km.`,

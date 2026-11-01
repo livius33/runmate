@@ -1,92 +1,69 @@
 import { sql } from 'drizzle-orm'
-import { boolean, integer, pgTable, real, serial, text } from 'drizzle-orm/pg-core'
+import { boolean, foreignKey, index, integer, pgTable, primaryKey, real, text, unique } from 'drizzle-orm/pg-core'
 
 const unixNow = sql`floor(extract(epoch from now()))::integer`
 
-// ─── Settings (key-value store for app credentials) ───────────────────────────
+// Every user-owned table carries `user_id` (the Clerk user id) and is keyed by it (Phase 2). All reads and writes go
+// through lib/db/owned.ts; tests/db/scoping.test.ts flags queries on these tables without the owner filter.
+const userId = () => text('user_id').notNull()
+
+// ─── Settings (key-value store per user) ──────────────────────────────────────
 
 export const settings = pgTable('settings', {
-  key: text('key').primaryKey(),
+  userId: userId(),
+  key: text('key').notNull(),
   value: text('value').notNull(),
-})
+}, (t) => [primaryKey({ columns: [t.userId, t.key] })])
 
-// ─── Cache ────────────────────────────────────────────────────────────────────
+// ─── Profile (Phase 2): HR model, athlete facts, time zone, locale ─────────────
 
-export const apiCache = pgTable('api_cache', {
-  key: text('key').primaryKey(),
-  data: text('data').notNull(),
-  fetchedAt: integer('fetched_at').notNull(),
-  ttlSeconds: integer('ttl_seconds').notNull(),
-})
-
-// ─── Garmin / Strava (legacy) / Running ───────────────────────────────────────
-
-// Legacy Strava tokens — kept for schema compatibility with existing rows.
-// No new code writes here; safe to drop the table once you're happy.
-export const stravaTokens = pgTable('strava_tokens', {
-  id: serial('id').primaryKey(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
-  expiresAt: integer('expires_at').notNull(),
-  athleteId: integer('athlete_id').notNull(),
+export const userProfile = pgTable('user_profile', {
+  userId: userId().primaryKey(),
+  hrMax: integer('hr_max'),
+  hrRest: integer('hr_rest'),
+  lthr: integer('lthr'),
+  zoneModel: text('zone_model'),                 // 'hrmax' | 'lthr'
+  pbTime: text('pb_time'),
+  pbRace: text('pb_race'),
+  pbHr: integer('pb_hr'),
+  vo2max: real('vo2max'),
+  weightKg: real('weight_kg'),
+  easyPace: text('easy_pace'),
+  timezone: text('timezone'),
+  locale: text('locale'),
   updatedAt: integer('updated_at').notNull().default(unixNow),
 })
 
-// Persisted Garmin session (OAuth1 access token + optional OAuth2 blob).
-// Serverless invocations restore this rather than re-logging on every request.
-export const garminTokens = pgTable('garmin_tokens', {
-  id: serial('id').primaryKey(),
-  oauth1Token: text('oauth1_token').notNull(),
-  oauth1Secret: text('oauth1_secret').notNull(),
-  oauth2Json: text('oauth2_json'),
+// ─── Secret links: calendar feed and Apple Health upload (token → user) ───────
+
+export const linkTokens = pgTable('link_tokens', {
+  token: text('token').primaryKey(),
+  userId: userId(),
+  kind: text('kind').notNull(),                  // 'calendar' | 'health'
+  createdAt: integer('created_at').notNull().default(unixNow),
+}, (t) => [unique('link_tokens_user_kind').on(t.userId, t.kind)])
+
+// ─── Garmin (per user; every secret AES-256-GCM encrypted, lib/crypto.ts) ─────
+
+// Credentials and the persisted session (OAuth1 + OAuth2 JSON). Serverless invocations restore the session rather than
+// logging in on every request.
+export const garminAccounts = pgTable('garmin_accounts', {
+  userId: userId().primaryKey(),
+  usernameEnc: text('username_enc').notNull(),
+  passwordEnc: text('password_enc').notNull(),
+  sessionEnc: text('session_enc'),               // { oauth1, oauth2 } as JSON, encrypted
+  sessionAt: integer('session_at'),
+  syncedAt: integer('synced_at'),                // last sync attempt (the cron starts with the oldest)
   updatedAt: integer('updated_at').notNull().default(unixNow),
 })
 
-export const athlete = pgTable('athlete', {
-  athleteId: integer('athlete_id').primaryKey(),
-  firstname: text('firstname'),
-  lastname: text('lastname'),
-  city: text('city'),
-  country: text('country'),
-  sex: text('sex'),
-  weight: real('weight'),         // kg
-  ftp: integer('ftp'),            // functional threshold power (watts)
-  profile: text('profile'),       // avatar URL
-  measurementPreference: text('measurement_preference'), // 'feet' | 'meters'
-  fetchedAt: integer('fetched_at').notNull().default(unixNow),
-})
-
-export const gear = pgTable('gear', {
-  id: text('id').primaryKey(),    // Strava gear ID e.g. "g12345"
-  name: text('name').notNull(),
-  brandName: text('brand_name'),
-  modelName: text('model_name'),
-  distanceM: real('distance_m').notNull().default(0),
-  retired: boolean('retired').notNull().default(false),
-  primary: boolean('primary').notNull().default(false),
-  fetchedAt: integer('fetched_at').notNull().default(unixNow),
-})
-
-export const heartRateZones = pgTable('heart_rate_zones', {
-  athleteId: integer('athlete_id').primaryKey(),
-  customZones: boolean('custom_zones').notNull().default(false),
-  zone1Min: integer('zone1_min'),
-  zone1Max: integer('zone1_max'),
-  zone2Min: integer('zone2_min'),
-  zone2Max: integer('zone2_max'),
-  zone3Min: integer('zone3_min'),
-  zone3Max: integer('zone3_max'),
-  zone4Min: integer('zone4_min'),
-  zone4Max: integer('zone4_max'),
-  zone5Min: integer('zone5_min'),
-  zone5Max: integer('zone5_max'),
-  fetchedAt: integer('fetched_at').notNull().default(unixNow),
-})
+// ─── Activities ───────────────────────────────────────────────────────────────
 
 export const activities = pgTable('activities', {
-  id: text('id').primaryKey(),
-  stravaId: text('strava_id').unique(),                 // legacy — populated for pre-Garmin rows
-  garminActivityId: text('garmin_activity_id').unique(),
+  userId: userId(),
+  id: text('id').notNull(),
+  stravaId: text('strava_id'),                          // legacy — populated for pre-Garmin rows
+  garminActivityId: text('garmin_activity_id'),
   type: text('type').notNull(),
   sportType: text('sport_type'),                        // e.g. 'TrailRun', 'Race'
   workoutType: integer('workout_type'),                 // 0=default 1=race 2=long 3=workout
@@ -108,7 +85,7 @@ export const activities = pgTable('activities', {
   prCount: integer('pr_count'),
   kudosCount: integer('kudos_count'),
   achievementCount: integer('achievement_count'),
-  gearId: text('gear_id'),                              // references gear.id
+  gearId: text('gear_id'),
   startLat: real('start_lat'),
   startLng: real('start_lng'),
   startTime: text('start_time'),                        // 'HH:MM:SS'
@@ -122,12 +99,16 @@ export const activities = pgTable('activities', {
   metricsJson: text('metrics_json'),                    // RunMetrics (lib/analytics/run-metrics.ts)
   runTypeOverride: text('run_type_override'),           // manual correction of the detected run type
   syncedAt: integer('synced_at').notNull().default(unixNow),
-})
+}, (t) => [
+  primaryKey({ columns: [t.userId, t.id] }),
+  unique('activities_user_garmin').on(t.userId, t.garminActivityId),
+  index('activities_user_date').on(t.userId, t.date),
+])
 
-// ─── Training Plan ────────────────────────────────────────────────────────────
+// ─── Training Plan (history before the first block; one row per user) ─────────
 
 export const trainingPlan = pgTable('training_plan', {
-  id: integer('id').primaryKey(),
+  userId: userId().primaryKey(),
   planJson: text('plan_json').notNull(),
   updatedAt: integer('updated_at').notNull().default(unixNow),
 })
@@ -135,8 +116,8 @@ export const trainingPlan = pgTable('training_plan', {
 // ─── Activity Streams ─────────────────────────────────────────────────────────
 
 export const activityStreams = pgTable('activity_streams', {
-  activityId: text('activity_id').primaryKey()
-    .references(() => activities.id, { onDelete: 'cascade' }),
+  userId: userId(),
+  activityId: text('activity_id').notNull(),
   stravaId: text('strava_id'),                          // kept for legacy lookups
   timeJson: text('time_json'),
   distanceJson: text('distance_json'),
@@ -149,31 +130,16 @@ export const activityStreams = pgTable('activity_streams', {
   speedJson: text('speed_json'),                        // m/s
   temperatureJson: text('temperature_json'),            // °C
   fetchedAt: integer('fetched_at').notNull().default(unixNow),
-})
-
-// ─── Athlete Stats ────────────────────────────────────────────────────────────
-
-export const athleteStats = pgTable('athlete_stats', {
-  athleteId: integer('athlete_id').primaryKey(),
-  recentRunCount: integer('recent_run_count'),
-  recentRunDistanceM: real('recent_run_distance_m'),
-  recentRunMovingTimeS: integer('recent_run_moving_time_s'),
-  recentRunElevationM: real('recent_run_elevation_m'),
-  ytdRunCount: integer('ytd_run_count'),
-  ytdRunDistanceM: real('ytd_run_distance_m'),
-  ytdRunMovingTimeS: integer('ytd_run_moving_time_s'),
-  ytdRunElevationM: real('ytd_run_elevation_m'),
-  allRunCount: integer('all_run_count'),
-  allRunDistanceM: real('all_run_distance_m'),
-  allRunMovingTimeS: integer('all_run_moving_time_s'),
-  allRunElevationM: real('all_run_elevation_m'),
-  fetchedAt: integer('fetched_at').notNull().default(unixNow),
-})
+}, (t) => [
+  primaryKey({ columns: [t.userId, t.activityId] }),
+  foreignKey({ columns: [t.userId, t.activityId], foreignColumns: [activities.userId, activities.id] }).onDelete('cascade'),
+])
 
 // ─── Apple Health (09-07): from the daily iOS Shortcut ────────────────────────
 
 export const healthDays = pgTable('health_days', {
-  date: text('date').primaryKey(),               // 'YYYY-MM-DD' (the day the values belong to)
+  userId: userId(),
+  date: text('date').notNull(),                  // 'YYYY-MM-DD' (the day the values belong to)
   sleepMin: integer('sleep_min'),                // asleep, minutes (night ending that morning)
   restingHr: integer('resting_hr'),
   hrvMs: real('hrv_ms'),                         // SDNN, ms (Apple's HRV)
@@ -182,10 +148,11 @@ export const healthDays = pgTable('health_days', {
   weightKg: real('weight_kg'),
   source: text('source').notNull().default('apple-health'),
   updatedAt: integer('updated_at').notNull().default(unixNow),
-})
+}, (t) => [primaryKey({ columns: [t.userId, t.date] })])
 
 export const healthWorkouts = pgTable('health_workouts', {
-  id: text('id').primaryKey(),                   // hash of date + start + type (re-sends replace)
+  userId: userId(),
+  id: text('id').notNull(),                      // hash of date + start + type (re-sends replace)
   date: text('date').notNull(),
   type: text('type').notNull(),                  // Apple's workout type as sent, e.g. 'Traditional Strength Training'
   start: text('start').notNull(),                // ISO start time
@@ -193,4 +160,4 @@ export const healthWorkouts = pgTable('health_workouts', {
   kcal: integer('kcal'),
   avgHr: integer('avg_hr'),
   createdAt: integer('created_at').notNull().default(unixNow),
-})
+}, (t) => [primaryKey({ columns: [t.userId, t.id] }), index('health_workouts_user_date').on(t.userId, t.date)])

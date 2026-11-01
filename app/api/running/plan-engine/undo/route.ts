@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { undoAndSave } from '@/lib/plan/engine-store'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
+import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
 
 const Body = z.object({ id: z.string().min(1).max(200) })
 
-export async function POST(req: Request) {
+export const POST = withUser(async (req: Request) => {
   await ensureLiveBlocks()
   const parsed = Body.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Ungültige Anfrage' }, { status: 400 })
@@ -19,4 +20,4 @@ export async function POST(req: Request) {
     console.error('[plan-engine undo]', err.message)
     return NextResponse.json({ error: 'Zurücknehmen fehlgeschlagen' }, { status: 500 })
   }
-}
+})

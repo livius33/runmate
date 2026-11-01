@@ -4,10 +4,10 @@
 //
 // Layers: base plan → engine changes → manual edits. The engine never writes a manually edited day.
 import { addDays, differenceInCalendarDays, format, getDay, parseISO, startOfWeek } from 'date-fns'
-import { HR_ZONES, raceHr } from '@/lib/analytics/hr'
+import { hrZones, raceHr } from '@/lib/analytics/hr'
 import { type PlanSession } from './types'
 import { fmtClock, fmtKm, fmtPace, paceToS, qualityKm } from './format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { allWeeks, blockFor, blockPaces, firstPlanStart, isEasyWeek, raceOf, recoveryWeekday, weekOf } from './blocks'
 import { canTakeExtra, dayLabel, effectiveSessions, isHard, join, maxKm, restDay, weekDates, type Overrides } from './effective'
 import { blockAttempted, matchSessionRuns, qualityBlock, type DatedRun } from './pace-check'
@@ -464,7 +464,7 @@ function rebalance({ today, at, manual, state, runs, fitness, syncedThrough, pau
 
 // Two of the last three easy runs above the Z2 cap → the coming week's easy runs carry a note.
 function hrCap({ today, at, manual, state, runs, pauses }: EngineInput): EngineChange[] {
-  const cap = HR_ZONES[1].max
+  const cap = hrZones()[1].max
   const monday = format(startOfWeek(parseISO(today), { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const vetoKey = `hr-cap:${monday}`
   if (state.vetoes.includes(vetoKey)) return []

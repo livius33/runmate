@@ -3,12 +3,12 @@
 import { useState } from 'react'
 import { addDays, format, parseISO, startOfWeek } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { HR_ZONES } from '@/lib/analytics/hr'
+import { hrZones } from '@/lib/analytics/hr'
 import { RUN_TYPES } from '@/lib/analytics/run-metrics'
 import type { AnalyticsRun } from '@/app/api/running/analytics/route'
 import { RunTypeTag, fmtClock, fmtNum, fmtPace, percentile } from '@/components/runs/format'
 import { activeBlock } from '@/lib/plan/blocks'
-import { todayInHamburg } from '@/lib/dates'
+import { todayLocal } from '@/lib/dates'
 import { ZONE_COLORS } from '@/components/runs/ZonesBar'
 
 export const Readout = ({ children }: { children: React.ReactNode }) => (
@@ -215,7 +215,7 @@ export function ConsistencyCalendar({ runs, today }: { runs: AnalyticsRun[]; tod
 // ─── Intensity: time in zones + km by run type ───────────────────────────────
 
 export function Intensity({ runs }: { runs: AnalyticsRun[] }) {
-  const zones = HR_ZONES.map((_, i) => runs.reduce((a, r) => a + (r.zonesS?.[i] ?? 0), 0))
+  const zones = hrZones().map((_, i) => runs.reduce((a, r) => a + (r.zonesS?.[i] ?? 0), 0))
   const total = zones.reduce((a, b) => a + b, 0)
   const easyPct = total ? Math.round(((zones[0] + zones[1]) / total) * 100) : null
   const byType = RUN_TYPES.map((t) => ({ t, km: runs.filter((r) => r.type === t).reduce((a, r) => a + r.km, 0), n: runs.filter((r) => r.type === t).length }))
@@ -226,10 +226,10 @@ export function Intensity({ runs }: { runs: AnalyticsRun[] }) {
       {total > 0 ? (
         <div className="flex flex-col gap-2">
           <div className="flex h-3.5 gap-0.5 overflow-hidden rounded-full" role="img" aria-label="Zeit in Pulszonen">
-            {zones.map((s, i) => s > 0 && <div key={i} style={{ flex: s, background: ZONE_COLORS[i] }} title={`${HR_ZONES[i].name}: ${Math.round((s / total) * 100)} %`} />)}
+            {zones.map((s, i) => s > 0 && <div key={i} style={{ flex: s, background: ZONE_COLORS[i] }} title={`${hrZones()[i].name}: ${Math.round((s / total) * 100)} %`} />)}
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground tabular-nums">
-            {HR_ZONES.map((z, i) => (
+            {hrZones().map((z, i) => (
               <span key={z.name} className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: ZONE_COLORS[i] }} />{z.name} {Math.round((zones[i] / total) * 100)} % <span className="opacity-70">({fmtClock(zones[i])})</span>
               </span>
@@ -349,9 +349,9 @@ export function PaceHrScatter({ runs }: { runs: AnalyticsRun[] }) {
   if (!pts.length) return <p className="text-sm text-muted-foreground">Keine Läufe mit Pulsdaten in diesem Zeitraum.</p>
 
   const W = 680, H = 260, L = 38, R = 10, T = 10, B = 26
-  const z2 = HR_ZONES[1]
+  const z2 = hrZones()[1]
   // Axis ranges ignore GPS outliers; always include race pace and the Z2 band.
-  const goalPaceS = activeBlock(todayInHamburg()).race.goalPaceS
+  const goalPaceS = activeBlock(todayLocal()).race.goalPaceS
   const pLo = Math.min(goalPaceS - 10, percentile(pts.map((p) => p.pace), 0.02))
   const pHi = Math.max(goalPaceS + 30, percentile(pts.map((p) => p.pace), 0.98))
   const x0 = Math.floor(pLo / 15) * 15, x1 = Math.ceil(pHi / 15) * 15

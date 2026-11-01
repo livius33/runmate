@@ -1,9 +1,7 @@
 // Per-day event versions for the calendar feed, kept in settings 'calendar_versions':
 // { date: { h: content hash, seq, at } }. A day whose content changed gets seq + 1 and a new timestamp.
 import { createHash } from 'crypto'
-import { eq } from 'drizzle-orm'
-import { db } from '@/lib/db'
-import { settings } from '@/lib/db/schema'
+import { getSettingJson, setSettingJson } from '@/lib/db/settings'
 import type { PlanSession } from '@/lib/plan/types'
 import { eventContent, type EventVersion } from './ics'
 
@@ -24,12 +22,8 @@ export function nextVersions(sessions: PlanSession[], prev: Record<string, Event
 }
 
 export async function syncVersions(sessions: PlanSession[], now = new Date()) {
-  const [row] = await db.select().from(settings).where(eq(settings.key, KEY))
-  const prev = row ? (JSON.parse(row.value) as Record<string, EventVersion>) : {}
+  const prev = (await getSettingJson<Record<string, EventVersion>>(KEY)) ?? {}
   const { versions, changed } = nextVersions(sessions, prev, now)
-  if (changed) {
-    const value = JSON.stringify(versions)
-    await db.insert(settings).values({ key: KEY, value }).onConflictDoUpdate({ target: settings.key, set: { value } })
-  }
+  if (changed) await setSettingJson(KEY, versions)
   return versions
 }

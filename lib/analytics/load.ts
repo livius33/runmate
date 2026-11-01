@@ -2,7 +2,7 @@
 // Fitness & Form chart, the Rennbereitschaft card and the plan engine.
 import { addDays, eachDayOfInterval, format, parseISO, subDays } from 'date-fns'
 import type { activities } from '@/lib/db/schema'
-import { HR_MAX, HR_REST } from './hr'
+import { hrMax, hrRest } from './hr'
 import { CROSS_SPORTS, isCrossType, type Sport } from './cross-training'
 
 // `type` and `perceivedExertion` are what cross-training (08-01) adds; rows without them count as runs.
@@ -23,13 +23,13 @@ export const CROSS_LOAD_FROM = '2000-01-01'
 
 export function trimp(durationS: number, avgHr: number): number {
   const mins = durationS / 60
-  const hrr = Math.min(1, Math.max(0, (avgHr - HR_REST) / (HR_MAX - HR_REST)))
+  const hrr = Math.min(1, Math.max(0, (avgHr - hrRest()) / (hrMax() - hrRest())))
   return mins * hrr * 0.64 * Math.exp(1.92 * hrr)
 }
 
 export const srpeLoad = (durationS: number, rpe: number | null | undefined) => (durationS / 60) * (rpe ?? DEFAULT_RPE) * SRPE_TO_TRIMP
 
-const hrLoad = (a: Row) => (a.averageHr && a.averageHr > HR_REST ? trimp(a.durationS, a.averageHr) : 0)
+const hrLoad = (a: Row) => (a.averageHr && a.averageHr > hrRest() ? trimp(a.durationS, a.averageHr) : 0)
 
 // The sport a row counts for: runs (and rows without a type) → 'run'.
 export const sportOfRow = (type: string | null | undefined): Sport => (isCrossType(type) ? CROSS_SPORTS[type].sport : 'run')

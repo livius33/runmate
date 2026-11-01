@@ -3,9 +3,9 @@
 An adaptive marathon and half-marathon training plan that reads your real runs and adjusts itself, built on published
 training methods.
 
-> **Status: pre-release.** Runmate grew out of one runner's private dashboard and is being opened up. It works for a
-> single self-hosted user today; multi-user support, official data-source APIs and a hosted version are in progress
-> (see [docs/LAUNCH-PLAN.md](docs/LAUNCH-PLAN.md)). The interface is German for now.
+> **Status: pre-release.** Runmate grew out of one runner's private dashboard and is being opened up. One install
+> serves several users, each with their own data, plan, profile and Garmin login; official data-source APIs and a
+> hosted version are in progress (see [docs/LAUNCH-PLAN.md](docs/LAUNCH-PLAN.md)). The interface is German for now.
 
 ## Features
 
@@ -33,7 +33,7 @@ Requirements: Node.js 22, a [Neon](https://neon.tech) Postgres database, a [Cler
 git clone <your fork> runmate && cd runmate
 npm ci
 cp .env.example .env.local        # fill in the values (table below)
-node scripts/migrate-schema.mjs   # creates the tables in DATABASE_URL (idempotent, safe to re-run)
+npm run db:migrate                # applies drizzle/*.sql to DATABASE_URL (only the ones not applied yet)
 npm run dev                       # http://localhost:3001
 ```
 
@@ -44,7 +44,21 @@ npm run dev                       # http://localhost:3001
    `{ "email": "{{user.primary_email_address}}" }`. Sessions without that claim are rejected while an allowlist is set.
 3. **Vercel:** import the repository, add the same environment variables, deploy. `vercel.json` schedules the daily
    Garmin sync (`/api/cron/daily-sync`, 06:00 UTC); Vercel sends `CRON_SECRET` with it.
-4. Sign in, open **Saison**, add a goal race and create its plan (**Plan erstellen**).
+4. Sign in, open **Settings**: fill in **Mein Profil** (HFmax, resting HR, time zone, …) and your Garmin login.
+5. Open **Saison**, add a goal race and create its plan (**Plan erstellen**).
+
+### Database migrations
+
+The schema lives in [`lib/db/schema.ts`](lib/db/schema.ts); migrations are generated SQL in [`drizzle/`](drizzle/)
+(`0000_baseline.sql` is the whole schema). After changing the schema:
+
+```bash
+npm run db:generate -- --name <what-changed>   # writes drizzle/NNNN_<what-changed>.sql — review and commit it
+npm run db:migrate                             # applies it (drizzle.config.ts reads DATABASE_URL from .env.local)
+```
+
+Every table has a `user_id` (the Clerk user id); queries go through `lib/db/owned.ts`, and `npm test` fails on a query
+of a user table without the owner filter.
 
 A Dockerfile is included for other hosts (untested in this pre-release; Docker Compose docs follow).
 
@@ -60,21 +74,23 @@ The repository ships an example training block (a real 3:05 Porto Marathon build
 | `CLERK_SECRET_KEY` | yes | Clerk secret key |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | recommended | `/sign-in` |
 | `ALLOWED_EMAILS` | no | Comma-separated emails allowed to sign in; empty = any signed-in Clerk user |
+| `ENCRYPTION_KEY` | for Garmin | 32 random bytes (`openssl rand -base64 32`); encrypts each user's Garmin login and session at rest (AES-256-GCM). Changing it makes stored logins unreadable: users enter them again |
 | `CRON_SECRET` | for the cron | Secret the daily sync route checks (Vercel Cron sends it) |
-| `GARMIN_USERNAME`, `GARMIN_PASSWORD` | no | Garmin Connect login for the sync (unofficial, experimental; see below) |
 | `APP_HOST` | no | Public host for calendar and Health links (e.g. `www.example.com`); default: the request host |
 
 ### Your values
 
-Heart-rate zones, race HR caps and athlete facts are **example defaults** until per-user profiles land: HFmax 190,
-resting HR 60 (`lib/analytics/hr.ts`) and a sample PB/weight (`lib/athlete.ts`). Edit them for your install.
+Each user keeps their own profile (**Settings → Mein Profil**): HFmax, resting HR, optional LTHR and zone model
+(shares of HFmax, or Friel's shares of LTHR), marathon PB, VO2max, weight, easy pace, time zone. Zones, race HR caps,
+TRIMP load, carb amounts and "today" derive from it. Empty fields use **example defaults** (HFmax 190, resting HR 60,
+Europe/Berlin, …), marked as such in the form.
 
 ## Data sources
 
 | Source | Self-host | Status |
 |---|---|---|
-| Garmin | Unofficial `garmin-connect` login with your own credentials, flagged experimental. Planned: Garmin Connect Developer Program (Personal key for your own data) | Works today; the npm package is unmaintained since 01/2024 |
-| Apple Health | iOS Shortcut posting to your per-install secret link (`/api/health/[token]`) | Works today |
+| Garmin | Unofficial `garmin-connect` login with each user's own credentials (entered in Settings, stored encrypted), flagged experimental. Planned: Garmin Connect Developer Program (Personal key for your own data) | Works today; the npm package is unmaintained since 01/2024 |
+| Apple Health | iOS Shortcut posting to your personal secret link (`/api/health/[token]`) | Works today |
 | File import (FIT / GPX / TCX / Garmin export ZIP) | Account-free | Planned |
 | Strava | OAuth; 2026 API terms limit caching (7 days), AI use and showing data to others — an import trigger, not the source of record | Planned, after launch |
 | Polar / COROS / Suunto / Wahoo | — | Later |

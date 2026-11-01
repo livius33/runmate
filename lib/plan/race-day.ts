@@ -3,10 +3,10 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns'
 import { type PlanSession, type RaceInfo } from './types'
 import { inRaceWindow, raceOf } from './blocks'
-import { todayInHamburg } from '@/lib/dates'
-import { HR_MAX, HR_ZONES, raceHr } from '@/lib/analytics/hr'
+import { todayLocal } from '@/lib/dates'
+import { hrMax, hrZones, raceHr } from '@/lib/analytics/hr'
 import { fmtClock, fmtKm, fmtPace } from './format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { dayLabel } from './effective'
 import { blockAttempted, matchSessionRuns, qualityBlock, type DatedRun } from './pace-check'
 import type { EngineChange } from './engine'
@@ -17,10 +17,10 @@ export interface Section { from: number; to: number; paceS: number; hrCap: numbe
 const GEL_G = 25
 const DEFAULT_START = '09:00'       // a generated race without a start time
 export const MARATHON_KM = 42.195
-const currentRace = (): RaceInfo => raceOf(todayInHamburg())
+const currentRace = (): RaceInfo => raceOf(todayLocal())
 
 const isMarathon = (r: RaceInfo) => r.distanceKm > 40
-const hrAt = (share: number) => Math.round(HR_MAX * share)
+const hrAt = (share: number) => Math.round(hrMax() * share)
 const isHalf = (r: RaceInfo) => r.distanceKm > 20 && r.distanceKm < 22
 
 // The race's own splits, else a plan from its goal pace: slightly slower start, race pace, the rest of the goal time
@@ -34,9 +34,9 @@ export function splitsFor(r: RaceInfo): Section[] {
       { from: 21.1, to: 30, d: -1, hrCap: hrAt(0.86), focus: 'Rhythmus halten, verpflegen' }, { from: 30, to: 38, d: 0, hrCap: hrAt(0.88), focus: 'Konzentriert bleiben' },
       { from: 38, to: r.distanceKm, d: NaN, hrCap: null, focus: 'Alles, was da ist' }]
     : isHalf(r)
-      ? [{ from: 0, to: 3, d: 4, hrCap: HR_ZONES[3].max, focus: 'Ruhig anlaufen, nicht mitreißen lassen' }, { from: 3, to: 15, d: 0, hrCap: null, focus: 'Renntempo, gleichmäßig' },
+      ? [{ from: 0, to: 3, d: 4, hrCap: hrZones()[3].max, focus: 'Ruhig anlaufen, nicht mitreißen lassen' }, { from: 3, to: 15, d: 0, hrCap: null, focus: 'Renntempo, gleichmäßig' },
         { from: 15, to: r.distanceKm, d: NaN, hrCap: null, focus: 'Alles, was da ist' }]
-      : [{ from: 0, to: 2, d: 3, hrCap: HR_ZONES[3].max, focus: 'Ruhig anlaufen' }, { from: 2, to: r.distanceKm, d: NaN, hrCap: null, focus: 'Renntempo, ab km 8 alles' }])
+      : [{ from: 0, to: 2, d: 3, hrCap: hrZones()[3].max, focus: 'Ruhig anlaufen' }, { from: 2, to: r.distanceKm, d: NaN, hrCap: null, focus: 'Renntempo, ab km 8 alles' }])
   const out: Section[] = []
   for (const x of shape) {
     if (!Number.isNaN(x.d)) { out.push({ from: x.from, to: x.to, paceS: p + x.d, hrCap: x.hrCap, focus: x.focus }); continue }

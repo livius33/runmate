@@ -2,10 +2,11 @@
 // never a generated plan — every read regenerates the draft from the current runs, plan, profile and template, so a draft
 // follows them until it goes live. Going live (07-14) freezes it into a training block in settings 'plan_blocks'; only
 // goLive / takeOffline write to the live plan.
-import { eq } from 'drizzle-orm'
 import { addDays, format, parseISO, startOfWeek } from 'date-fns'
 import { db } from '@/lib/db'
-import { activities, settings } from '@/lib/db/schema'
+import { activities } from '@/lib/db/schema'
+import { own } from '@/lib/db/owned'
+import { getSettingJson, setSettingJson } from '@/lib/db/settings'
 import { RUN_ACTIVITY_TYPES } from '@/lib/analytics/run-view'
 import { allGoals, storedGoals, type SeasonGoal } from '@/lib/season/goals'
 import { listMethodologies, listOwnBases } from './methodology/load'
@@ -35,15 +36,9 @@ const RANGES: Record<keyof DraftOverrides, [number, number]> = {
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd')
 const monday = (d: string) => ymd(startOfWeek(parseISO(d), { weekStartsOn: 1 }))
 
-async function getSetting<T>(key: string): Promise<T | null> {
-  const [row] = await db.select().from(settings).where(eq(settings.key, key))
-  if (!row) return null
-  try { return JSON.parse(row.value) as T } catch { return null }
-}
-async function setSetting(key: string, v: unknown) {
-  const value = JSON.stringify(v)
-  await db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } })
-}
+const getSetting = getSettingJson
+const setSetting = setSettingJson
+const allActivities = () => db.select().from(activities).where(own(activities))
 const loadDrafts = async () => (await getSetting<Stored>(KEY))?.drafts ?? []
 
 // Base blocks (07-17) fill gaps and give way to a new goal block: the next plan can start after the current goal block,
@@ -59,7 +54,7 @@ const goalBlockEnd = (today: string) => {
 
 // Everything a draft is generated from, read once per request.
 async function context(today: string) {
-  const [rows, plan, profile, season, tuneRow, ownRow] = await Promise.all([db.select().from(activities), loadPlan(), loadProfile(), getSetting<unknown>('season_goals'),
+  const [rows, plan, profile, season, tuneRow, ownRow] = await Promise.all([allActivities(), loadPlan(), loadProfile(), getSetting<unknown>('season_goals'),
     getSetting<{ v: 1; byTemplate: Record<string, Tuning> }>(TUNE_KEY), getSetting<StoredOwn>(OWN_KEY)])
   const tuning = tuneRow?.byTemplate ?? {}
   const own: StoredOwn = ownRow ?? { v: 1, name: '', byDistance: {}, savedAt: null }

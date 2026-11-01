@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { addDays, format, parseISO } from 'date-fns'
 import { blockProgress, phasesOf, z2Splits, type ProgressRun } from '@/lib/analytics/progress'
 import type { PlanSession, PlanWeek, TrainingBlock } from '@/lib/plan/types'
-import { HR_MAX, raceHr } from '@/lib/analytics/hr'
+import { hrMax, raceHr } from '@/lib/analytics/hr'
 
 // HR values below are written for HFmax 200 and scaled to the configured HR model (lib/analytics/hr.ts).
-const h = (bpm200: number) => Math.round((bpm200 * HR_MAX) / 200)
+const h = (bpm200: number) => Math.round((bpm200 * hrMax()) / 200)
 const CAP = raceHr(21.0975).cap
 
 const day = (d: string, n: number) => format(addDays(parseISO(d), n), 'yyyy-MM-dd')

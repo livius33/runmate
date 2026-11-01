@@ -1,9 +1,9 @@
 // Plan vs. actual pace for one session. Pure, so the Plan page and later the plan engine
 // can share it.
-import { HR_ZONES } from '@/lib/analytics/hr'
+import { hrZones } from '@/lib/analytics/hr'
 import { type PlanSession } from './types'
 import { paceToS, qualityKm } from './format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 
 // splitPacesS / splitHrs: per full km split, same order and length.
 export interface PaceRun {
@@ -40,10 +40,10 @@ export function qualityBlock(session: PlanSession, run: PaceRun): { paceS: numbe
 
 export function checkPace(session: PlanSession, run: PaceRun | null): PaceCheck {
   const easy = !session.pace
-  const targetS = paceToS(session.pace ?? ATHLETE.easyPace)
+  const targetS = paceToS(session.pace ?? athlete().easyPace)
   const q = easy ? 0 : qualityKm(session)
   let kind: PaceCheck['kind'] = easy ? 'easy' : q > 0 ? 'quality' : 'whole'
-  const hr = easy ? { avg: run?.avgHr ?? null, cap: HR_ZONES[1].max } : undefined
+  const hr = easy ? { avg: run?.avgHr ?? null, cap: hrZones()[1].max } : undefined
 
   if (!run) return { kind, targetS, actualS: null, deltaS: null, verdict: 'kein Lauf', hr }
 

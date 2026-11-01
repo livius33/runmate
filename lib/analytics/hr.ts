@@ -1,25 +1,41 @@
-// One heart-rate model for the whole app.
-// EXAMPLE DEFAULTS — not anyone's measured values: HFmax 190, resting HR 60, zones and race caps as shares of HFmax.
-// Change HR_MAX / HR_REST to your own values until per-user profiles exist.
-// TODO(Phase 2): a per-user profile (user_profile: HFmax, rest HR, LTHR) replaces these constants.
-export const HR_MAX = 190
-export const HR_REST = 60
+// One heart-rate model for the whole app, derived from the runner's profile (lib/profile.ts, read through lib/scope.ts).
+// Never hard-code HR values: call hrZones(), hrMax(), raceHr() — they follow the user whose request this is.
+import { currentScope } from '@/lib/scope'
+import type { ResolvedProfile } from '@/lib/profile'
 
-const pct = (share: number) => Math.round(HR_MAX * share)
+export interface HrZone { zone: number; name: string; label: string; min: number; max: number }
+type HrModel = Pick<ResolvedProfile, 'hrMax' | 'hrRest' | 'lthr' | 'zoneModelUsed'>
 
-export const HR_ZONES = [
-  { zone: 1, name: 'Z1', label: 'Regeneration', min: 0,          max: pct(0.65) },
-  { zone: 2, name: 'Z2', label: 'Grundlage',    min: pct(0.65),  max: pct(0.71) },
-  { zone: 3, name: 'Z3', label: 'Aerob',        min: pct(0.71),  max: pct(0.775) },
-  { zone: 4, name: 'Z4', label: 'Schwelle',     min: pct(0.775), max: pct(0.85) },
-  { zone: 5, name: 'Z5', label: 'VO2max',       min: pct(0.85),  max: 999 },
-] as const
+const profile = (): HrModel => currentScope().profile
+export const hrMax = (p: HrModel = profile()) => p.hrMax
+export const hrRest = (p: HrModel = profile()) => p.hrRest
+
+const NAMES = [['Z1', 'Regeneration'], ['Z2', 'Grundlage'], ['Z3', 'Aerob'], ['Z4', 'Schwelle'], ['Z5', 'VO2max']] as const
+// Zone limits as shares of the anchor. 'hrmax': the shares Runmate always used (research paces.md §2.1).
+// 'lthr': Friel's running zones as shares of lactate-threshold HR (Friel 2009, The Triathlete's Training Bible).
+const SHARES = { hrmax: [0.65, 0.71, 0.775, 0.85], lthr: [0.85, 0.90, 0.95, 1.0] } as const
+
+export function zonesFor(p: HrModel): readonly HrZone[] {
+  const model = p.zoneModelUsed
+  const anchor = model === 'lthr' ? p.lthr! : p.hrMax
+  const limits = [0, ...SHARES[model].map((s) => Math.round(anchor * s)), 999]
+  return NAMES.map(([name, label], i) => ({ zone: i + 1, name, label, min: limits[i], max: limits[i + 1] }))
+}
+
+const memo = new WeakMap<object, readonly HrZone[]>()
+// The zones of this request's user.
+export function hrZones(p: HrModel = profile()): readonly HrZone[] {
+  let z = memo.get(p)
+  if (!z) { z = zonesFor(p); memo.set(p, z) }
+  return z
+}
 
 // Race-pace block HR per race distance (research paces.md §2.1): below `cap` = on course, from `hard` = too hard.
-// Marathon: the cap is the Z4 top (ATHLETE.raceHrCap).
+// Shares of HFmax in both zone models; marathon: the cap is the HFmax model's Z4 top (athlete().raceHrCap).
 // `hard` is always 5 beats above `cap`.
-export function raceHr(distanceKm: number): { cap: number; hard: number } {
-  const cap = distanceKm > 30 ? pct(0.85) : distanceKm > 15 ? pct(0.89) : pct(0.925)
+export function raceHr(distanceKm: number, p: HrModel = profile()): { cap: number; hard: number } {
+  const share = distanceKm > 30 ? 0.85 : distanceKm > 15 ? 0.89 : 0.925
+  const cap = Math.round(p.hrMax * share)
   return { cap, hard: cap + 5 }
 }
 
@@ -28,9 +44,9 @@ export function raceHr(distanceKm: number): { cap: number; hard: number } {
 export const isRacePaceWork = (paceS: number, race: { distanceKm: number; goalPaceS: number }) =>
   race.distanceKm > 30 ? paceS >= race.goalPaceS : paceS >= race.goalPaceS && paceS <= race.goalPaceS + 5
 export function blockHrCap(paceS: number, race: { distanceKm: number; goalPaceS: number }) {
-  return isRacePaceWork(paceS, race) ? raceHr(race.distanceKm).cap : HR_ZONES[3].max
+  return isRacePaceWork(paceS, race) ? raceHr(race.distanceKm).cap : hrZones()[3].max
 }
 
 export function zoneIndex(bpm: number) {
-  return HR_ZONES.findIndex((z) => bpm >= z.min && bpm < z.max)
+  return hrZones().findIndex((z) => bpm >= z.min && bpm < z.max)
 }

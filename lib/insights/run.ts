@@ -1,11 +1,11 @@
 // Lauf-Analyse: a short, rated verdict per run — plan fit, intensity, HR drift, comparison.
 // Pure and rule-based; thresholds for HR come from the one HR model.
-import { HR_ZONES, blockHrCap } from '@/lib/analytics/hr'
+import { hrZones, blockHrCap } from '@/lib/analytics/hr'
 import type { RunMetrics, RunType } from '@/lib/analytics/run-metrics'
 import { raceOf } from '@/lib/plan/blocks'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtPace, paceToS } from '@/lib/plan/format'
-import { ATHLETE } from '@/lib/athlete'
+import { athlete } from '@/lib/athlete'
 import { dayLabel } from '@/lib/plan/effective'
 import { checkPace, type PaceRun } from '@/lib/plan/pace-check'
 
@@ -77,8 +77,8 @@ export function runInsights({ run, metrics, planned, plannedDate, temperature, s
     lines.push(above <= EASY_OK
       ? { tone: 'ok', label: 'Intensität', text: `Wirklich locker: ${100 - pct} % in Z1+Z2${hr}.` }
       : above <= EASY_WARN
-        ? { tone: 'warn', label: 'Intensität', text: `Etwas zu flott: ${pct} % über Z2${hr}. Grenze ${HR_ZONES[1].max}.` }
-        : { tone: 'bad', label: 'Intensität', text: `Zu hart für locker: ${pct} % über Z2${hr}. Grenze ${HR_ZONES[1].max}.` })
+        ? { tone: 'warn', label: 'Intensität', text: `Etwas zu flott: ${pct} % über Z2${hr}. Grenze ${hrZones()[1].max}.` }
+        : { tone: 'bad', label: 'Intensität', text: `Zu hart für locker: ${pct} % über Z2${hr}. Grenze ${hrZones()[1].max}.` })
   } else if (!easyRun && planned?.pace && check?.blockHr != null) {
     const cap = hrCap(planned.pace)
     lines.push(check.blockHr <= cap

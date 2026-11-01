@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { todayInHamburg } from './dates'
+import { todayLocal } from './dates'
 
 // Dev only: ?heute=YYYY-MM-DD simulates a day (e.g. race week). Ignored in production.
 function devOverride(): string | null {
@@ -10,13 +10,13 @@ function devOverride(): string | null {
   return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null
 }
 
-// Today's Hamburg date; re-checked every minute so an open page rolls over at midnight.
+// Today's date in the runner's time zone; re-checked every minute so an open page rolls over at midnight.
 export function useToday() {
-  const [today, setToday] = useState(() => todayInHamburg())
+  const [today, setToday] = useState(() => todayLocal())
   useEffect(() => {
     const override = devOverride()
     if (override) { setToday(override); return }
-    const id = setInterval(() => setToday((t) => (t === todayInHamburg() ? t : todayInHamburg())), 60_000)
+    const id = setInterval(() => setToday((t) => (t === todayLocal() ? t : todayLocal())), 60_000)
     return () => clearInterval(id)
   }, [])
   return today
