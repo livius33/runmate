@@ -64,7 +64,7 @@ export function WeekFeedbackOverlay({ overview, saved, feel, saving, error, onLa
             <WeekStrip days={days} />
 
             <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-6">
-              <Stat label="Umfang" value={`${fmtKm(r.km)}/${r.targetKm}`} unit={`km · ${r.pct} %`}
+              <Stat label={`Umfang · ${r.pct} %`} value={`${fmtKm(r.km)}/${r.targetKm}`} unit="km"
                 className={r.pct < 90 ? '[&_div:last-child]:text-brand' : undefined} />
               <Stat label="Läufe" value={`${r.runs}/${overview.plannedRuns}`} />
               <Stat label="Locker (Z1+Z2)" value={r.easyPct != null ? `${r.easyPct} %` : '–'}

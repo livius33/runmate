@@ -14,8 +14,8 @@ import { fmtNum } from '@/components/runs/format'
 
 const SPORTS: Sport[] = ['run', 'strength', 'swim', 'bike', 'gym']
 const COLOR: Record<Sport, string> = {
-  run: '#3a74d4',                          // the Fitness line's blue
-  strength: 'hsl(var(--brand))',
+  run: 'hsl(var(--brand))',                // the accent, like the run volume bars
+  strength: 'hsl(var(--foreground))',
   swim: 'hsl(var(--teal))',
   bike: '#d97706',
   gym: 'hsl(var(--muted-foreground))',
