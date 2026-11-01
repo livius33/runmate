@@ -1,5 +1,5 @@
 // .GPX and .TCX via fast-xml-parser (MIT). Namespaces are dropped (gpxtpx:hr → hr), entities are not expanded.
-import { XMLParser } from 'fast-xml-parser'
+import { XMLParser, XMLValidator } from 'fast-xml-parser'
 import type { Lap, ParsedActivity } from '@/lib/sources/types'
 import { SourceError } from '@/lib/sources/types'
 import { buildStreams, summarise, type Sample } from './streams'
@@ -23,6 +23,7 @@ const text = (v: unknown): string | null => (v == null ? null : typeof v === 'ob
 const ms = (v: unknown) => { const t = Date.parse(String(text(v) ?? '')); return Number.isFinite(t) ? t : NaN }
 
 function parseXml(xml: string): Node {
+  if (XMLValidator.validate(xml) !== true) throw new SourceError('invalid', 'Die Datei ist kein gültiges XML.')
   try { return parser.parse(xml) as Node } catch { throw new SourceError('invalid', 'Die Datei ist kein gültiges XML.') }
 }
 

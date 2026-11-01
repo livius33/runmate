@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { importFiles } from '@/lib/sources/file/import'
 import { MAX_FILE_BYTES, MAX_FILES_PER_REQUEST } from '@/lib/sources/file'
 import { runAndSaveEngine } from '@/lib/plan/engine-store'
+import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
@@ -22,6 +23,7 @@ export const POST = withUser(async (req: Request) => {
     if (f.size > MAX_FILE_BYTES) tooBig.push({ name: f.name, message: `${f.name}: Datei zu groß (höchstens 20 MB).` })
     else files.push({ name: f.name || 'upload', bytes: new Uint8Array(await f.arrayBuffer()) })
   }
+  await ensureLiveBlocks()
   const report = await importFiles(files)
   report.files += tooBig.length
   report.errors.push(...tooBig)

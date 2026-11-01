@@ -27,6 +27,7 @@ export const garminApiSource: ActivitySource = {
   },
   async status() { return { connected: false, lastSyncAt: null, error: null } },
   async connect() { throw unavailable() },
+  authorizeUrl() { throw unavailable() },
   async disconnect() { throw unavailable() },
   async listActivities() { throw unavailable() },
   async getActivityDetail() { throw unavailable() },
