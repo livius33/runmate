@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { externalActivityLink } from '@/lib/sources/links'
+import { source as sourceOf } from '@/lib/sources/registry'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { activities, activityStreams } from '@/lib/db/schema'
@@ -93,7 +95,7 @@ export const GET = withUser(async (_req: Request, { params }: Params) => {
     const fb = (await loadRunFeedback()).byActivity[row.id]
     const feedback = { rpe: row.perceivedExertion ?? null, feel: fb?.feel ?? null, pain: fb?.pain ?? null, note: fb?.note ?? null, at: fb?.at ?? null }
 
-    return NextResponse.json({ run, garminActivityId: row.garminActivityId, metrics, planned, plannedDate, temperature, series, route, similar, feedback })
+    return NextResponse.json({ run, source: row.source, external: externalActivityLink(row.source, row.sourceActivityId), canReload: !!row.sourceActivityId && !!sourceOf(row.source)?.getActivityDetail, metrics, planned, plannedDate, temperature, series, route, similar, feedback })
   } catch (err: any) {
     console.error('[run GET]', err.message)
     return NextResponse.json({ error: 'Lauf konnte nicht geladen werden' }, { status: 500 })

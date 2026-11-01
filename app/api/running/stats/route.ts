@@ -44,7 +44,6 @@ export const GET = withUser(async () => {
   await ensureLiveBlocks()
   try {
   // Sync-connected proxy: true if we have any activity in the DB.
-  // Replaced with a real Garmin session check once /api/garmin/login lands.
   const [existing] = await db.select({ id: activities.id }).from(activities).where(own(activities)).limit(1)
   const stravaConnected = !!existing
 

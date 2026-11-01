@@ -1,18 +1,20 @@
-// Re-import Garmin detail streams for all runs and (re)compute metrics_json.
+// Re-import detail streams from each run's source (lib/sources/; files keep what was imported) and (re)compute
+// metrics_json.
 //
-//   npx tsx --env-file=.env.local scripts/backfill-run-metrics.mts            # Garmin + metrics, all runs
+//   npx tsx --env-file=.env.local scripts/backfill-run-metrics.mts            # source streams + metrics, all runs
 //   npx tsx --env-file=.env.local scripts/backfill-run-metrics.mts --metrics  # recompute from stored streams only
 //   ... --since 2026-08-01   only runs on/after that date
 //   ... --limit 20           at most N runs (per user)
 //   ... --user <clerk id>    only this user (default: every user with activities)
 //
-// Each user runs in their own scope (their profile, plan and Garmin account; Phase 2). Garmin streams need the user's
-// Garmin login (Einstellungen → Garmin) and ENCRYPTION_KEY.
+// Each user runs in their own scope (their profile, plan and source accounts; Phase 2). Garmin streams need the user's
+// Garmin login (Einstellungen → Datenquellen) and ENCRYPTION_KEY.
 import { db } from '@/lib/db'
 import { activities } from '@/lib/db/schema'
-import { desc, gte, inArray, isNotNull } from 'drizzle-orm'
+import { desc, gte, inArray } from 'drizzle-orm'
 import { own } from '@/lib/db/owned'
-import { enrichActivityStreams } from '@/lib/api-clients/garmin'
+import { source } from '@/lib/sources/registry'
+import { enrichActivity } from '@/lib/sources/sync'
 import { storeRunMetrics } from '@/lib/analytics/store-metrics'
 import { loadPlan } from '@/lib/plan/load'
 import { runAsUser } from '@/lib/server/scope'
@@ -30,31 +32,32 @@ const started = Date.now()
 async function backfill(user: string) {
 const plan = await loadPlan()
 const runs = (await db
-  .select({ id: activities.id, date: activities.date, garminActivityId: activities.garminActivityId })
+  .select({ id: activities.id, date: activities.date, source: activities.source, sourceActivityId: activities.sourceActivityId })
   .from(activities)
-  .where(own(activities, inArray(activities.type, ['Run', 'TrailRun', 'VirtualRun']), gte(activities.date, since), isNotNull(activities.garminActivityId)))
+  .where(own(activities, inArray(activities.type, ['Run', 'TrailRun', 'VirtualRun']), gte(activities.date, since)))
   .orderBy(desc(activities.date))).slice(0, limit)
 
-console.log(`${user}: ${runs.length} runs · ${metricsOnly ? 'metrics only' : 'Garmin streams + metrics'}`)
+console.log(`${user}: ${runs.length} runs · ${metricsOnly ? 'metrics only' : 'source streams + metrics'}`)
 
 for (const [n, r] of runs.entries()) {
   try {
-    if (metricsOnly) {
+    const src = source(r.source)
+    if (metricsOnly || !r.sourceActivityId || !src?.getActivityDetail) {
       const m = await storeRunMetrics(r.id, plan)
       if (m) types[m.runType] = (types[m.runType] ?? 0) + 1
     } else {
       for (let attempt = 1; ; attempt++) {
-        try { await enrichActivityStreams(r.garminActivityId!, plan); break }
+        try { await enrichActivity(src, r.id, r.sourceActivityId, plan); break }
         catch (e: any) {
-          // Garmin rate limit: wait and retry once.
-          if (attempt === 1 && /429|Too Many/i.test(String(e?.message ?? e))) { console.log('  rate limited, waiting 60 s'); await sleep(60_000); continue }
+          // Rate limit: wait and retry once.
+          if (attempt === 1 && e?.code === 'rate-limited') { console.log('  rate limited, waiting 60 s'); await sleep(60_000); continue }
           throw e
         }
       }
       await sleep(400)
     }
   } catch (e: any) {
-    failed.push(`${r.date} ${r.garminActivityId}: ${String(e?.message ?? e).slice(0, 120)}`)
+    failed.push(`${r.date} ${r.source}:${r.sourceActivityId}: ${e?.code ?? String(e?.message ?? e).slice(0, 120)}`)
   }
   if ((n + 1) % 25 === 0 || n === runs.length - 1) {
     console.log(`  ${n + 1}/${runs.length} · ${Math.round((Date.now() - started) / 1000)} s · ${failed.length} failed`)
