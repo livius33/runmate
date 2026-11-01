@@ -1,0 +1,19 @@
+node_modules
+.next/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.local
+drizzle/
+.DS_Store
+
+# clerk configuration (can include secrets)
+/.clerk/
+.vercel
+.env*
+!.env.example
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
+

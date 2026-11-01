@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 14% 96%;
+    --foreground: 222 22% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 22% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 22% 12%;
+    --primary: 222 22% 12%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 222 22% 12%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 9% 44%;
+    --accent: 220 14% 92%;
+    --accent-foreground: 222 22% 12%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 89%;
+    --input: 220 13% 89%;
+    --ring: 358 75% 59%;
+    --radius: 0.75rem;
+    --brand: 358 75% 59%;
+    --brand-soft: 358 90% 96%;
+    --teal: 174 72% 36%;
+    --teal-soft: 172 60% 93%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; }
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+  /* Phones: 16 px in form fields, otherwise iOS Safari zooms in on focus */
+  @media (max-width: 639px) {
+    input, select, textarea { font-size: 16px !important; }
+  }
+}
+
+@layer utilities {
+  /* Finger-sized hit area (≥ 40 px) for small controls on touch screens, without changing their look */
+  @media (pointer: coarse) {
+    .tap { position: relative; }
+    .tap::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 40px); height: max(100%, 40px); transform: translate(-50%, -50%); }
+  }
+}
+
+/* Muted basemap so the course line carries the colour */
+.course-tiles { filter: grayscale(0.85) brightness(1.04) contrast(0.92); }

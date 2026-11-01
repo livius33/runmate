@@ -1,0 +1,14 @@
+Runmate
+Copyright (C) 2026 Livius de Graaf and contributors
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
+Public License as published by the Free Software Foundation, version 3 (see LICENSE).
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+details.
+
+"Runmate" and the Runmate logo are trademarks of the project and are not licensed under the AGPL.
+
+Third-party notice: Next.js may load the optional prebuilt @img/sharp-libvips-* binaries, which are licensed under
+LGPL-3.0-or-later and dynamically linked.

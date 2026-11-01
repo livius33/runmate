@@ -1,0 +1,210 @@
+'use client'
+
+import { useToday } from '@/lib/use-today'
+import { useEffect, useMemo, useRef } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
+import { activeBlock, hasBlocks, isAfterRace } from '@/lib/plan/blocks'
+import { parseGpx, type Course } from '@/lib/plan/course'
+import { effectiveSessions, type Overrides } from '@/lib/plan/effective'
+import type { DayActual } from '@/app/api/running/plan-actuals/route'
+import { PlanHeader } from '@/components/plan/PlanHeader'
+import { TrainingSchedule } from '@/components/plan/TrainingSchedule'
+import { ReadinessCard } from '@/components/plan/ReadinessCard'
+import { CourseMap } from '@/components/plan/CourseMap'
+import { RaceStrategy } from '@/components/plan/RaceStrategy'
+import { VolumeCard } from '@/components/plan/VolumeCard'
+import { RulesCard } from '@/components/plan/RulesCard'
+import { PaceCard } from '@/components/plan/PaceCard'
+import { PlanChanges } from '@/components/plan/PlanChanges'
+import { PauseControl, usePauses } from '@/components/plan/PauseControl'
+import { TodayCard } from '@/components/plan/TodayCard'
+import { CrossTrainingToday, useCrossTraining } from '@/components/plan/CrossTrainingLog'
+import { CROSS_SPORTS } from '@/lib/analytics/cross-training'
+import { TodayFeedback } from '@/components/plan/TodayFeedback'
+import { NextPlanCard } from '@/components/plan/NextPlan'
+import { RaceWeekCard } from '@/components/plan/RaceWeekCard'
+import { todayInsight } from '@/lib/insights/today'
+import { racePrediction } from '@/lib/insights/prediction'
+import { raceReadiness } from '@/lib/insights/readiness'
+import { recoveryStatus } from '@/lib/insights/recovery'
+import { BASE_NOTE, baseStatus } from '@/lib/insights/base'
+import { Card } from '@/components/plan/ui'
+import { PredictionCard } from '@/components/plan/PredictionCard'
+import { WeekReview } from '@/components/plan/WeekReview'
+import type { DatedRun } from '@/lib/plan/pace-check'
+import { EMPTY_ENGINE, withoutRebalance, type EngineState } from '@/lib/plan/engine'
+
+export default function PlanPage() {
+  const today = useToday()
+
+  const { data: actualList = [] } = useQuery<DayActual[]>({
+    queryKey: ['plan-actuals'],
+    queryFn: () => fetch('/api/running/plan-actuals').then((r) => (r.ok ? r.json() : [])),
+  })
+  const { data: stats } = useQuery<{ acwr?: number; acwrRecent?: (number | null)[] }>({
+    queryKey: ['running-stats'],
+    queryFn: () => fetch('/api/running/stats').then((r) => r.json()),
+  })
+  const { data: fitness = [] } = useQuery<{ date: string; ctl: number; atl: number; tsb: number }[]>({
+    queryKey: ['running-fitness'],
+    queryFn: () => fetch('/api/running/fitness').then((r) => r.json()),
+    staleTime: 30 * 60 * 1000,
+  })
+  const { data: course, isLoading: courseLoading } = useQuery<Course | null>({
+    queryKey: ['course-gpx', activeBlock(today).race.gpxPath],
+    queryFn: async () => {
+      const gpx = activeBlock(today).race.gpxPath
+      if (!gpx) return null
+      const r = await fetch(gpx)
+      return r.ok ? parseGpx(await r.text()) : null
+    },
+    staleTime: Infinity,
+  })
+
+  const qc = useQueryClient()
+  const { data: overrides = {} } = useQuery<Overrides>({
+    queryKey: ['plan-overrides'],
+    queryFn: () => fetch('/api/running/plan-overrides').then((r) => r.json()).then((d) => d.overrides ?? {}),
+  })
+  // Optimistic: the page updates at once and rolls back if saving fails.
+  const save = useMutation({
+    mutationFn: async (next: Overrides) => {
+      const r = await fetch('/api/running/plan-overrides', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overrides: next }),
+      })
+      if (!r.ok) throw new Error('Speichern fehlgeschlagen')
+    },
+    onMutate: async (next) => {
+      await qc.cancelQueries({ queryKey: ['plan-overrides'] })
+      const previous = qc.getQueryData<Overrides>(['plan-overrides'])
+      qc.setQueryData(['plan-overrides'], next)
+      return { previous }
+    },
+    onError: (_err, _next, ctx) => qc.setQueryData(['plan-overrides'], ctx?.previous ?? {}),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['plan-overrides'] })
+      qc.invalidateQueries({ queryKey: ['running-stats'] })
+    },
+  })
+
+  // Plan engine: run once when the page opens, then show its changes and log.
+  const { data: engine = EMPTY_ENGINE } = useQuery<EngineState>({
+    queryKey: ['plan-engine'],
+    queryFn: () => fetch('/api/running/plan-engine').then((r) => (r.ok ? r.json() : EMPTY_ENGINE)),
+  })
+  const ran = useRef(false)
+  useEffect(() => {
+    if (ran.current) return
+    ran.current = true
+    fetch('/api/running/plan-engine', { method: 'POST' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s: EngineState | null) => s && qc.setQueryData(['plan-engine'], s))
+      .catch(() => {})
+  }, [qc])
+  const undo = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch('/api/running/plan-engine/undo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error ?? 'Zurücknehmen fehlgeschlagen')
+      return data as EngineState
+    },
+    onSuccess: (s) => qc.setQueryData(['plan-engine'], s),
+  })
+
+  const { data: pauses = [] } = usePauses()
+  const pauseInput = useMemo(() => ({ pauses, today }), [pauses, today])
+  const sessions = useMemo(() => effectiveSessions(overrides, engine.overrides, pauseInput), [overrides, engine.overrides, pauseInput])
+  // What manual edits work on: the plan without the engine's 'Ausgleich' km, so moves never carry them.
+  const baseSessions = useMemo(() => effectiveSessions(overrides, withoutRebalance(engine), pauseInput), [overrides, engine, pauseInput])
+  // date → reason of the latest active engine change on that day
+  const engineNotes = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of engine.log) if (c.status === 'active') for (const d of Object.keys(c.after)) m.set(d, c.reason)
+    return m
+  }, [engine.log])
+  const actuals = useMemo(() => new Map(actualList.map((a) => [a.date, a])), [actualList])
+  // Cross-training sessions per day for the week grid pills (08-04)
+  const { data: crossList = [] } = useCrossTraining()
+  const cross = useMemo(() => {
+    const m = new Map<string, { letter: string; label: string }[]>()
+    for (const r of crossList) m.set(r.date, [...(m.get(r.date) ?? []), { letter: CROSS_SPORTS[r.type].letter, label: `${r.label} ${r.minutes} Min.` }])
+    return m
+  }, [crossList])
+  const tsb = fitness.length ? fitness[fitness.length - 1].tsb : null
+  const runs: DatedRun[] = useMemo(() => actualList.flatMap((a) => a.runs.map((r) => ({ ...r, date: a.date }))), [actualList])
+  const insight = useMemo(
+    () => todayInsight({ today, sessions, manual: overrides, engineLog: engine.log, runs, tsb, acwr: stats?.acwr ?? null, acwrRecent: stats?.acwrRecent }),
+    [today, sessions, overrides, engine.log, runs, tsb, stats?.acwr, stats?.acwrRecent])
+  const prediction = useMemo(() => racePrediction({ today, sessions, runs }), [today, sessions, runs])
+  const readiness = useMemo(
+    () => raceReadiness({ today, sessions, runs, prediction, fitness, acwr: stats?.acwr ?? null }),
+    [today, sessions, runs, prediction, fitness, stats?.acwr])
+  const base = !!activeBlock(today).base                     // rolling base block between goal blocks (07-17)
+  const afterRace = isAfterRace(today) && !base
+  // Course map, pacing strategy and the race analysis card need the race's GPX; race week works for every block (07-15).
+  const race = activeBlock(today).race
+  const withCourse = !!race.gpxPath
+  const recovery = useMemo(() => recoveryStatus({ today, sessions, runs, fitness }), [today, sessions, runs, fitness])
+  const baseCard = useMemo(() => baseStatus({ today, sessions, runs }), [today, sessions, runs])
+
+  // Fresh install: no training block yet (no generated block live, no plan file registered).
+  if (!hasBlocks()) return (
+    <div className="flex flex-col gap-5 pb-10">
+      <Card title="Noch kein Trainingsplan">
+        <p className="text-sm text-muted-foreground">
+          Lege auf der Saison-Seite ein Hauptrennen an und erstelle dafür einen Plan. Danach erscheinen hier Woche,
+          heutige Einheit und Rennbereitschaft.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-4 text-sm font-medium">
+          <Link href="/season" className="text-brand hover:underline">Zur Saison →</Link>
+          <Link href="/plan/neu" className="text-brand hover:underline">Plan erstellen →</Link>
+        </div>
+      </Card>
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col gap-5 pb-10">
+      <PlanHeader today={today} />
+
+      <TodayCard today={today} insight={insight}>
+        <TodayFeedback today={today} sessions={sessions} runs={runs} pauses={pauseInput} />
+        <PauseControl today={today} />
+        <CrossTrainingToday today={today} />
+      </TodayCard>
+      <NextPlanCard today={today} />
+      <RaceWeekCard today={today} />
+
+      <div className="grid gap-5 lg:grid-cols-12">
+        <div className="min-w-0 lg:col-span-7"><TrainingSchedule today={today} actuals={actuals} cross={cross} sessions={sessions}
+          overrides={overrides} baseSessions={baseSessions} engineOverrides={engine.overrides} engineNotes={engineNotes} onChange={(next) => save.mutate(next)} saving={save.isPending}
+          saveError={save.isError} onRetry={() => save.variables && save.mutate(save.variables)} /></div>
+        <div className="min-w-0 lg:col-span-5">{base
+          ? <ReadinessCard title="Grundlage" verdict={baseCard.verdict} lines={baseCard.lines} note={BASE_NOTE} />
+          : afterRace
+          ? <ReadinessCard title="Erholung" verdict={recovery.verdict} lines={recovery.lines}
+              note={recovery.note} />
+          : <ReadinessCard verdict={readiness.verdict} lines={readiness.lines} note={readiness.note} />}</div>
+        {withCourse && <><div className="min-w-0 lg:col-span-7"><CourseMap race={race} course={course ?? null} status={courseLoading ? 'loading' : course ? 'ready' : 'missing'} /></div>
+        <div className="min-w-0 lg:col-span-5">{afterRace
+          ? <Card title={`Rennanalyse ${race.shortName}`}>
+              <p className="text-sm text-muted-foreground">Dein Rennen gegen den Pacing-Plan, Abschnitt für Abschnitt.</p>
+              <Link href="/race" className="mt-3 inline-block text-sm font-medium text-brand hover:underline">Zur Rennanalyse →</Link>
+            </Card>
+          : <RaceStrategy race={race} course={course ?? null} />}</div></>}
+        <div className="min-w-0 lg:col-span-7"><VolumeCard today={today} actuals={actuals} /></div>
+        <div className="min-w-0 lg:col-span-5"><PaceCard today={today} sessions={sessions} actuals={actuals} /></div>
+        <div className="min-w-0 lg:col-span-7"><PlanChanges log={engine.log} onUndo={(id) => undo.mutate(id)} busy={undo.isPending}
+          error={undo.isError ? (undo.error as Error).message : null} /></div>
+        {!afterRace && !base && <div className="min-w-0 lg:col-span-5"><PredictionCard prediction={prediction} today={today} /></div>}
+        <div className="min-w-0 lg:col-span-7"><WeekReview today={today} sessions={sessions} runs={runs} fitness={fitness} engineLog={engine.log} /></div>
+        <div className="min-w-0 lg:col-span-5"><RulesCard today={today} /></div>
+      </div>
+    </div>
+  )
+}
