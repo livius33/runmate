@@ -87,7 +87,7 @@ the sign-in page, in Settings and as AGB §3.
 | AC-10 Art. 9 consent | ✅ | `tests/legal/consent.test.ts` (5 intake paths answer 403; grant and version; revoke; cron skip; self-host) |
 | AC-11 export | ✅ | `tests/account/data.test.ts` |
 | AC-12 deletion | ✅ | same file: every schema table with `user_id`, Paddle and Clerk, Clerk webhook signature |
-| AC-13 no regression | ✅ | tsc clean; vitest **57 files / 501 passed + 1 todo** (main: 50 / 418 + 1, so 83 new); `next build` with an empty env OK; `scripts/snapshot-plan.mts` byte-identical to `main` (7,662,683 bytes) |
+| AC-13 no regression | ✅ | tsc clean; vitest **58 files / 513 passed + 1 todo** (main after the follow-ups: 51 / 430 + 1, so 83 new); `next build` with an empty env OK; `scripts/snapshot-plan.mts` byte-identical to `main` (7,662,683 bytes) |
 
 ## Deviations from the plan
 
