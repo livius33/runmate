@@ -95,7 +95,7 @@ export default function WorkshopPage() {
     <div className="flex flex-col gap-5 pb-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link href="/" className="text-xs text-muted-foreground hover:text-foreground">← Plan</Link>
+          <Link href="/plan" className="text-xs text-muted-foreground hover:text-foreground">← Plan</Link>
           <h1 className="mt-1 text-2xl sm:text-[28px] font-semibold tracking-tight">Plan anpassen</h1>
           <p className="mt-1 text-sm text-muted-foreground">Zeitraum wählen, prüfen, Vorschläge übernehmen. Feste Regeln, nichts ändert sich ohne dich.</p>
         </div>

@@ -9,7 +9,8 @@ by a rule engine out. UI is German; code, comments and docs are English.
 ## Key directories
 
 ```
-app/(dashboard)/         — pages: / (Plan), /plan/neu, /plan/anpassen, /running (Analyse), /running/activities, /season, /race, /settings
+app/(dashboard)/         — pages: /plan (Plan; signed-in visits to / land here), /plan/neu, /plan/anpassen, /running (Analyse), /running/activities, /season, /race, /settings
+app/(marketing)/         — public static landing (Phase 6): / (de), /en, /preise, /methoden/[id], /warteliste; no Clerk, no React Query
 app/(legal)/             — public pages without Clerk: /impressum, /datenschutz, /agb, /kuendigen (§312k BGB)
 app/api/                 — API routes (sources/*, import, running/*, season, calendar + health token routes, cron)
 components/              — runs/, analyse/, plan/, settings/

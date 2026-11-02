@@ -22,6 +22,13 @@
       "when": 1793635450594,
       "tag": "0002_billing_legal",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793638333901,
+      "tag": "0003_waitlist",
+      "breakpoints": true
     }
   ]
 }

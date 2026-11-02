@@ -86,6 +86,9 @@ The repository ships an example training block (a real 3:05 Porto Marathon build
 | `PADDLE_WEBHOOK_SECRET` | with billing | Secret of the Paddle notification destination `/api/billing/webhook` |
 | `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | with billing | Paddle.js client-side token (checkout) |
 | `PADDLE_PRICE_BASIC_MONTH`, `PADDLE_PRICE_BASIC_YEAR`, `PADDLE_PRICE_PLUS_MONTH`, `PADDLE_PRICE_PLUS_YEAR` | with billing | Paddle price ids (`pri_…`) per plan and interval |
+| `NEXT_PUBLIC_SITE_URL` | no | Canonical origin of the landing page (sitemap, hreflang, OG, JSON-LD); default `https://runmate.dev` |
+| `NEXT_PUBLIC_REPO_URL` | no | Public repository URL; shows the GitHub links on the landing page (hidden while unset) |
+| `NEXT_PUBLIC_VERCEL_ANALYTICS` | no | `1` loads cookieless Vercel Web Analytics on the marketing pages (enable Web Analytics in the Vercel project) |
 
 ### Your values
 

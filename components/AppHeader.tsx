@@ -17,7 +17,7 @@ type Item = { href: string; label: string; icon: LucideIcon; match: (p: string) 
 const NAV: { area: string; label: string; items: Item[] }[] = [
   {
     area: 'training', label: 'Training', items: [
-      { href: '/', label: 'Plan', icon: CalendarDays, match: (p) => p === '/' },
+      { href: '/plan', label: 'Plan', icon: CalendarDays, match: (p) => p === '/plan' },
       { href: '/plan/anpassen', label: 'Plan anpassen', icon: SlidersHorizontal, match: (p) => p.startsWith('/plan/anpassen') },
       { href: '/running/activities', label: 'Läufe', icon: Footprints, match: (p) => p.startsWith('/running/activities') },
       { href: '/running', label: 'Analyse', icon: ChartLine, match: (p) => p === '/running' },
@@ -37,7 +37,7 @@ export function AppSidebar() {
   const path = usePathname() ?? '/'
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-border bg-card md:flex">
-      <Link href="/" aria-label="Runmate" className="flex h-14 items-center px-5"><Logo /></Link>
+      <Link href="/plan" aria-label="Runmate" className="flex h-14 items-center px-5"><Logo /></Link>
       <NavList path={path} />
       <div className="px-5 pb-4"><HeaderDate className="block" /></div>
     </aside>
@@ -91,7 +91,7 @@ export function AppHeader() {
 
 // Phones (09-01): bottom tabs for the daily pages; "Mehr" opens the full navigation (Plan anpassen, Renntag, Einstellungen).
 const TABS: Item[] = [
-  { href: '/', label: 'Heute', icon: Sun, match: (p) => p === '/' },
+  { href: '/plan', label: 'Heute', icon: Sun, match: (p) => p === '/plan' },
   { href: '/running/activities', label: 'Läufe', icon: Footprints, match: (p) => p.startsWith('/running/activities') },
   { href: '/running', label: 'Analyse', icon: ChartLine, match: (p) => p === '/running' },
   { href: '/season', label: 'Saison', icon: Trophy, match: (p) => p.startsWith('/season') },

@@ -10,6 +10,7 @@ import { currentEntitlements, ensureSubscription } from '@/lib/billing/access'
 import { toClient } from '@/lib/billing/entitlements'
 import { EntitlementsProvider } from '@/components/billing/Entitlements'
 import { BillingNotice } from '@/components/billing/BillingNotice'
+import { Providers } from '@/components/providers'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,17 +30,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
   })
   return (
     <ClerkProvider>
-      <UserScope userId={userId} profile={profile} blocks={blocks}>
-        <EntitlementsProvider value={entitlements}>
-          <div className="flex min-h-screen bg-background">
-            <AppSidebar />
-            <div className="min-w-0 flex-1">
-              <AppHeader />
-              <main className="mx-auto max-w-[1400px] p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6"><OfflineSupport /><ScopeReady><BillingNotice />{children}</ScopeReady></main>
+      <Providers>
+        <UserScope userId={userId} profile={profile} blocks={blocks}>
+          <EntitlementsProvider value={entitlements}>
+            <div className="flex min-h-screen bg-background">
+              <AppSidebar />
+              <div className="min-w-0 flex-1">
+                <AppHeader />
+                <main className="mx-auto max-w-[1400px] p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6"><OfflineSupport /><ScopeReady><BillingNotice />{children}</ScopeReady></main>
+              </div>
             </div>
-          </div>
-        </EntitlementsProvider>
-      </UserScope>
+          </EntitlementsProvider>
+        </UserScope>
+      </Providers>
     </ClerkProvider>
   )
 }

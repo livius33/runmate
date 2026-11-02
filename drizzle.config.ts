@@ -6,7 +6,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 export default defineConfig({
-  schema: './lib/db/schema.ts',
+  schema: ['./lib/db/schema.ts', './lib/db/public-schema.ts'],   // public-schema: tables of no user (waitlist)
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
