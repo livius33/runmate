@@ -4,6 +4,7 @@ import { getSettingJson, setSettingJson } from '@/lib/db/settings'
 import { CHECKLIST_IDS } from '@/lib/plan/race-week'   // the ids are the same for every race (race-week.ts raceWeek)
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { withUser } from '@/lib/server/scope'
+import { requireFeature } from '@/lib/billing/access'
 
 export const runtime = 'nodejs'
 
@@ -20,8 +21,11 @@ export const GET = withUser(async () => {
   return NextResponse.json({ checked: await load() })
 })
 
+// Ticking items is a race-day tool (Plus); reading the ticks stays open.
 export const PUT = withUser(async (req: Request) => {
   await ensureLiveBlocks()
+  const gated = await requireFeature('raceDay')
+  if (gated) return gated
   const parsed = Body.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Unbekannter Punkt' }, { status: 400 })
   const checked = { ...(await load()), [parsed.data.id]: parsed.data.checked }

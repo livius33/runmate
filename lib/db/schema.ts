@@ -167,3 +167,42 @@ export const healthWorkouts = pgTable('health_workouts', {
   avgHr: integer('avg_hr'),
   createdAt: integer('created_at').notNull().default(unixNow),
 }, (t) => [primaryKey({ columns: [t.userId, t.id] }), index('health_workouts_user_date').on(t.userId, t.date)])
+
+// ─── Billing (Phase 4): Paddle subscription and the in-app trial, one row per user ─
+
+// Written only by lib/billing (the first sign-in starts the trial; Paddle's webhook keeps the rest in sync). Without
+// BILLING_ENABLED no row is ever created and every feature is on (self-host).
+export const subscription = pgTable('subscription', {
+  userId: userId().primaryKey(),
+  status: text('status').notNull(),              // 'trialing' (in-app trial) | Paddle: active | past_due | paused | canceled
+  tier: text('tier'),                            // 'basic' | 'plus' (null during the in-app trial)
+  interval: text('interval'),                    // 'month' | 'year'
+  trialEndsAt: integer('trial_ends_at'),         // in-app trial (30 days from the first sign-in, no card)
+  paddleCustomerId: text('paddle_customer_id'),
+  paddleSubscriptionId: text('paddle_subscription_id'),
+  priceId: text('price_id'),
+  currentPeriodEnd: integer('current_period_end'),
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+  canceledAt: integer('canceled_at'),
+  eventAt: integer('event_at'),                  // occurred_at of the last Paddle event applied (older ones are ignored)
+  updatedAt: integer('updated_at').notNull().default(unixNow),
+}, (t) => [index('subscription_paddle_sub').on(t.paddleSubscriptionId)])
+
+// Paddle webhook deliveries already processed (idempotency: Paddle retries and may send an event twice).
+export const billingEvents = pgTable('billing_events', {
+  eventId: text('event_id').primaryKey(),
+  userId: userId(),
+  type: text('type').notNull(),
+  occurredAt: integer('occurred_at'),
+  processedAt: integer('processed_at').notNull().default(unixNow),
+})
+
+// ─── Consents (Phase 4): Art. 9 GDPR health data, one row per user and kind ─────
+
+export const consents = pgTable('consents', {
+  userId: userId(),
+  kind: text('kind').notNull(),                  // 'health'
+  version: text('version').notNull(),            // text version agreed to (lib/legal/consent.ts)
+  grantedAt: integer('granted_at').notNull(),
+  revokedAt: integer('revoked_at'),              // null = in force
+}, (t) => [primaryKey({ columns: [t.userId, t.kind] })])

@@ -9,9 +9,10 @@ import { RUN_ACTIVITY_TYPES, parseMetrics } from '@/lib/analytics/run-view'
 import { acwr, acwrSeries, fitnessSeries } from '@/lib/analytics/load'
 import { firstPlanStart } from './blocks'
 import { loadOverrides } from './load'
-import { EMPTY_ENGINE, runEngine, undoChange, type EngineState, type Fitness } from './engine'
+import { EMPTY_ENGINE, runEngine, undoChange, type EngineChange, type EngineState, type Fitness } from './engine'
 import type { DatedRun } from './pace-check'
 import { loadPauses } from './pause-store'
+import { hasFeature } from '@/lib/billing/access'
 
 const ENGINE_KEY = 'plan_engine'
 
@@ -58,12 +59,65 @@ async function loadSyncedThrough(): Promise<string | null> {
   return format(addDays(parseISO(todayLocal(new Date(s.at))), -1), 'yyyy-MM-dd')
 }
 
-export async function runAndSaveEngine(today = todayLocal()): Promise<EngineState> {
+// The engine's state plus, without Plus (lib/billing/entitlements.ts autoAdapt), the changes it would make now.
+export interface EngineResult extends EngineState { suggestions?: EngineChange[] }
+
+async function runNow(today: string) {
   await ensureLiveBlocks()
   const [manual, state, { runs, fitness }, syncedThrough, pauses] = await Promise.all([loadOverrides(), loadEngineState(), loadRunsAndFitness(), loadSyncedThrough(), loadPauses()])
-  const r = runEngine({ today, at: new Date().toISOString(), manual, state, runs, fitness, syncedThrough, pauses })
-  if (r.added.length) await saveEngineState(r.state)
-  return r.state
+  return { state, r: runEngine({ today, at: new Date().toISOString(), manual, state, runs, fitness, syncedThrough, pauses }) }
+}
+
+// The engine's new changes that alter the plan (not its notes and not its own corrections).
+const isSuggestion = (c: EngineChange) => c.status === 'active' && Object.keys(c.after).length > 0
+
+// The run's result without its new plan changes: those are reverted in reverse order (each change's `before` holds the
+// engine overrides it replaced), everything else — corrections of earlier changes, notes — stays. The engine itself
+// is unchanged; this only decides what is saved.
+export function withoutSuggestions(state: EngineState, added: EngineChange[]): { state: EngineState; suggestions: EngineChange[] } {
+  const suggestions = added.filter(isSuggestion)
+  if (!suggestions.length) return { state, suggestions }
+  const overrides = { ...state.overrides }
+  for (const c of [...suggestions].reverse()) {
+    for (const d of Object.keys(c.after)) {
+      const prev = c.before[d]
+      if (prev) overrides[d] = prev
+      else delete overrides[d]
+    }
+  }
+  const ids = new Set(suggestions.map((c) => c.id))
+  return { state: { ...state, overrides, log: state.log.filter((c) => !ids.has(c.id)) }, suggestions }
+}
+
+// Plus (and self-host, trial): the engine applies its changes. Otherwise it saves only corrections and notes and
+// returns the rest as suggestions the runner can take over one by one (acceptSuggestion).
+export async function runAndSaveEngine(today = todayLocal()): Promise<EngineResult> {
+  const { r } = await runNow(today)
+  if (await hasFeature('autoAdapt')) {
+    if (r.added.length) await saveEngineState(r.state)
+    return r.state
+  }
+  const { state, suggestions } = withoutSuggestions(r.state, r.added)
+  if (r.added.length > suggestions.length) await saveEngineState(state)
+  return { ...state, suggestions }
+}
+
+// Take over (or decline) one suggestion by its key. Taking over applies exactly that change on top of what is saved
+// (its `before` re-read from the saved state); declining vetoes it like an undo, so it is not suggested again.
+export function applySuggestion(state: EngineState, c: EngineChange, decline = false): EngineState {
+  if (decline) return { ...state, vetoes: [...new Set([...state.vetoes, c.vetoKey ?? c.key])] }
+  const before = Object.fromEntries(Object.keys(c.after).map((d) => [d, state.overrides[d] ?? null]))
+  return { ...state, overrides: { ...state.overrides, ...c.after }, log: [...state.log, { ...c, before }] }
+}
+
+export async function acceptSuggestion(key: string, decline = false, today = todayLocal()): Promise<EngineResult | { error: string }> {
+  const { r } = await runNow(today)
+  const { state, suggestions } = withoutSuggestions(r.state, r.added)
+  const c = suggestions.find((x) => x.key === key)
+  if (!c) return { error: 'Dieser Vorschlag gilt nicht mehr.' }
+  const next = applySuggestion(state, c, decline)
+  await saveEngineState(next)
+  return { ...next, suggestions: suggestions.filter((x) => x.key !== key) }
 }
 
 export async function undoAndSave(id: string): Promise<EngineState | { error: string }> {

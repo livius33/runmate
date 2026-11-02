@@ -8,6 +8,7 @@ import { racePlan, type PlanKind } from '@/lib/plan/race-day'
 import { raceOf } from '@/lib/plan/blocks'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { withUser } from '@/lib/server/scope'
+import { requireFeature } from '@/lib/billing/access'
 
 export const runtime = 'nodejs'
 
@@ -19,6 +20,8 @@ const parse = (json: string | null | undefined): (number | null)[] | null => {
 // A marathon run against the pacing plan: ?id=<activityId>&plan=A|B
 export const GET = withUser(async (req: Request) => {
   await ensureLiveBlocks()
+  const gated = await requireFeature('raceDay')
+  if (gated) return gated
   const url = new URL(req.url)
   const id = url.searchParams.get('id')
   const kind: PlanKind = url.searchParams.get('plan') === 'B' ? 'B' : 'A'

@@ -15,6 +15,13 @@
       "when": 1793565479774,
       "tag": "0001_activity_source",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793635450594,
+      "tag": "0002_billing_legal",
+      "breakpoints": true
     }
   ]
 }

@@ -7,6 +7,9 @@ import { HealthCard } from '@/components/settings/HealthCard'
 import { ProfileCard } from '@/components/settings/ProfileCard'
 import { GarminSource } from '@/components/settings/GarminSource'
 import { ImportCard } from '@/components/settings/ImportCard'
+import { BillingCard } from '@/components/settings/BillingCard'
+import { HealthConsentCard } from '@/components/settings/HealthConsentCard'
+import { MyDataCard } from '@/components/settings/MyDataCard'
 
 export default function SettingsPage() {
   const { data, isLoading } = useQuery<SourcesResponse>({
@@ -24,6 +27,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl space-y-8">
       <h1 className="text-lg font-semibold">Einstellungen</h1>
 
+      <BillingCard />
       <ProfileCard />
       <CalendarCard />
 
@@ -32,6 +36,7 @@ export default function SettingsPage() {
           <h2 className="text-sm font-medium">Datenquellen</h2>
           <p className="text-xs text-muted-foreground">Woher Runmate deine Läufe und Tageswerte bekommt. Mehrere Quellen gleichzeitig sind möglich; doppelte Aktivitäten werden erkannt.</p>
         </div>
+        <HealthConsentCard />
         {isLoading ? <div className="h-32 animate-pulse rounded-2xl border border-border bg-card" /> : pull.map((s) => <GarminSource key={s.id} source={s} />)}
         <HealthCard otherRunSource={otherRunSource} />
         <ImportCard />
@@ -41,6 +46,8 @@ export default function SettingsPage() {
           </p>
         ))}
       </section>
+
+      <MyDataCard />
     </div>
   )
 }

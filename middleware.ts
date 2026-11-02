@@ -10,7 +10,13 @@ const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS ?? '').split(',').map((e) => 
 // Cron routes carry no Clerk session; they authenticate with CRON_SECRET themselves.
 // The calendar feed is read by calendar apps and the Apple Health upload comes from an iOS Shortcut (no login);
 // both check their own secret token.
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/api/cron(.*)', '/api/calendar/(.*)', '/api/health/(.*)'])
+// Webhooks (Paddle, Clerk) verify their own signatures. The legal pages and the cancellation page (§312k BGB) must be
+// reachable without an account (Phase 4).
+const isPublicRoute = createRouteMatcher([
+  '/sign-in(.*)', '/api/cron(.*)', '/api/calendar/(.*)', '/api/health/(.*)',
+  '/api/billing/webhook', '/api/billing/cancel-request', '/api/webhooks/(.*)',
+  '/impressum', '/datenschutz', '/agb', '/kuendigen',
+])
 
 export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) return

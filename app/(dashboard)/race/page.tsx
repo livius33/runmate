@@ -20,9 +20,17 @@ import { Card } from '@/components/plan/ui'
 import { CourseMap } from '@/components/plan/CourseMap'
 import { parseGpx, type Course } from '@/lib/plan/course'
 import { usePauses } from '@/components/plan/PauseControl'
+import { Upsell, useEntitlements } from '@/components/billing/Entitlements'
+
+// Race-day tools are part of Plus (Phase 4); without it the page shows the upsell.
+export default function RaceDayPage() {
+  const { features } = useEntitlements()
+  if (!features.raceDay) return <div className="mx-auto max-w-xl py-6"><Upsell feature="raceDay" /></div>
+  return <RaceDayTools />
+}
 
 // Race morning on the phone: which plan, when to eat, which pace, when to gel — for the race of today's block (07-15).
-export default function RaceDayPage() {
+function RaceDayTools() {
   const today = useToday()
   const RACE = raceOf(today)
   const { wake: WAKE_TIME, breakfast: BREAKFAST_TIME } = raceWeek(RACE)

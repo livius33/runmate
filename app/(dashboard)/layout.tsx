@@ -1,10 +1,15 @@
 import { redirect } from 'next/navigation'
+import { ClerkProvider } from '@clerk/nextjs'
 import { AppHeader, AppSidebar } from '@/components/AppHeader'
 import { ScopeReady, UserScope } from '@/components/UserScope'
 import { OfflineSupport } from '@/components/Offline'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { currentScope, UnauthorizedError } from '@/lib/scope'
 import { getUserId, runAsUser } from '@/lib/server/scope'
+import { currentEntitlements, ensureSubscription } from '@/lib/billing/access'
+import { toClient } from '@/lib/billing/entitlements'
+import { EntitlementsProvider } from '@/components/billing/Entitlements'
+import { BillingNotice } from '@/components/billing/BillingNotice'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,16 +22,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
     throw err
   }
   // This user's profile and live blocks, handed to the browser's scope (components/UserScope.tsx).
-  const { profile, blocks } = await runAsUser(userId, async () => ({ blocks: await ensureLiveBlocks(), profile: currentScope().profile }))
+  // With billing on, the first sign-in starts the 30-day trial (Phase 4); the entitlements drive the upsells.
+  const { profile, blocks, entitlements } = await runAsUser(userId, async () => {
+    await ensureSubscription()
+    return { blocks: await ensureLiveBlocks(), profile: currentScope().profile, entitlements: toClient(await currentEntitlements()) }
+  })
   return (
-    <UserScope userId={userId} profile={profile} blocks={blocks}>
-      <div className="flex min-h-screen bg-background">
-        <AppSidebar />
-        <div className="min-w-0 flex-1">
-          <AppHeader />
-          <main className="mx-auto max-w-[1400px] p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6"><OfflineSupport /><ScopeReady>{children}</ScopeReady></main>
-        </div>
-      </div>
-    </UserScope>
+    <ClerkProvider>
+      <UserScope userId={userId} profile={profile} blocks={blocks}>
+        <EntitlementsProvider value={entitlements}>
+          <div className="flex min-h-screen bg-background">
+            <AppSidebar />
+            <div className="min-w-0 flex-1">
+              <AppHeader />
+              <main className="mx-auto max-w-[1400px] p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6"><OfflineSupport /><ScopeReady><BillingNotice />{children}</ScopeReady></main>
+            </div>
+          </div>
+        </EntitlementsProvider>
+      </UserScope>
+    </ClerkProvider>
   )
 }
