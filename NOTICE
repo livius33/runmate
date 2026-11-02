@@ -12,3 +12,7 @@ details.
 
 Third-party notice: Next.js may load the optional prebuilt @img/sharp-libvips-* binaries, which are licensed under
 LGPL-3.0-or-later and dynamically linked.
+
+Third-party notice: lib/vendor/garmin-connect/ is a modified copy of garmin-connect 1.6.2
+(https://github.com/Pythe1337N/garmin-connect), Copyright (c) 2020 Oskar Bernberg, licensed under the MIT licence
+(lib/vendor/garmin-connect/LICENSE).
