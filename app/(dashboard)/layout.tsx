@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { ClerkProvider } from '@clerk/nextjs'
 import { AppHeader, AppSidebar } from '@/components/AppHeader'
 import { ScopeReady, UserScope } from '@/components/UserScope'
 import { OfflineSupport } from '@/components/Offline'
@@ -27,16 +28,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return { blocks: await ensureLiveBlocks(), profile: currentScope().profile, entitlements: toClient(await currentEntitlements()) }
   })
   return (
-    <UserScope userId={userId} profile={profile} blocks={blocks}>
-    <EntitlementsProvider value={entitlements}>
-      <div className="flex min-h-screen bg-background">
-        <AppSidebar />
-        <div className="min-w-0 flex-1">
-          <AppHeader />
-          <main className="mx-auto max-w-[1400px] p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6"><OfflineSupport /><ScopeReady><BillingNotice />{children}</ScopeReady></main>
-        </div>
-      </div>
-    </EntitlementsProvider>
-    </UserScope>
+    <ClerkProvider>
+      <UserScope userId={userId} profile={profile} blocks={blocks}>
+        <EntitlementsProvider value={entitlements}>
+          <div className="flex min-h-screen bg-background">
+            <AppSidebar />
+            <div className="min-w-0 flex-1">
+              <AppHeader />
+              <main className="mx-auto max-w-[1400px] p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6"><OfflineSupport /><ScopeReady><BillingNotice />{children}</ScopeReady></main>
+            </div>
+          </div>
+        </EntitlementsProvider>
+      </UserScope>
+    </ClerkProvider>
   )
 }

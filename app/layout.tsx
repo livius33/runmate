@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
-import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 import { Providers } from '@/components/providers'
 
@@ -16,14 +15,14 @@ export const metadata: Metadata = {
 // Installed app (09-01): brand-red status bar, content under the notch / home indicator handled by safe-area padding.
 export const viewport: Viewport = { themeColor: '#E5484D', viewportFit: 'cover' }
 
+// ClerkProvider lives in the dashboard and sign-in layouts (Phase 4): the public pages (Impressum, Datenschutz, AGB,
+// Kündigung) load no Clerk JS.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
-      <html lang="de">
-        <body className={inter.className}>
-          <Providers>{children}</Providers>
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="de">
+      <body className={inter.className}>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
   )
 }
