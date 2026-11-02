@@ -109,6 +109,15 @@ Rule (code table in `lib/analytics/hr.ts` `raceHr(distanceKm)`, HFmax 200; Porto
 The 5-bpm margin between "on course" and "too hard" is the Porto rule (heat, hills, drift) kept for every distance.
 Evidence strength: **convention** anchored on the athlete's own race HR; no trial sets these cut-offs.
 
+### 2.2 HFmax without a measurement (Phase 5 onboarding)
+
+A new runner often does not know their HFmax. The onboarding then asks the age and stores **208 − 0,7 × Alter**
+(Tanaka, Monahan & Seals 2001: meta-analysis of 351 studies, ~18,700 subjects, confirmed in a lab study of 514 healthy
+adults; the classic 220 − age underestimates HFmax in older adults). Any age formula is a population mean: individual
+HFmax scatters by roughly ±10 bpm around it, so the onboarding says so and asks for the real value (e.g. the peak of a
+hard race) in Settings. The resting HR has no useful estimate: unknown stays empty and the example default is marked.
+Evidence strength: **moderate** for the mean, **weak** for any individual (that is why it is labelled an estimate).
+
 ---
 
 ## 3. Recalibration
@@ -209,6 +218,7 @@ zwei Signale oder ein Rennen es bestätigen – und nie in den letzten vier Woch
 Peer-reviewed:
 
 - McGehee JC, Tanner CJ, Houmard JA (2005). A comparison of methods for estimating the lactate threshold. *J Strength Cond Res* 19(3):553–558.
+- Tanaka H, Monahan KD, Seals DR (2001). Age-predicted maximal heart rate revisited. *J Am Coll Cardiol* 37(1):153–156.
 - Riegel PS (1981). Athletic records and human endurance. *American Scientist* 69(3):285–290.
 - Vickers AJ, Vertosick EA (2016). An empirical study of race times in recreational endurance runners. *BMC Sports Sci Med Rehabil* 8:26.
 - Casado A, Foster C, Bakken M, Tjelta LI (2023). *Int J Environ Res Public Health* 20(5):3782 (lactate-guided threshold).
