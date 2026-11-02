@@ -9,6 +9,7 @@ by a rule engine out. UI is German; code, comments and docs are English.
 ## Key directories
 
 ```
+app/onboarding/, app/demo/ — first-run flow (Phase 5); read-only demo pages + /demo/api dispatcher (DEMO_MODE=1)
 app/(dashboard)/         — pages: /plan (Plan; signed-in visits to / land here), /plan/neu, /plan/anpassen, /running (Analyse), /running/activities, /season, /race, /settings
 app/(marketing)/         — public static landing (Phase 6): / (de), /en, /preise, /methoden/[id], /warteliste; no Clerk, no React Query
 app/(legal)/             — public pages without Clerk: /impressum, /datenschutz, /agb, /kuendigen (§312k BGB)
@@ -65,5 +66,9 @@ scripts/                 — backfill-run-metrics.mts, check-methodologies.mts, 
   source, import or push route) calls `intakeBlocked()` (lib/legal/intake.ts: Art. 9 consent + plan).
 - A new user table is exported and deleted automatically (lib/account/data.ts reads the schema); mark secret columns
   in `SECRET_COLUMNS`.
+- Onboarding (Phase 5): `lib/onboarding/` (pure flow + server checks), `/onboarding`; the dashboard layout redirects
+  new accounts. Demo: `lib/demo/` (generator, read-only serving), `/demo/*` only with `DEMO_MODE=1`. A read-only scope
+  (`runAsUser(…, { readOnly: true })`) makes the DB refuse every write and stays read-only for nested scopes; a new
+  GET route the dashboard reads must be added to `lib/demo/routes.ts` or excluded in `tests/demo/serve.test.ts`.
 - Legal pages are templates: operator details only as `<Ph>…</Ph>` (`[PLATZHALTER: …]`), never invented.
 - Every change on its own branch (`feature/…`, `fix/…`, `chore/…`) with a pull request to `main`.
