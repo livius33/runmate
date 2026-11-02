@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import * as schema from './schema'
+import { ReadOnlyError, currentScope } from '@/lib/scope'
 
 type DB = ReturnType<typeof drizzle<typeof schema>>
 
@@ -21,8 +22,13 @@ export function setDbForTests(d: unknown) {
   override = d as DB | null
 }
 
+// Everything that can change data. In a read-only scope (the demo, Phase 5) these throw before any SQL is built, so no
+// write can reach the database whatever a route handler does.
+const WRITES = new Set<PropertyKey>(['insert', 'update', 'delete', 'execute', 'transaction', 'batch', 'refreshMaterializedView'])
+
 export const db = new Proxy({} as DB, {
   get(_, prop) {
+    if (WRITES.has(prop) && currentScope().readOnly) return () => { throw new ReadOnlyError() }
     const d = override ?? connect()
     const v = Reflect.get(d, prop, d)
     return typeof v === 'function' ? v.bind(d) : v

@@ -42,7 +42,7 @@ export async function ensureSubscription(): Promise<SubscriptionRow | null> {
 }
 
 export async function currentEntitlements(): Promise<Entitlements> {
-  if (!billingEnabled()) return SELF_HOST
+  if (!billingEnabled() || currentScope().demo) return SELF_HOST      // the demo shows every feature, never prices
   const cache = currentScope().cache
   const hit = cache.get(CACHE_KEY) as Entitlements | undefined
   if (hit) return hit
