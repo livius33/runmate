@@ -3,7 +3,7 @@
 // webhook must not recreate a row), then delete the Clerk user (unless Clerk already deleted it). Runs inside the
 // user's scope.
 import { db } from '@/lib/db'
-import { deletedUsers } from '@/lib/db/schema'
+import { deletedUsers } from '@/lib/db/public-schema'
 import { mine, uid } from '@/lib/db/owned'
 import { billingEnabled } from '@/lib/billing/config'
 import { cancelCurrent } from '@/lib/billing/cancel'

@@ -25,7 +25,7 @@ export function usePlanStatus() {
   return useQuery<PlanStatusData>({ queryKey: ['plan-status'], queryFn: () => fetch('/api/running/drafts?status=1').then((r) => r.json()) })
 }
 
-export const planHref = (s: GoalPlanStatus) => (s.state === 'live' ? '/' : `/plan/neu?goal=${s.goalId}${s.draftId ? `&draft=${s.draftId}` : ''}`)
+export const planHref = (s: GoalPlanStatus) => (s.state === 'live' ? '/plan' : `/plan/neu?goal=${s.goalId}${s.draftId ? `&draft=${s.draftId}` : ''}`)
 
 export function PlanStatePill({ state }: { state: PlanState }) {
   return <Pill className={STATE[state].tone}>{STATE[state].label}</Pill>

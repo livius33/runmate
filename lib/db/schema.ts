@@ -210,12 +210,3 @@ export const consents = pgTable('consents', {
   grantedAt: integer('granted_at').notNull(),
   revokedAt: integer('revoked_at'),              // null = in force
 }, (t) => [primaryKey({ columns: [t.userId, t.kind] })])
-
-// ─── Deleted accounts (Phase 5): tombstones, so a late Paddle webhook cannot recreate a row for a deleted user ─
-
-// Written by lib/account/delete.ts after every other row of the user is gone; holds nothing but the id and the time.
-// Not user data: never exported, and the account deletion does not remove it (lib/account/data.ts NOT_USER_DATA).
-export const deletedUsers = pgTable('deleted_users', {
-  userId: userId().primaryKey(),
-  deletedAt: integer('deleted_at').notNull(),
-})

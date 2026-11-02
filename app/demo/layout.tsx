@@ -5,6 +5,7 @@ import { AppBaseProvider } from '@/components/AppBase'
 import { ScopeReady, UserScope } from '@/components/UserScope'
 import { EntitlementsProvider } from '@/components/billing/Entitlements'
 import { DemoBridge } from '@/components/demo/DemoBridge'
+import { Providers } from '@/components/providers'
 import { SELF_HOST, toClient } from '@/lib/billing/entitlements'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { currentScope } from '@/lib/scope'
@@ -21,24 +22,26 @@ export default async function DemoLayout({ children }: { children: React.ReactNo
   if (!demoEnabled()) notFound()
   const { profile, blocks } = await runAsDemo(async () => ({ blocks: await ensureLiveBlocks(), profile: currentScope().profile }))
   return (
-    <AppBaseProvider value={{ base: '/demo', readOnly: true }}>
-      <UserScope userId={DEMO_USER_ID} profile={profile} blocks={blocks}>
-        <EntitlementsProvider value={toClient(SELF_HOST)}>
-          <DemoBridge />
-          <div className="flex min-h-screen bg-background">
-            <AppSidebar />
-            <div className="min-w-0 flex-1">
-              <div className="border-b border-brand/20 bg-brand-soft px-4 py-2 text-center text-xs text-foreground sm:px-6">
-                <strong className="font-semibold">Demo – nur ansehen.</strong> Eine erfundene Läuferin auf dem Weg zum Hamburg HM;
-                alle Daten sind synthetisch und werden jede Nacht neu erzeugt. Änderungen werden nicht gespeichert.{' '}
-                <Link href="/sign-in" className="font-medium text-brand underline underline-offset-2">Eigenen Plan erstellen →</Link>
+    <Providers>
+      <AppBaseProvider value={{ base: '/demo', readOnly: true }}>
+        <UserScope userId={DEMO_USER_ID} profile={profile} blocks={blocks}>
+          <EntitlementsProvider value={toClient(SELF_HOST)}>
+            <DemoBridge />
+            <div className="flex min-h-screen bg-background">
+              <AppSidebar />
+              <div className="min-w-0 flex-1">
+                <div className="border-b border-brand/20 bg-brand-soft px-4 py-2 text-center text-xs text-foreground sm:px-6">
+                  <strong className="font-semibold">Demo – nur ansehen.</strong> Eine erfundene Läuferin auf dem Weg zum Hamburg HM;
+                  alle Daten sind synthetisch und werden jede Nacht neu erzeugt. Änderungen werden nicht gespeichert.{' '}
+                  <Link href="/sign-in" className="font-medium text-brand underline underline-offset-2">Eigenen Plan erstellen →</Link>
+                </div>
+                <AppHeader />
+                <main className="mx-auto max-w-[1400px] p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6"><ScopeReady>{children}</ScopeReady></main>
               </div>
-              <AppHeader />
-              <main className="mx-auto max-w-[1400px] p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6"><ScopeReady>{children}</ScopeReady></main>
             </div>
-          </div>
-        </EntitlementsProvider>
-      </UserScope>
-    </AppBaseProvider>
+          </EntitlementsProvider>
+        </UserScope>
+      </AppBaseProvider>
+    </Providers>
   )
 }

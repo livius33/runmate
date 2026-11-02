@@ -18,9 +18,7 @@ vi.mock('@clerk/nextjs/server', () => ({
 }))
 
 const USER = 'user-d'
-// The deletion tombstone (Phase 5) is the one table with user_id that is not the user's data.
-const SCHEMA_USER_TABLES = Object.values(schema).filter((v) => is(v, PgTable) && 'userId' in getTableColumns(v as PgTable)).map((t) => getTableName(t as PgTable))
-  .filter((n) => n !== 'deleted_users').sort()
+const SCHEMA_USER_TABLES = Object.values(schema).filter((v) => is(v, PgTable) && 'userId' in getTableColumns(v as PgTable)).map((t) => getTableName(t as PgTable)).sort()
 const tableOf = (sql: string) => sql.match(/(?:from|into|update|delete from) "(\w+)"/)?.[1]
 
 const st = { sub: false }

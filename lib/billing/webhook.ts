@@ -3,7 +3,8 @@
 // saves. Paddle may deliver late, twice or out of order: duplicates are skipped and older events never overwrite newer.
 import { eq, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { billingEvents, deletedUsers, subscription } from '@/lib/db/schema'
+import { billingEvents, subscription } from '@/lib/db/schema'
+import { deletedUsers } from '@/lib/db/public-schema'
 import { mine, own } from '@/lib/db/owned'
 import { runAsUser } from '@/lib/server/scope'
 import { priceIds, priceInfo, type PriceIds } from './config'

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { Logo } from '@/components/Logo'
+import { Providers } from '@/components/providers'
 import { ScopeReady, UserScope } from '@/components/UserScope'
 import { EntitlementsProvider } from '@/components/billing/Entitlements'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
@@ -27,15 +28,17 @@ export default async function OnboardingLayout({ children }: { children: React.R
     if (!(await needsOnboarding())) return null
     return { blocks: await ensureLiveBlocks(), profile: currentScope().profile, entitlements: toClient(await currentEntitlements()) }
   })
-  if (!r) redirect('/')
+  if (!r) redirect('/plan')
   return (
-    <UserScope userId={userId} profile={r.profile} blocks={r.blocks}>
-      <EntitlementsProvider value={r.entitlements}>
-        <div className="min-h-screen bg-background">
-          <header className="mx-auto flex h-14 max-w-2xl items-center px-4 sm:px-6"><Logo /></header>
-          <main className="mx-auto max-w-2xl px-4 pb-16 sm:px-6"><ScopeReady>{children}</ScopeReady></main>
-        </div>
-      </EntitlementsProvider>
-    </UserScope>
+    <Providers>
+      <UserScope userId={userId} profile={r.profile} blocks={r.blocks}>
+        <EntitlementsProvider value={r.entitlements}>
+          <div className="min-h-screen bg-background">
+            <header className="mx-auto flex h-14 max-w-2xl items-center px-4 sm:px-6"><Logo /></header>
+            <main className="mx-auto max-w-2xl px-4 pb-16 sm:px-6"><ScopeReady>{children}</ScopeReady></main>
+          </div>
+        </EntitlementsProvider>
+      </UserScope>
+    </Providers>
   )
 }

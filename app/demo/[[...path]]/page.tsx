@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import PlanPage from '@/app/(dashboard)/page'
+import PlanPage from '@/app/(dashboard)/plan/page'
 import AnalysePage from '@/app/(dashboard)/running/page'
 import RunsPage from '@/app/(dashboard)/running/activities/page'
 import RunPage from '@/app/(dashboard)/running/activities/[id]/page'

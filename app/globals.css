@@ -29,6 +29,66 @@
     --teal: 174 72% 36%;
     --teal-soft: 172 60% 93%;
   }
+
+  /* Dark set (Phase 6). Only where asked for: `.dark` (Tailwind's class strategy), or `.theme-auto` (the marketing
+     pages) when the system prefers dark. The app keeps its light look. Red and teal stay; teal a touch lighter. */
+  .dark {
+    --background: 222 22% 8%;
+    --foreground: 220 14% 94%;
+    --card: 222 18% 12%;
+    --card-foreground: 220 14% 94%;
+    --popover: 222 18% 12%;
+    --popover-foreground: 220 14% 94%;
+    --primary: 220 14% 94%;
+    --primary-foreground: 222 22% 10%;
+    --secondary: 222 15% 17%;
+    --secondary-foreground: 220 14% 94%;
+    --muted: 222 15% 17%;
+    --muted-foreground: 220 9% 64%;
+    --accent: 222 15% 20%;
+    --accent-foreground: 220 14% 94%;
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 14% 21%;
+    --input: 222 14% 21%;
+    --ring: 358 75% 62%;
+    --brand: 358 75% 61%;
+    --brand-soft: 358 40% 17%;
+    --teal: 174 64% 40%;
+    --teal-soft: 174 40% 15%;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-auto, :root:has(.theme-auto) {
+    --background: 222 22% 8%;
+    --foreground: 220 14% 94%;
+    --card: 222 18% 12%;
+    --card-foreground: 220 14% 94%;
+    --popover: 222 18% 12%;
+    --popover-foreground: 220 14% 94%;
+    --primary: 220 14% 94%;
+    --primary-foreground: 222 22% 10%;
+    --secondary: 222 15% 17%;
+    --secondary-foreground: 220 14% 94%;
+    --muted: 222 15% 17%;
+    --muted-foreground: 220 9% 64%;
+    --accent: 222 15% 20%;
+    --accent-foreground: 220 14% 94%;
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 14% 21%;
+    --input: 222 14% 21%;
+    --ring: 358 75% 62%;
+    --brand: 358 75% 61%;
+    --brand-soft: 358 40% 17%;
+    --teal: 174 64% 40%;
+    --teal-soft: 174 40% 15%;
+    color-scheme: dark;
+  }
+  /* The app's long-run tag uses fixed amber; keep it readable on the dark marketing panels */
+  .theme-auto .bg-amber-50 { background-color: hsl(38 60% 16%); }
+  .theme-auto .text-amber-700 { color: hsl(38 85% 64%); }
 }
 
 @layer base {
@@ -53,3 +113,24 @@
 
 /* Muted basemap so the course line carries the colour */
 .course-tiles { filter: grayscale(0.85) brightness(1.04) contrast(0.92); }
+
+/* ─── Marketing (Phase 6) ─────────────────────────────────────────────────────────────── */
+
+/* The week strip fills once on load: planned bars first, then the run bars grow over them. */
+@keyframes bar-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.mk-bar { transform-origin: bottom; animation: bar-grow 700ms cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i, 0) * 70ms + 200ms); }
+.mk-bar-run { animation-delay: calc(var(--i, 0) * 90ms + 650ms); }
+
+/* A plan change slides its session to the new day once the panel scrolls into view (where supported). */
+@keyframes slide-day { from { transform: translateX(calc(var(--shift, 2) * -100%)); opacity: .35; } to { transform: none; opacity: 1; } }
+@supports (animation-timeline: view()) {
+  .mk-slide { animation: slide-day linear both; animation-timeline: view(); animation-range: entry 20% cover 45%; }
+}
+
+/* Pricing toggle without JS: the checked radio shows its prices. */
+.mk-pricing:has(#bill-year:checked) [data-interval='month'],
+.mk-pricing:not(:has(#bill-year:checked)) [data-interval='year'] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-bar, .mk-bar-run, .mk-slide { animation: none !important; }
+}

@@ -45,7 +45,7 @@ export default function OnboardingPage() {
     mutationFn: post,
     onSuccess: (v) => { qc.setQueryData(['onboarding'], v); setNotes(v.notes ?? []); window.scrollTo({ top: 0 }) },
   })
-  const finish = useMutation({ mutationFn: () => post({ type: 'finish' }), onSuccess: () => { window.location.href = '/' } })
+  const finish = useMutation({ mutationFn: () => post({ type: 'finish' }), onSuccess: () => { window.location.href = '/plan' } })
   if (!view) return <p className="text-sm text-muted-foreground">Lädt…</p>
   const send = (body: unknown) => step.mutate(body)
   const current = view.current
