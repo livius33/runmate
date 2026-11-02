@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAppHref } from '@/components/AppBase'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -21,6 +22,7 @@ const DAY = 86_400_000
 
 export function Comparison({ runId, runType, km, similar }: { runId: string; runType: string; km: number; similar: SimilarRun[] }) {
   const router = useRouter()
+  const href = useAppHref()          // the demo mounts the app under /demo (Phase 5)
   const [metric, setMetric] = useState<Metric>('effMpb')
   const [hover, setHover] = useState<SimilarRun | null>(null)
   const M = METRICS.find((m) => m.key === metric)!
@@ -99,7 +101,7 @@ export function Comparison({ runId, runType, km, similar }: { runId: string; run
         {pts.map((p) => p.id !== runId && (
           <circle key={p.id} cx={x(p.t)} cy={y(p.v)} r={hover?.id === p.id ? 6.5 : 5} fill="hsl(var(--muted-foreground) / 0.4)"
             stroke="hsl(var(--card))" strokeWidth={1.5} className="cursor-pointer"
-            onPointerEnter={() => setHover(p)} onPointerLeave={() => setHover(null)} onClick={() => router.push(`/running/activities/${p.id}`)} />
+            onPointerEnter={() => setHover(p)} onPointerLeave={() => setHover(null)} onClick={() => router.push(href(`/running/activities/${p.id}`))} />
         ))}
         <circle cx={x(me.t)} cy={y(me.v)} r={7.5} fill="hsl(var(--brand))" stroke="hsl(var(--card))" strokeWidth={2}
           onPointerEnter={() => setHover(me)} onPointerLeave={() => setHover(null)} />

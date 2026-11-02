@@ -43,7 +43,9 @@ export async function readLiveEntries(): Promise<LiveEntry[]> {
 export const parseBase = (value?: string): BaseSettings => {
   try {
     const v = value ? JSON.parse(value) : null
-    return v?.v === 1 ? { v: 1, paused: !!v.paused, capKm: typeof v.capKm === 'number' && v.capKm > 0 ? v.capKm : null } : BASE_DEFAULTS
+    if (v?.v !== 1) return BASE_DEFAULTS
+    const start = typeof v.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.start) ? v.start : null
+    return { v: 1, paused: !!v.paused, capKm: typeof v.capKm === 'number' && v.capKm > 0 ? v.capKm : null, ...(start ? { start } : {}) }
   } catch { return BASE_DEFAULTS }
 }
 

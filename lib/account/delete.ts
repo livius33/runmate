@@ -1,7 +1,10 @@
 // Account deletion (Art. 17 GDPR, Phase 4), one path for the Settings button and Clerk's user.deleted webhook:
-// cancel the Paddle subscription at once, delete every row of the user, then the Clerk user (unless Clerk already
-// deleted it). Runs inside the user's scope.
-import { uid } from '@/lib/db/owned'
+// cancel the Paddle subscription at once, delete every row of the user, leave a tombstone (Phase 5: a late Paddle
+// webhook must not recreate a row), then delete the Clerk user (unless Clerk already deleted it). Runs inside the
+// user's scope.
+import { db } from '@/lib/db'
+import { deletedUsers } from '@/lib/db/public-schema'
+import { mine, uid } from '@/lib/db/owned'
 import { billingEnabled } from '@/lib/billing/config'
 import { cancelCurrent } from '@/lib/billing/cancel'
 import { deleteUserData } from './data'
@@ -21,6 +24,8 @@ export async function deleteAccount(opts: DeleteOptions): Promise<{ ok: true; ta
     }
   }
   const tables = await deleteUserData()
+  const at = Math.floor(Date.now() / 1000)
+  await db.insert(deletedUsers).values(mine({ deletedAt: at })).onConflictDoUpdate({ target: deletedUsers.userId, set: { deletedAt: at } })
   if (opts.deleteClerkUser) {
     const { clerkClient } = await import('@clerk/nextjs/server')
     await (await clerkClient()).users.deleteUser(userId)

@@ -32,7 +32,7 @@ export const PUT = withUser(async (req: Request) => {
   if (capKm != null && (typeof capKm !== 'number' || !Number.isFinite(capKm) || capKm < 30 || capKm > 200)) {
     return NextResponse.json({ error: 'Deckel: 30–200 km pro Woche oder leer.' }, { status: 400 })
   }
-  const value = JSON.stringify({ v: 1, paused: typeof b.paused === 'boolean' ? b.paused : old.paused, capKm } satisfies BaseSettings)
+  const value = JSON.stringify({ v: 1, paused: typeof b.paused === 'boolean' ? b.paused : old.paused, capKm, ...(old.start ? { start: old.start } : {}) } satisfies BaseSettings)
   await setSetting(BASE_KEY, value)
   await ensureLiveBlocks(true)              // re-register with the new settings
   return NextResponse.json(await state())

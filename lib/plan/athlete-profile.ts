@@ -41,6 +41,10 @@ export const EXPERIENCE_LABEL: Record<Experience, { label: string; description: 
   elite: { label: 'Sehr erfahren', description: '5+ Jahre, Marathon-Bestzeit unter 3:15' },
 }
 
+// Threshold pace from race pace (research paces.md: threshold ≈ 1-h race pace; marathon pace ≈ threshold + 15 s/km,
+// HM pace ≈ threshold − 5…10, 10 km ≈ threshold − 15; convention). Prefill only — the profile form shows it.
+export const THRESHOLD_FROM_RACE_S = (d: number) => (d > 30 ? -15 : d > 15 ? 8 : 15)
+
 export const isoDay = (date: string): Weekday => {
   const d = new Date(`${date}T12:00:00Z`).getUTCDay()
   return (d === 0 ? 7 : d) as Weekday

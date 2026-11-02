@@ -29,6 +29,13 @@
       "when": 1793638333901,
       "tag": "0003_waitlist",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793639290090,
+      "tag": "0004_retention_tombstone",
+      "breakpoints": true
     }
   ]
 }

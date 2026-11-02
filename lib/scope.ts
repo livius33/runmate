@@ -18,13 +18,20 @@ export interface Scope {
   registry: TrainingBlock[] | null       // memo of blocks.ts: built-ins + accepted live blocks
   registryVersion: number
   readonly cache: Map<string, unknown>   // per request (e.g. the Garmin client of this user)
+  // Phase 5 demo (lib/demo/): the database refuses every write in a read-only scope (lib/db/index.ts), and the demo
+  // gets every feature without reading billing (lib/billing/access.ts).
+  readonly readOnly: boolean
+  readonly demo: boolean
 }
 
-export function createScope(userId: string | null, profile: Partial<UserProfile> | ResolvedProfile | null = null, live: TrainingBlock[] = []): Scope {
+export interface ScopeFlags { readOnly?: boolean; demo?: boolean }
+
+export function createScope(userId: string | null, profile: Partial<UserProfile> | ResolvedProfile | null = null, live: TrainingBlock[] = [], flags: ScopeFlags = {}): Scope {
   return {
     userId,
     profile: profile && 'defaults' in profile ? profile as ResolvedProfile : resolveProfile(profile),
     live, registry: null, registryVersion: -1, cache: new Map(),
+    readOnly: !!flags.readOnly, demo: !!flags.demo,
   }
 }
 
@@ -69,4 +76,10 @@ export function scopeUserId(): string {
 export class UnauthorizedError extends Error {
   readonly status = 401
   constructor() { super('Not signed in') }
+}
+
+// A write attempted in a read-only scope (the demo): the demo routes answer it with 403.
+export class ReadOnlyError extends Error {
+  readonly status = 403
+  constructor() { super('Demo – nur ansehen') }
 }

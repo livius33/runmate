@@ -7,7 +7,8 @@ import type { AthleteProfile, Weekday } from './athlete-profile'
 import type { PlanSession, PlanWeek, TrainingBlock } from './types'
 import { formatNotes } from './structure'
 import { fmtKm, paceToS } from './format'
-import { ACWR_PERSIST_DAYS, DEFAULT_PACES, DEFAULT_RULES } from './rules'
+import { ACWR_PERSIST_DAYS, DEFAULT_PACES, DEFAULT_RULES, DEFAULT_STOP_RULES } from './rules'
+import { NO_BLOCK } from './blocks'
 
 export const BASE = {
   minKm: 30,              // never below (between-blocks.md §2, 07-08 AC-1)
@@ -26,7 +27,8 @@ export const BASE = {
 // Run days without a profile: Mo locker · Di Qualität · Mi · Do locker · Fr Ruhe · Sa Longrun · So.
 const DEFAULT_DAYS = { runs: [1, 2, 3, 4, 6, 7] as Weekday[], long: 6 as Weekday, quality: 2 as Weekday }
 
-export interface BaseSettings { v: 1; paused: boolean; capKm: number | null }
+// `start` (Phase 5 onboarding, "erstmal ohne Ziel"): a base block from that Monday even before any goal block exists.
+export interface BaseSettings { v: 1; paused: boolean; capKm: number | null; start?: string | null }
 export const BASE_DEFAULTS: BaseSettings = { v: 1, paused: false, capKm: null }
 export interface BaseRun { date: string; km: number }
 export interface BaseInput {
@@ -41,13 +43,24 @@ const day = (d: string, n: number) => format(addDays(parseISO(d), n), 'yyyy-MM-d
 const mondayOf = (d: string) => day(d, 1 - getISODay(parseISO(d)))
 const half = (n: number) => Math.floor(n * 2) / 2
 const r1 = (n: number) => Math.round(n * 10) / 10
+const fmtPace = (sec: number) => { const r = Math.round(sec); return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}` }
 const kmIn = (runs: BaseRun[], from: string, to: string) => runs.filter((r) => r.date >= from && r.date <= to).reduce((t, r) => t + r.km, 0)
 
-// Gaps of whole weeks between blocks, and after the last one up to the horizon.
-export function baseGaps(blocks: TrainingBlock[], today: string): { start: string; end: string; before: TrainingBlock }[] {
+// Stand-in for "the block before" a base block that has none (a goal-less start, Phase 5): no race, default rules.
+const NO_GOAL: TrainingBlock = { ...NO_BLOCK, id: 'no-goal', stopRules: DEFAULT_STOP_RULES }
+
+// Gaps of whole weeks between blocks, and after the last one up to the horizon. With a goal-less `start` and no goal
+// block on or before it: also from that Monday up to the first goal block (or the horizon).
+export function baseGaps(blocks: TrainingBlock[], today: string, start: string | null = null): { start: string; end: string; before: TrainingBlock }[] {
   const goal = [...blocks].filter((b) => !b.base).sort((a, b) => a.planStart.localeCompare(b.planStart))
   const horizon = day(mondayOf(day(today, BASE.horizonDays - 1)), 6)
   const out: { start: string; end: string; before: TrainingBlock }[] = []
+  if (start && !goal.some((b) => b.planStart <= mondayOf(start))) {
+    const s = mondayOf(start)
+    const end = goal[0] ? day(goal[0].planStart, -1) : horizon
+    const lastSunday = getISODay(parseISO(end)) === 7 ? end : day(mondayOf(end), -1)
+    if (differenceInCalendarDays(parseISO(lastSunday), parseISO(s)) >= 6) out.push({ start: s, end: lastSunday, before: NO_GOAL })
+  }
   goal.forEach((b, i) => {
     const s = getISODay(parseISO(b.end)) === 7 ? day(b.end, 1) : day(mondayOf(b.end), 7)   // the Monday after the block's last week
     const next = goal[i + 1]
@@ -59,7 +72,8 @@ export function baseGaps(blocks: TrainingBlock[], today: string): { start: strin
 }
 
 // Week km of a base block: level from the recent volume, finished weeks below plan lower it, +5 % at most, cap = proven.
-export function baseWeekKm(gap: { start: string; end: string }, runs: BaseRun[], today: string, capKm: number | null = null): { km: number; cutback: boolean }[] {
+// `fallbackKm`: the level when no run before the gap is known yet (a new runner's weekly km from the onboarding).
+export function baseWeekKm(gap: { start: string; end: string }, runs: BaseRun[], today: string, capKm: number | null = null, fallbackKm: number | null = null): { km: number; cutback: boolean }[] {
   const n = Math.round((differenceInCalendarDays(parseISO(gap.end), parseISO(gap.start)) + 1) / 7)
   // Start: the last 3 weeks, or the last week when it was higher (a reverse taper hands over its top, between-blocks.md §3).
   const mean3 = Math.max(kmIn(runs, day(gap.start, -21), day(gap.start, -1)) / 3, kmIn(runs, day(gap.start, -7), day(gap.start, -1)))
@@ -68,7 +82,7 @@ export function baseWeekKm(gap: { start: string; end: string }, runs: BaseRun[],
   for (let w = 4; w <= BASE.provenWeeks; w++) proven = Math.max(proven, kmIn(runs, day(gap.start, -7 * w), day(gap.start, -7 * (w - 4) - 1)) / 4)
   const cap = Math.max(BASE.minKm, Math.min(proven || Infinity, capKm ?? Infinity))
   const out: { km: number; cutback: boolean }[] = []
-  let level = Math.min(Math.max(BASE.minKm, mean3), cap)
+  let level = Math.min(Math.max(BASE.minKm, mean3 || fallbackKm || 0), cap)
   for (let i = 0; i < n; i++) {
     if (i > 0) {
       const prevStart = day(gap.start, 7 * (i - 1))
@@ -133,9 +147,11 @@ function baseWeek(start: string, km: number, cutback: boolean, i: { runs: BaseRu
 // The base blocks for every gap (none when paused).
 export function baseBlocks(i: BaseInput): TrainingBlock[] {
   if (i.settings?.paused) return []
-  return baseGaps(i.blocks, i.today).map((g) => {
-    const plan = baseWeekKm(g, i.runs, i.today, i.settings?.capKm ?? null)
-    const paces = g.before.paces ?? DEFAULT_PACES
+  return baseGaps(i.blocks, i.today, i.settings?.start ?? null).map((g) => {
+    const plan = baseWeekKm(g, i.runs, i.today, i.settings?.capKm ?? null, g.before === NO_GOAL ? i.profile?.weeklyKm ?? null : null)
+    // Without a block before it, the threshold pace comes from the runner's profile when it has one.
+    const own: Record<string, string> = g.before === NO_GOAL && i.profile?.thresholdPaceS ? { threshold: fmtPace(i.profile.thresholdPaceS) } : {}
+    const paces = { ...(g.before.paces ?? DEFAULT_PACES), ...own }
     const weeks: PlanWeek[] = []
     const sessions: PlanSession[] = []
     plan.forEach((w, k) => {

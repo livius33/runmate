@@ -18,21 +18,31 @@ export async function loadSubscription(): Promise<SubscriptionRow | null> {
   return row ?? null
 }
 
-// First sign-in with billing on: the 30-day trial starts (no card). Returns the row (existing or new).
+// A visit (Phase 5 retention, lib/billing/retention.ts): stamped at most once a day; it also voids a deletion reminder.
+const SEEN_EVERY_S = 86_400
+async function touchLastSeen(row: SubscriptionRow): Promise<SubscriptionRow> {
+  const t = nowS()
+  if (row.lastSeenAt != null && t - row.lastSeenAt < SEEN_EVERY_S) return row
+  await db.update(subscription).set({ lastSeenAt: t, noticeSentAt: null }).where(own(subscription))
+  return { ...row, lastSeenAt: t, noticeSentAt: null }
+}
+
+// First sign-in with billing on: the 30-day trial starts (no card). Returns the row (existing or new); a later visit
+// is stamped as activity.
 export async function ensureSubscription(): Promise<SubscriptionRow | null> {
   if (!billingEnabled()) return null
   const existing = await loadSubscription()
-  if (existing) return existing
+  if (existing) return touchLastSeen(existing)
   const t = nowS()
   const [row] = await db.insert(subscription)
-    .values(mine({ status: 'trialing', trialEndsAt: t + TRIAL_DAYS * 86_400, updatedAt: t }))
+    .values(mine({ status: 'trialing', trialEndsAt: t + TRIAL_DAYS * 86_400, lastSeenAt: t, updatedAt: t }))
     .onConflictDoNothing()
     .returning()
   return row ?? (await loadSubscription())
 }
 
 export async function currentEntitlements(): Promise<Entitlements> {
-  if (!billingEnabled()) return SELF_HOST
+  if (!billingEnabled() || currentScope().demo) return SELF_HOST      // the demo shows every feature, never prices
   const cache = currentScope().cache
   const hit = cache.get(CACHE_KEY) as Entitlements | undefined
   if (hit) return hit

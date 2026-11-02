@@ -13,3 +13,11 @@ export const waitlist = pgTable('waitlist', {
   createdAt: integer('created_at').notNull(),     // last sign-up request; the confirm link counts from here
   confirmedAt: integer('confirmed_at'),
 }, (t) => [index('waitlist_token').on(t.tokenHash)])
+
+// Deleted accounts (Phase 5): a tombstone per deleted user id, so a late Paddle webhook cannot recreate a subscription
+// row for it (lib/billing/webhook.ts). Written by lib/account/delete.ts after every row of the user is gone; holds
+// nothing but the id and the time, and outlives the deletion on purpose.
+export const deletedUsers = pgTable('deleted_users', {
+  userId: text('user_id').primaryKey(),
+  deletedAt: integer('deleted_at').notNull(),
+})

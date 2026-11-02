@@ -11,6 +11,7 @@ import { toClient } from '@/lib/billing/entitlements'
 import { EntitlementsProvider } from '@/components/billing/Entitlements'
 import { BillingNotice } from '@/components/billing/BillingNotice'
 import { Providers } from '@/components/providers'
+import { needsOnboarding } from '@/lib/onboarding/store'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,10 +25,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
   // This user's profile and live blocks, handed to the browser's scope (components/UserScope.tsx).
   // With billing on, the first sign-in starts the 30-day trial (Phase 4); the entitlements drive the upsells.
-  const { profile, blocks, entitlements } = await runAsUser(userId, async () => {
+  // A new account goes through the onboarding first (Phase 5).
+  const r = await runAsUser(userId, async () => {
+    if (await needsOnboarding()) return null
     await ensureSubscription()
     return { blocks: await ensureLiveBlocks(), profile: currentScope().profile, entitlements: toClient(await currentEntitlements()) }
   })
+  if (!r) redirect('/onboarding')
+  const { profile, blocks, entitlements } = r
   return (
     <ClerkProvider>
       <Providers>

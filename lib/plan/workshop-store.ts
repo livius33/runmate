@@ -18,7 +18,7 @@ import {
   applyChanges, periodFor, recentVolume, reviewPeriod, suggestions, undoEntry, workshopHints,
   type PeriodChoice, type WorkshopEvent, type WorkshopLogEntry,
 } from './workshop'
-import { isoDay, validProfile, type AthleteProfile, type Weekday } from './athlete-profile'
+import { THRESHOLD_FROM_RACE_S, isoDay, validProfile, type AthleteProfile, type Weekday } from './athlete-profile'
 import { loadPauses } from './pause-store'
 import { loadRunFeedback } from '@/lib/feedback/run-store'
 import { loadWeekFeedback } from '@/lib/feedback/week-reader'
@@ -107,9 +107,6 @@ const mostCommon = (days: Weekday[], n: number) => {
   return [...c].sort((a, b) => b[1] - a[1]).slice(0, n).map(([d]) => d).sort()
 }
 
-// Threshold pace from race pace (research paces.md: threshold ≈ 1-h race pace; marathon pace ≈ threshold + 15 s/km,
-// HM pace ≈ threshold − 5…10, 10 km ≈ threshold − 15; convention). Prefill only — the profile form shows it.
-const THRESHOLD_FROM_RACE_S = (d: number) => (d > 30 ? -15 : d > 15 ? 8 : 15)
 
 export async function profilePrefill(today: string): Promise<AthleteProfile> {
   const { plan, runRows } = await loadInputs(today)
