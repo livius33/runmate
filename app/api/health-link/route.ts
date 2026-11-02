@@ -3,6 +3,7 @@ import { getLinkToken, rotateLinkToken } from '@/lib/links/tokens'
 import { lastUpload } from '@/lib/health/store'
 import { appHost } from '@/lib/app-host'
 import { withUser } from '@/lib/server/scope'
+import { intakeBlocked } from '@/lib/legal/intake'
 
 export const runtime = 'nodejs'
 
@@ -15,5 +16,7 @@ export const GET = withUser(async (req: Request) => {
 })
 
 export const POST = withUser(async (req: Request) => {
+  const blocked = await intakeBlocked()
+  if (blocked) return blocked
   return NextResponse.json({ url: link(req, await rotateLinkToken('health')), last: await lastUpload() })
 })

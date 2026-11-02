@@ -7,6 +7,7 @@ import { saveHealth } from '@/lib/health/store'
 import { hasOtherRunSource } from '@/lib/sources/registry'
 import { upsertSummary } from '@/lib/sources/ingest'
 import { runAsUser } from '@/lib/server/scope'
+import { intakeBlocked } from '@/lib/legal/intake'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const userId = await userForLinkToken('health', token)
   if (!userId) return new NextResponse('Not found', { status: 404 })
   return runAsUser(userId, async () => {
+    const blocked = await intakeBlocked()
+    if (blocked) return blocked
     const body = await req.json().catch(() => null)
     const yesterday = format(addDays(parseISO(todayLocal()), -1), 'yyyy-MM-dd')
     const keepRuns = !(await hasOtherRunSource('apple-health'))

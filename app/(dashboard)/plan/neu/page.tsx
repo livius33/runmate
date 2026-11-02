@@ -15,6 +15,7 @@ import { clockText, parseClock, type SeasonGoal } from '@/lib/season/goals'
 import type { Draft, DraftOverrides, DraftResult } from '@/lib/plan/generator/draft'
 import type { StoredDraft } from '@/lib/plan/draft-store'
 import type { PlanSession } from '@/lib/plan/types'
+import { Upsell, useEntitlements } from '@/components/billing/Entitlements'
 
 type TField = { path: string; label: string; group: string; kind: 'int' | 'share' | 'number' | 'bool' | 'choice'; min: number; max: number; unit?: string; hint?: string
   options?: { value: string; label: string }[]; template: number | boolean | string }
@@ -43,6 +44,7 @@ export default function NewPlanPage() {
 
 function NewPlan() {
   const qc = useQueryClient()
+  const { features } = useEntitlements()
   const params = useSearchParams()
   const ctx = useQuery<Ctx>({ queryKey: ['drafts'], queryFn: () => fetch('/api/running/drafts').then((r) => r.json()) })
   const [goalId, setGoalId] = useState(params.get('goal') ?? '')
@@ -270,6 +272,7 @@ function NewPlan() {
                 <span className="text-xs text-muted-foreground">{tuneDirty ? 'Vorschau rechnet schon mit deinen Werten, gespeichert ist noch nichts.' : saveTune.isSuccess ? `Gespeichert: gilt für jeden Entwurf mit ${template.own ? 'deiner Methode' : 'dieser Vorlage'}.` : ''}</span>
                 {saveTune.isError && <span className="text-xs text-brand">{(saveTune.error as Error).message}</span>}
               </div>
+              {template.own && !features.ownMethod && <Upsell feature="ownMethod" />}
               {template.own && template.own.compare.length > 0 && <Compare t={template} tuning={tuning} id={compareId} setId={setCompareId} />}
             </div>
           )}

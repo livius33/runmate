@@ -3,9 +3,13 @@ import { todayLocal } from '@/lib/dates'
 import { deleteDraft, goLive, listDrafts, planStatus, saveOwn, saveTuning, previewDraft, saveDraft, takeOffline, type DraftChoiceIn } from '@/lib/plan/draft-store'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { withUser } from '@/lib/server/scope'
+import { PLUS_REQUIRED } from '@/lib/billing/access'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+// 402 when the plan does not include it (lib/billing/entitlements.ts), otherwise a plain input error.
+const status = (r: object) => ('code' in r && r.code === PLUS_REQUIRED ? 402 : 400)
 
 // { goals, templates, defaultStart, profile, drafts: [{ draft, result }], live } — every draft regenerated
 // ?status=1 → plan status per upcoming main race only (no drafts generated)
@@ -24,7 +28,7 @@ export const POST = withUser(async (req: Request) => {
   const b = (await req.json().catch(() => null)) as (DraftChoiceIn & { action?: string; draftId?: string; blockId?: string; name?: string }) | null
   if (b?.action === 'own') {
     const r = await saveOwn(b.templateId ?? '', b.tuning ?? {}, typeof b.name === 'string' ? b.name : '')
-    return 'error' in r ? NextResponse.json(r, { status: 400 }) : NextResponse.json(r)
+    return 'error' in r ? NextResponse.json(r, { status: status(r) }) : NextResponse.json(r)
   }
   if (b?.action === 'tune') {
     const r = await saveTuning(b.templateId ?? '', b.tuning ?? {})
@@ -32,7 +36,7 @@ export const POST = withUser(async (req: Request) => {
   }
   if (b?.action === 'live' || b?.action === 'offline') {
     const r = b.action === 'live' ? await goLive(b.draftId ?? '', todayLocal()) : await takeOffline(b.blockId ?? '')
-    return 'error' in r ? NextResponse.json(r, { status: 400 }) : NextResponse.json(r)
+    return 'error' in r ? NextResponse.json(r, { status: status(r) }) : NextResponse.json(r)
   }
   if (!b?.goalId || !b.templateId || !b.start) return NextResponse.json({ ok: false, error: 'Ziel, Vorlage und Start fehlen.' }, { status: 400 })
   return NextResponse.json(await previewDraft(b, todayLocal()))

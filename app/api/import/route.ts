@@ -4,6 +4,7 @@ import { MAX_FILE_BYTES, MAX_FILES_PER_REQUEST } from '@/lib/sources/file'
 import { runAndSaveEngine } from '@/lib/plan/engine-store'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { withUser } from '@/lib/server/scope'
+import { intakeBlocked } from '@/lib/legal/intake'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -12,6 +13,8 @@ export const maxDuration = 60
 // (components/settings/ImportCard.tsx). Plain .fit/.gpx/.tcx/.zip files work too (self-host, curl).
 // multipart/form-data, field `file` (repeated) → import report. `?final=1` on the last batch adapts the plan once.
 export const POST = withUser(async (req: Request) => {
+  const blocked = await intakeBlocked()
+  if (blocked) return blocked
   const form = await req.formData().catch(() => null)
   if (!form) return NextResponse.json({ error: 'Dateien als multipart/form-data im Feld „file“ senden.' }, { status: 400 })
   const entries = form.getAll('file').filter((f): f is File => typeof f === 'object' && 'arrayBuffer' in f)

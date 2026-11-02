@@ -17,6 +17,8 @@ import { VolumeCard } from '@/components/plan/VolumeCard'
 import { RulesCard } from '@/components/plan/RulesCard'
 import { PaceCard } from '@/components/plan/PaceCard'
 import { PlanChanges } from '@/components/plan/PlanChanges'
+import { EngineSuggestions } from '@/components/plan/EngineSuggestions'
+import type { EngineResult } from '@/lib/plan/engine-store'
 import { PauseControl, usePauses } from '@/components/plan/PauseControl'
 import { TodayCard } from '@/components/plan/TodayCard'
 import { CrossTrainingToday, useCrossTraining } from '@/components/plan/CrossTrainingLog'
@@ -91,9 +93,11 @@ export default function PlanPage() {
   })
 
   // Plan engine: run once when the page opens, then show its changes and log.
-  const { data: engine = EMPTY_ENGINE } = useQuery<EngineState>({
+  // Without Plus the POST returns suggestions instead of applying them (Phase 4); a refetch keeps the last ones.
+  const { data: engine = EMPTY_ENGINE as EngineResult } = useQuery<EngineResult>({
     queryKey: ['plan-engine'],
-    queryFn: () => fetch('/api/running/plan-engine').then((r) => (r.ok ? r.json() : EMPTY_ENGINE)),
+    queryFn: () => fetch('/api/running/plan-engine').then((r) => (r.ok ? r.json() : EMPTY_ENGINE))
+      .then((s: EngineState) => ({ ...s, suggestions: qc.getQueryData<EngineResult>(['plan-engine'])?.suggestions })),
   })
   const ran = useRef(false)
   useEffect(() => {
@@ -101,7 +105,7 @@ export default function PlanPage() {
     ran.current = true
     fetch('/api/running/plan-engine', { method: 'POST' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((s: EngineState | null) => s && qc.setQueryData(['plan-engine'], s))
+      .then((s: EngineResult | null) => s && qc.setQueryData(['plan-engine'], s))
       .catch(() => {})
   }, [qc])
   const undo = useMutation({
@@ -112,6 +116,17 @@ export default function PlanPage() {
       const data = await r.json()
       if (!r.ok) throw new Error(data.error ?? 'Zurücknehmen fehlgeschlagen')
       return data as EngineState
+    },
+    onSuccess: (s) => qc.setQueryData(['plan-engine'], s),
+  })
+  const decide = useMutation({
+    mutationFn: async ({ key, decline }: { key: string; decline: boolean }) => {
+      const r = await fetch('/api/running/plan-engine/suggestion', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, decline }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error ?? 'Vorschlag konnte nicht gespeichert werden')
+      return data as EngineResult
     },
     onSuccess: (s) => qc.setQueryData(['plan-engine'], s),
   })
@@ -199,6 +214,9 @@ export default function PlanPage() {
           : <RaceStrategy race={race} course={course ?? null} />}</div></>}
         <div className="min-w-0 lg:col-span-7"><VolumeCard today={today} actuals={actuals} /></div>
         <div className="min-w-0 lg:col-span-5"><PaceCard today={today} sessions={sessions} actuals={actuals} /></div>
+        {!!engine.suggestions?.length && <div className="min-w-0 lg:col-span-12"><EngineSuggestions suggestions={engine.suggestions}
+          onDecide={(key, decline) => decide.mutate({ key, decline })} busy={decide.isPending}
+          error={decide.isError ? (decide.error as Error).message : null} /></div>}
         <div className="min-w-0 lg:col-span-7"><PlanChanges log={engine.log} onUndo={(id) => undo.mutate(id)} busy={undo.isPending}
           error={undo.isError ? (undo.error as Error).message : null} /></div>
         {!afterRace && !base && <div className="min-w-0 lg:col-span-5"><PredictionCard prediction={prediction} today={today} /></div>}

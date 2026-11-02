@@ -8,6 +8,7 @@ import { raceWeek, raceWeekPhase } from '@/lib/plan/race-week'
 import { raceOf } from '@/lib/plan/blocks'
 import { cn } from '@/lib/utils'
 import { Card } from './ui'
+import { Upsell, useEntitlements } from '@/components/billing/Entitlements'
 
 type Checked = Record<string, boolean>
 
@@ -16,6 +17,7 @@ export function RaceWeekCard({ today }: { today: string }) {
   const phase = raceWeekPhase(today)
   const { race, days: RACE_WEEK, checklist: CHECKLIST } = raceWeek(raceOf(today))
   const qc = useQueryClient()
+  const canTick = useEntitlements().features.raceDay      // the checklist is a race-day tool (Plus, Phase 4)
   const { data: checked = {} } = useQuery<Checked>({
     queryKey: ['race-checklist'],
     queryFn: () => fetch('/api/running/race-checklist').then((r) => r.json()).then((d) => d.checked ?? {}),
@@ -77,7 +79,7 @@ export function RaceWeekCard({ today }: { today: string }) {
               const on = !!checked[c.id], due = c.due <= today && !on
               return (
                 <li key={c.id}>
-                  <button onClick={() => toggle.mutate({ id: c.id, checked: !on })} aria-pressed={on}
+                  <button onClick={() => toggle.mutate({ id: c.id, checked: !on })} aria-pressed={on} disabled={!canTick}
                     className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-secondary">
                     <span className={cn('mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border', on ? 'border-teal bg-teal text-white' : due ? 'border-brand' : 'border-border')}>
                       {on && <Check className="h-3 w-3" />}
@@ -90,6 +92,7 @@ export function RaceWeekCard({ today }: { today: string }) {
               )
             })}
           </ul>
+          {!canTick && <Upsell feature="raceDay" className="mt-2" />}
           {toggle.isError && <p className="mt-2 text-xs text-brand">Konnte nicht gespeichert werden, bitte noch einmal tippen.</p>}
         </div>
       </div>
