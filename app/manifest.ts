@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Runmate',
     short_name: 'Runmate',
     description: 'Trainingsplan, Läufe und Analyse',
-    start_url: '/',
+    start_url: '/plan',
     scope: '/',
     display: 'standalone',
     background_color: '#ffffff',

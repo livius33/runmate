@@ -12,13 +12,23 @@ const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS ?? '').split(',').map((e) => 
 // both check their own secret token.
 // Webhooks (Paddle, Clerk) verify their own signatures. The legal pages and the cancellation page (§312k BGB) must be
 // reachable without an account (Phase 4).
+// Marketing (Phase 6): the landing page in de and en, pricing, the methodology pages, the waitlist and its confirm
+// links, SEO files and the OG images; the read-only demo and sign-up (Phase 5).
 const isPublicRoute = createRouteMatcher([
-  '/sign-in(.*)', '/api/cron(.*)', '/api/calendar/(.*)', '/api/health/(.*)',
+  '/sign-in(.*)', '/sign-up(.*)', '/api/cron(.*)', '/api/calendar/(.*)', '/api/health/(.*)',
   '/api/billing/webhook', '/api/billing/cancel-request', '/api/webhooks/(.*)',
   '/impressum', '/datenschutz', '/agb', '/kuendigen',
+  '/', '/en(.*)', '/preise', '/methoden(.*)', '/warteliste(.*)', '/api/waitlist(.*)',
+  '/sitemap.xml', '/robots.txt', '/opengraph-image(.*)', '/demo(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {
+  // Signed in, the landing page is not where you want to be: straight to the plan (the page itself stays static).
+  if (req.nextUrl.pathname === '/') {
+    const { userId } = await auth()
+    if (userId) return NextResponse.redirect(new URL('/plan', req.url))
+    return
+  }
   if (isPublicRoute(req)) return
 
   const { userId, sessionClaims } = await auth.protect()

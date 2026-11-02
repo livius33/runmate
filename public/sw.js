@@ -7,7 +7,7 @@ const API = [/^\/api\/running\//, /^\/api\/season(\/|$)/, /^\/api\/garmin\/statu
 const TIMEOUT_MS = 4000
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.add('/').catch(() => {})).then(() => self.skipWaiting()))
+  event.waitUntil(caches.open(CACHE).then((c) => c.add('/plan').catch(() => {})).then(() => self.skipWaiting()))
 })
 
 self.addEventListener('activate', (event) => {
@@ -53,7 +53,7 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request)
       .then((r) => { store(request, r.clone()); return r })
-      .catch(async () => (await fromCache(request, '/')) || new Response('Offline – diese Seite wurde noch nicht geladen.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })))
+      .catch(async () => (await fromCache(request, '/plan')) || new Response('Offline – diese Seite wurde noch nicht geladen.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })))
     return
   }
 
