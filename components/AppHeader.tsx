@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import {
   CalendarDays, ChartLine, Flag, Footprints, MoreHorizontal, Settings, SlidersHorizontal, Sun, Trophy, X, type LucideIcon,
 } from 'lucide-react'
@@ -10,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { HeaderSync } from '@/components/HeaderSync'
 import { HeaderDate } from '@/components/HeaderDate'
 import { Logo } from '@/components/Logo'
+import { useAppBase, useAppHref, useAppPath } from '@/components/AppBase'
 
 type Item = { href: string; label: string; icon: LucideIcon; match: (p: string) => boolean }
 
@@ -34,10 +34,11 @@ function titleOf(path: string) {
 
 // Desktop: a sidebar next to a slim top bar (page title, sync).
 export function AppSidebar() {
-  const path = usePathname() ?? '/'
+  const path = useAppPath()
+  const href = useAppHref()
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-border bg-card md:flex">
-      <Link href="/" aria-label="Runmate" className="flex h-14 items-center px-5"><Logo /></Link>
+      <Link href={href('/')} aria-label="Runmate" className="flex h-14 items-center px-5"><Logo /></Link>
       <NavList path={path} />
       <div className="px-5 pb-4"><HeaderDate className="block" /></div>
     </aside>
@@ -46,7 +47,8 @@ export function AppSidebar() {
 
 // Top bar on every size; on phones it also holds the menu button that opens the same list as the sidebar.
 export function AppHeader() {
-  const path = usePathname() ?? '/'
+  const path = useAppPath()
+  const { readOnly } = useAppBase()
   const [open, setOpen] = useState(false)
   useEffect(() => setOpen(false), [path])
   useEffect(() => {
@@ -62,7 +64,7 @@ export function AppHeader() {
         <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
           <h1 className="truncate text-sm font-semibold">{titleOf(path)}</h1>
           <div className="ml-auto flex shrink-0 items-center gap-3">
-            <HeaderSync />
+            {!readOnly && <HeaderSync />}
           </div>
         </div>
       </header>
@@ -98,13 +100,14 @@ const TABS: Item[] = [
 ]
 
 function MobileTabBar({ path, onMore, moreOpen }: { path: string; onMore: () => void; moreOpen: boolean }) {
+  const to = useAppHref()
   const onTab = TABS.some((t) => t.match(path))
   const cls = (active: boolean) => cn('tap flex min-w-0 flex-1 flex-col items-center gap-0.5 pt-2 pb-1.5 text-[11px]',
     active ? 'font-medium text-brand' : 'text-muted-foreground')
   return (
     <nav aria-label="Hauptnavigation" className="fixed inset-x-0 bottom-0 z-[1000] flex border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden">
       {TABS.map(({ href, label, icon: Icon, match }) => (
-        <Link key={href} href={href} aria-current={match(path) ? 'page' : undefined} className={cls(match(path))}>
+        <Link key={href} href={to(href)} aria-current={match(path) ? 'page' : undefined} className={cls(match(path))}>
           <Icon className="h-5 w-5" />{label}
         </Link>
       ))}
@@ -116,6 +119,7 @@ function MobileTabBar({ path, onMore, moreOpen }: { path: string; onMore: () => 
 }
 
 function NavList({ path }: { path: string }) {
+  const { readOnly } = useAppBase()
   return (
     <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-2">
       {NAV.map((g) => (
@@ -124,15 +128,16 @@ function NavList({ path }: { path: string }) {
           {g.items.map((i) => <NavLink key={i.href} item={i} path={path} />)}
         </div>
       ))}
-      <div className="mt-auto grid border-t border-border pt-3"><NavLink item={SETTINGS} path={path} /></div>
+      {!readOnly && <div className="mt-auto grid border-t border-border pt-3"><NavLink item={SETTINGS} path={path} /></div>}
     </nav>
   )
 }
 
 function NavLink({ item: { href, label, icon: Icon, match }, path }: { item: Item; path: string }) {
+  const to = useAppHref()
   const active = match(path)
   return (
-    <Link href={href} aria-current={active ? 'page' : undefined}
+    <Link href={to(href)} aria-current={active ? 'page' : undefined}
       className={cn('flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors md:py-1.5',
         active ? 'bg-brand-soft font-medium text-brand' : 'text-muted-foreground hover:bg-secondary hover:text-foreground')}>
       <Icon className="h-4 w-4 shrink-0" />

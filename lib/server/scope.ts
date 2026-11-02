@@ -14,11 +14,13 @@ export interface RunAsOptions extends ScopeFlags {
 }
 
 // Run `fn` as this user: their profile, their blocks, their rows. Scopes never nest into each other: a nested call
-// for another user gets its own store.
+// for another user gets its own store. Read-only is sticky (Phase 5 demo): nothing run inside a read-only scope can
+// open a writable one.
 export async function runAsUser<T>(userId: string, fn: () => Promise<T>, opts: RunAsOptions = {}): Promise<T> {
   if (!userId) throw new UnauthorizedError()
+  const outer = als.getStore()
   const profile = opts.profile !== undefined ? opts.profile : await (await import('@/lib/profile-store')).loadUserProfile(userId)
-  return als.run(createScope(userId, profile, [], { readOnly: opts.readOnly, demo: opts.demo }), fn)
+  return als.run(createScope(userId, profile, [], { readOnly: opts.readOnly || !!outer?.readOnly, demo: opts.demo }), fn)
 }
 
 // The Clerk user of this request (or of the scope already entered); throws UnauthorizedError without a session.
@@ -41,6 +43,8 @@ export function withUser<A extends unknown[]>(handler: (...args: A) => Promise<R
       if (err instanceof UnauthorizedError) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
       throw err
     }
+    // Already running as this user (the demo's dispatcher, lib/demo/serve.ts): keep that scope and its flags.
+    if (als.getStore()?.userId === userId) return handler(...args)
     return runAsUser(userId, async () => handler(...args))
   }
 }

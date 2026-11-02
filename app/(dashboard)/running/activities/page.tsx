@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useAppHref } from '@/components/AppBase'
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -32,6 +33,7 @@ const PAGE = 50
 
 export default function RunsPage() {
   const router = useRouter()
+  const href = useAppHref()          // the demo mounts the app under /demo (Phase 5)
   const { data: runs = [], isLoading, isError } = useQuery<RunSummary[]>({
     queryKey: ['runs'],
     queryFn: async () => {
@@ -162,7 +164,7 @@ export default function RunsPage() {
             {isLoading && <tr><td colSpan={9} className="px-3 py-6 text-muted-foreground">Läufe werden geladen…</td></tr>}
             {isError && <tr><td colSpan={9} className="px-3 py-6 text-brand">Läufe konnten nicht geladen werden. Seite neu laden.</td></tr>}
             {rows.slice(0, shown).map((r) => (
-              <tr key={r.id} onClick={() => router.push(`/running/activities/${r.id}`)}
+              <tr key={r.id} onClick={() => router.push(href(`/running/activities/${r.id}`))}
                 className="cursor-pointer border-b border-border last:border-0 hover:bg-secondary/50 tabular-nums">
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   <Link href={`/running/activities/${r.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">

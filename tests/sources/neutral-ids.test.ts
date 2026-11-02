@@ -26,6 +26,7 @@ describe('Neutrale Quell-IDs', () => {
   it('kein Code liest garminActivityId; Aktivitäten schreibt nur die Ingest-Schicht', () => {
     expect(sources.filter(([, s]) => /garminActivityId|garmin_activity_id/.test(s)).map(([f]) => f)).toEqual([])
     const writers = sources.filter(([, s]) => /insert\(activities\)/.test(s)).map(([f]) => f).sort()
-    expect(writers).toEqual(['app/api/cross-training/route.ts', 'lib/sources/ingest.ts'])
+    // lib/demo/store.ts writes the synthetic demo athlete only, already normalised (Phase 5), never source data.
+    expect(writers).toEqual(['app/api/cross-training/route.ts', 'lib/demo/store.ts', 'lib/sources/ingest.ts'])
   })
 })
