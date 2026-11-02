@@ -9,13 +9,14 @@ import { fileSource } from './index'
 export interface ImportReport {
   files: number
   inserted: number
+  replaced: number                   // the same activity from another source, now replaced by the richer file
   duplicates: number
   skipped: number                    // sports Runmate does not track (e.g. walking)
   errors: { name: string; message: string }[]
 }
 
 export async function importFiles(files: { name: string; bytes: Uint8Array }[]): Promise<ImportReport> {
-  const report: ImportReport = { files: files.length, inserted: 0, duplicates: 0, skipped: 0, errors: [] }
+  const report: ImportReport = { files: files.length, inserted: 0, replaced: 0, duplicates: 0, skipped: 0, errors: [] }
   const plan = await loadPlan()
   for (const f of files) {
     try {
@@ -23,10 +24,10 @@ export async function importFiles(files: { name: string; bytes: Uint8Array }[]):
       if (!parsed.length) report.errors.push({ name: f.name, message: 'Keine Aktivität in der Datei gefunden.' })
       for (const { summary, detail } of parsed) {
         if (!isImportedSport(summary.sport)) { report.skipped++; continue }
-        const r = await upsertSummary('file', summary, { existing: 'skip' })
+        const r = await upsertSummary('file', summary, { existing: 'skip', detail })
         if (r.result === 'duplicate') { report.duplicates++; continue }
         await storeDetail(r.id, detail, plan)
-        report.inserted++
+        report[r.result === 'replaced' ? 'replaced' : 'inserted']++
       }
     } catch (err) {
       const message = err instanceof SourceError ? err.message : 'Datei konnte nicht importiert werden.'

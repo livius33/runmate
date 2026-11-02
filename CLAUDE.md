@@ -44,7 +44,8 @@ scripts/                 — backfill-run-metrics.mts, check-methodologies.mts, 
 - Secrets (Garmin login/session) are encrypted with `ENCRYPTION_KEY` (lib/crypto.ts), never logged, never returned.
   Source errors reach users and logs only as `SourceError` (code + German message), never as library output.
 - Data sources: implement `ActivitySource` (lib/sources/types.ts) and register it; store activities only through
-  lib/sources/ingest.ts (`source` + `source_activity_id`, cross-source dedupe). Never read a source-specific id column.
+  lib/sources/ingest.ts (`source` + `source_activity_id`, cross-source dedupe: the richer record replaces the stored one in
+  place and keeps the runner's RPE, run type override and feedback; otherwise the duplicate is skipped). Never read a source-specific id column.
   `tests/sources/contract.test.ts` runs every registered source against fixtures.
 - The block registry starts empty. Code must work with no block (`hasBlocks()`, `NO_BLOCK`) and must not special-case a
   block id; use block properties (`handWritten`, `base`, `paces`, `engine`).
