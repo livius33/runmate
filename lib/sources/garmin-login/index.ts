@@ -18,10 +18,13 @@ const CLIENT_KEY = 'garmin.client'
 const API = 'https://connectapi.garmin.com/activity-service/activity'
 const PAGE = 50
 
+// Reviewed in Phase 4: says what is done with the login (in the user's name, transmitted to Garmin), that it is
+// unofficial and may conflict with Garmin's terms, and points to the separate Art. 9 consent for health values.
 export const CONSENT_TEXT = [
-  'Runmate speichert deine Garmin-Zugangsdaten verschlüsselt und nutzt sie nur, um deine eigenen Aktivitäten von Garmin Connect abzurufen.',
+  'Runmate meldet sich mit deinen Garmin-Zugangsdaten in deinem Auftrag bei Garmin Connect an und ruft nur deine eigenen Aktivitäten ab. Die Zugangsdaten werden verschlüsselt gespeichert, nur dafür an Garmin übermittelt und nie angezeigt.',
+  'Das ist keine offizielle Garmin-Schnittstelle: Garmin kann sie jederzeit ändern oder sperren, dann funktioniert die Synchronisierung nicht mehr. Ob die Nutzung mit den Nutzungsbedingungen von Garmin vereinbar ist, entscheidest du selbst.',
+  'Für Herzfrequenz und andere Gesundheitswerte gilt deine gesonderte Einwilligung unter „Gesundheitsdaten“.',
   'Du kannst die Verbindung und die gespeicherten Zugangsdaten jederzeit hier löschen.',
-  'Das ist kein offizieller Garmin-Zugang: Garmin kann ihn jederzeit ändern oder sperren, dann funktioniert die Synchronisierung nicht mehr.',
 ]
 
 const Credentials = z.object({
