@@ -12,10 +12,13 @@ import { own } from '@/lib/db/owned'
 type UserTable = PgTable & { userId: PgColumn }
 export interface UserTableEntry { key: string; name: string; table: UserTable }
 
+// Tables keyed by a user id that are not the user's data: the deletion tombstone (Phase 5) must outlive the deletion.
+export const NOT_USER_DATA = ['deleted_users']
+
 // Every table owned by a user, children before the tables they reference (so deletes never trip a foreign key).
 export function userTables(): UserTableEntry[] {
   const all = Object.entries(schema)
-    .filter(([, v]) => is(v, PgTable) && 'userId' in getTableColumns(v as PgTable))
+    .filter(([, v]) => is(v, PgTable) && 'userId' in getTableColumns(v as PgTable) && !NOT_USER_DATA.includes(getTableName(v as PgTable)))
     .map(([key, t]) => ({ key, name: getTableName(t as PgTable), table: t as UserTable }))
   const refs = new Map(all.map((e) => [e.name, getTableConfig(e.table).foreignKeys.map((fk) => getTableName(fk.reference().foreignTable))]))
   const out: UserTableEntry[] = []

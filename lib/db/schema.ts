@@ -185,6 +185,10 @@ export const subscription = pgTable('subscription', {
   cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
   canceledAt: integer('canceled_at'),
   eventAt: integer('event_at'),                  // occurred_at of the last Paddle event applied (older ones are ignored)
+  // Retention of expired accounts (Phase 5, lib/billing/retention.ts): last dashboard visit (stamped at most daily) and
+  // when the "deleted in 30 days" reminder went out (null = none, or reset by a visit after it).
+  lastSeenAt: integer('last_seen_at'),
+  noticeSentAt: integer('notice_sent_at'),
   updatedAt: integer('updated_at').notNull().default(unixNow),
 }, (t) => [index('subscription_paddle_sub').on(t.paddleSubscriptionId)])
 
@@ -206,3 +210,12 @@ export const consents = pgTable('consents', {
   grantedAt: integer('granted_at').notNull(),
   revokedAt: integer('revoked_at'),              // null = in force
 }, (t) => [primaryKey({ columns: [t.userId, t.kind] })])
+
+// ─── Deleted accounts (Phase 5): tombstones, so a late Paddle webhook cannot recreate a row for a deleted user ─
+
+// Written by lib/account/delete.ts after every other row of the user is gone; holds nothing but the id and the time.
+// Not user data: never exported, and the account deletion does not remove it (lib/account/data.ts NOT_USER_DATA).
+export const deletedUsers = pgTable('deleted_users', {
+  userId: userId().primaryKey(),
+  deletedAt: integer('deleted_at').notNull(),
+})

@@ -3,7 +3,7 @@
 // saves. Paddle may deliver late, twice or out of order: duplicates are skipped and older events never overwrite newer.
 import { eq, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { billingEvents, subscription } from '@/lib/db/schema'
+import { billingEvents, deletedUsers, subscription } from '@/lib/db/schema'
 import { mine, own } from '@/lib/db/owned'
 import { runAsUser } from '@/lib/server/scope'
 import { priceIds, priceInfo, type PriceIds } from './config'
@@ -17,7 +17,8 @@ export interface PaddleEvent {
   data: Record<string, unknown>
 }
 
-export type SubState = Omit<SubscriptionRow, 'userId' | 'updatedAt'>
+// Retention stamps (Phase 5) are not Paddle's business: lib/billing/access.ts and the retention cron write them.
+export type SubState = Omit<SubscriptionRow, 'userId' | 'updatedAt' | 'lastSeenAt' | 'noticeSentAt'>
 
 const SUBSCRIPTION_EVENTS = new Set([
   'subscription.created', 'subscription.updated', 'subscription.activated', 'subscription.canceled',
@@ -92,7 +93,14 @@ async function userOf(ev: PaddleEvent): Promise<string | null> {
   return row?.userId ?? null
 }
 
-export type WebhookResult = 'applied' | 'unchanged' | 'duplicate' | 'ignored' | 'unknown-user'
+export type WebhookResult = 'applied' | 'unchanged' | 'duplicate' | 'ignored' | 'unknown-user' | 'deleted-user'
+
+// A deleted account (Phase 5 tombstone): its events are dropped without writing anything for that user id.
+async function isDeleted(userId: string): Promise<boolean> {
+  // cross-user: the webhook has no session; the tombstone is looked up by the id the event names
+  const [row] = await db.select({ id: deletedUsers.userId }).from(deletedUsers).where(eq(deletedUsers.userId, userId)).limit(1)
+  return !!row
+}
 
 export async function handlePaddleEvent(ev: PaddleEvent): Promise<WebhookResult> {
   if (!HANDLED_EVENTS.has(ev.event_type)) return 'ignored'
@@ -101,9 +109,10 @@ export async function handlePaddleEvent(ev: PaddleEvent): Promise<WebhookResult>
   if (seen) return 'duplicate'
   const userId = await userOf(ev)
   if (!userId) return 'unknown-user'
+  if (await isDeleted(userId)) return 'deleted-user'
   return runAsUser(userId, async () => {
     const [current] = await db.select().from(subscription).where(own(subscription)).limit(1)
-    const { userId: _u, updatedAt: _t, ...row } = current ?? ({} as SubscriptionRow)
+    const { userId: _u, updatedAt: _t, lastSeenAt: _s, noticeSentAt: _n, ...row } = current ?? ({} as SubscriptionRow)
     const next = applyPaddleEvent(current ? row : null, ev)
     if (next) {
       const values = { ...next, updatedAt: Math.floor(Date.now() / 1000) }
@@ -119,7 +128,7 @@ export async function handlePaddleEvent(ev: PaddleEvent): Promise<WebhookResult>
 export async function saveCancelled(s: PaddleSubscription) {
   const [current] = await db.select().from(subscription).where(own(subscription)).limit(1)
   if (!current) return null
-  const { userId: _u, updatedAt: _t, ...row } = current
+  const { userId: _u, updatedAt: _t, lastSeenAt: _s, noticeSentAt: _n, ...row } = current
   const next = fromPaddleSubscription(row, s, row.eventAt)
   if (!next) return null
   const values = { ...next, updatedAt: Math.floor(Date.now() / 1000) }
