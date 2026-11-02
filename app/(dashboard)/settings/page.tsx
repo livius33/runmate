@@ -9,6 +9,7 @@ import { GarminSource } from '@/components/settings/GarminSource'
 import { ImportCard } from '@/components/settings/ImportCard'
 import { BillingCard } from '@/components/settings/BillingCard'
 import { HealthConsentCard } from '@/components/settings/HealthConsentCard'
+import { MyDataCard } from '@/components/settings/MyDataCard'
 
 export default function SettingsPage() {
   const { data, isLoading } = useQuery<SourcesResponse>({
@@ -45,6 +46,8 @@ export default function SettingsPage() {
           </p>
         ))}
       </section>
+
+      <MyDataCard />
     </div>
   )
 }
