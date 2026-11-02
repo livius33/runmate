@@ -7,6 +7,7 @@ import { HealthCard } from '@/components/settings/HealthCard'
 import { ProfileCard } from '@/components/settings/ProfileCard'
 import { GarminSource } from '@/components/settings/GarminSource'
 import { ImportCard } from '@/components/settings/ImportCard'
+import { BillingCard } from '@/components/settings/BillingCard'
 
 export default function SettingsPage() {
   const { data, isLoading } = useQuery<SourcesResponse>({
@@ -24,6 +25,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl space-y-8">
       <h1 className="text-lg font-semibold">Einstellungen</h1>
 
+      <BillingCard />
       <ProfileCard />
       <CalendarCard />
 
