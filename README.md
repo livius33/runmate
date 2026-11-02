@@ -78,6 +78,14 @@ The repository ships an example training block (a real 3:05 Porto Marathon build
 | `ENCRYPTION_KEY` | for Garmin | 32 random bytes (`openssl rand -base64 32`); encrypts each user's Garmin login and session at rest (AES-256-GCM). Changing it makes stored logins unreadable: users enter them again |
 | `CRON_SECRET` | for the cron | Secret the daily sync route checks (Vercel Cron sends it) |
 | `APP_HOST` | no | Public host for calendar and Health links (e.g. `www.example.com`); default: the request host |
+| `CLERK_WEBHOOK_SECRET` | recommended | Signing secret of the Clerk webhook endpoint `/api/webhooks/clerk` (event `user.deleted` deletes the user's data) |
+| `BILLING_ENABLED` | hosted only | `1` turns on subscriptions, the 30-day trial and the Art. 9 consent prompt. Unset = self-host: every feature, no billing |
+| `REQUIRE_HEALTH_CONSENT` | no | `1` asks for the health-data consent without billing (a self-hosted instance serving other people) |
+| `PADDLE_ENV` | with billing | `sandbox` or `production` |
+| `PADDLE_API_KEY` | with billing | Paddle API key (cancel, customer portal); server only |
+| `PADDLE_WEBHOOK_SECRET` | with billing | Secret of the Paddle notification destination `/api/billing/webhook` |
+| `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | with billing | Paddle.js client-side token (checkout) |
+| `PADDLE_PRICE_BASIC_MONTH`, `PADDLE_PRICE_BASIC_YEAR`, `PADDLE_PRICE_PLUS_MONTH`, `PADDLE_PRICE_PLUS_YEAR` | with billing | Paddle price ids (`pri_…`) per plan and interval |
 
 ### Your values
 
@@ -85,6 +93,21 @@ Each user keeps their own profile (**Settings → Mein Profil**): HFmax, resting
 (shares of HFmax, or Friel's shares of LTHR), marathon PB, VO2max, weight, easy pace, time zone. Zones, race HR caps,
 TRIMP load, carb amounts and "today" derive from it. Empty fields use **example defaults** (HFmax 190, resting HR 60,
 Europe/Berlin, …), marked as such in the form.
+
+### Billing (hosted only)
+
+Self-hosting needs none of this: without `BILLING_ENABLED` every feature is on and no subscription is stored. The
+hosted app sells **Basic** (sync, analysis, insights, one generated plan; the engine's changes are suggestions) and
+**Plus** (the engine adapts the plan by itself, several plans, own method, race-day tools) through
+[Paddle](https://www.paddle.com) as merchant of record, after a 30-day trial without a card. What each plan state may
+do is one pure module, [`lib/billing/entitlements.ts`](lib/billing/entitlements.ts); data export and account
+deletion are never gated.
+
+Setup: create the four prices in Paddle, a client-side token, an API key and a notification destination
+`https://<host>/api/billing/webhook` for `subscription.*` and `transaction.completed`; fill the `PADDLE_*` variables.
+For Clerk add a webhook endpoint `https://<host>/api/webhooks/clerk` for `user.deleted`. The legal page templates
+(`/impressum`, `/datenschutz`, `/agb`, `/kuendigen`) contain `[PLATZHALTER: …]` that must be filled and reviewed
+before going live.
 
 ## Data sources
 

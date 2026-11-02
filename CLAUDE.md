@@ -10,11 +10,14 @@ by a rule engine out. UI is German; code, comments and docs are English.
 
 ```
 app/(dashboard)/         — pages: / (Plan), /plan/neu, /plan/anpassen, /running (Analyse), /running/activities, /season, /race, /settings
+app/(legal)/             — public pages without Clerk: /impressum, /datenschutz, /agb, /kuendigen (§312k BGB)
 app/api/                 — API routes (sources/*, import, running/*, season, calendar + health token routes, cron)
 components/              — runs/, analyse/, plan/, settings/
 lib/db/                  — Neon connection (lazy), Drizzle schema, owned.ts (own/mine), settings.ts (per-user key/value)
 lib/scope.ts, lib/server/scope.ts — per-request user scope (user id, profile, live blocks); withUser/runAsUser
 lib/profile.ts           — the runner's profile (HFmax, rest, LTHR, zone model, PB, weight, time zone) + defaults
+lib/billing/              — entitlements (pure), access (server checks), Paddle (fetch + webhook signature), webhook, cancel
+lib/legal/, lib/account/  — Art. 9 consent + intake gate; export / deletion over every user table, Svix verification
 lib/sources/              — data sources: types.ts (ActivitySource contract), registry.ts, ingest.ts (the only writer of
                            source activities; dedupe.ts), sync.ts; garmin-login/ (unofficial, per user, encrypted),
                            garmin-api.ts (placeholder), apple-health.ts, file/ (FIT/GPX/TCX/ZIP parsers, browser batching)
@@ -53,4 +56,11 @@ scripts/                 — backfill-run-metrics.mts, check-methodologies.mts, 
 - Keep `npx tsc --noEmit` and `npm test` green. `next build` must work without a database.
 - No personal data in code, tests or fixtures.
 - Local dev runs on port 3001 (`npm run dev`).
+- Billing (Phase 4): what a user may do comes only from `lib/billing/entitlements.ts`; check it on the server with
+  `requireFeature()` / `currentEntitlements()` (lib/billing/access.ts), never by reading the subscription row. Without
+  `BILLING_ENABLED` everything is allowed (self-host). Never gate data export or account deletion. Data intake (any new
+  source, import or push route) calls `intakeBlocked()` (lib/legal/intake.ts: Art. 9 consent + plan).
+- A new user table is exported and deleted automatically (lib/account/data.ts reads the schema); mark secret columns
+  in `SECRET_COLUMNS`.
+- Legal pages are templates: operator details only as `<Ph>…</Ph>` (`[PLATZHALTER: …]`), never invented.
 - Every change on its own branch (`feature/…`, `fix/…`, `chore/…`) with a pull request to `main`.
