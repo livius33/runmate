@@ -8,7 +8,7 @@ import { Upload } from 'lucide-react'
 import { batches, prepareUploads, type Rejected } from '@/lib/sources/file/browser'
 import { AFTER_SYNC } from './GarminSource'
 
-interface Totals { inserted: number; duplicates: number; skipped: number; errors: Rejected[] }
+interface Totals { inserted: number; replaced: number; duplicates: number; skipped: number; errors: Rejected[] }
 
 export function ImportCard() {
   const qc = useQueryClient()
@@ -20,7 +20,7 @@ export function ImportCard() {
   async function run(files: File[]) {
     setBusy(true)
     setTotals(null)
-    const t: Totals = { inserted: 0, duplicates: 0, skipped: 0, errors: [] }
+    const t: Totals = { inserted: 0, replaced: 0, duplicates: 0, skipped: 0, errors: [] }
     try {
       setProgress('Dateien werden gelesen…')
       const { uploads, rejected } = await prepareUploads(files)
@@ -35,6 +35,7 @@ export function ImportCard() {
         const d = await r.json().catch(() => ({}))
         if (!r.ok) { t.errors.push({ name: `Teil ${i + 1}`, message: d.error ?? 'Hochladen fehlgeschlagen' }); continue }
         t.inserted += d.inserted
+        t.replaced += d.replaced ?? 0
         t.duplicates += d.duplicates
         t.skipped += d.skipped
         t.errors.push(...(d.errors ?? []))
@@ -56,7 +57,9 @@ export function ImportCard() {
       <p className="text-sm text-muted-foreground">
         .FIT, .GPX oder .TCX-Dateien (je höchstens 20 MB) – oder den kompletten Garmin-Datenexport als .ZIP
         (Garmin-Konto → Datenverwaltung → Daten exportieren). Aktivitäten, die schon da sind (gleicher Start ±2 Minuten,
-        Distanz ±3 %), werden übersprungen, egal aus welcher Quelle.
+        Distanz ±3 %), werden übersprungen, egal aus welcher Quelle – außer die Datei ist reicher (z. B. mit Puls- und
+        GPS-Verlauf statt nur einer Zusammenfassung): dann ersetzt sie den vorhandenen Eintrag, deine RPE und
+        Rückmeldungen bleiben.
       </p>
       <input ref={input} type="file" multiple accept=".fit,.gpx,.tcx,.zip" className="hidden"
         onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; if (files.length) run(files) }} />
@@ -66,7 +69,7 @@ export function ImportCard() {
       {progress && <p className="text-xs text-muted-foreground">{progress}</p>}
       {totals && (
         <div className="grid gap-1 text-xs">
-          <p>{totals.inserted} neu · {totals.duplicates} schon vorhanden · {totals.skipped} andere Sportarten übersprungen</p>
+          <p>{totals.inserted} neu{totals.replaced > 0 && ` · ${totals.replaced} ersetzt`} · {totals.duplicates} schon vorhanden · {totals.skipped} andere Sportarten übersprungen</p>
           {totals.errors.length > 0 && (
             <details className="text-red-400">
               <summary className="cursor-pointer">{totals.errors.length} {totals.errors.length === 1 ? 'Datei' : 'Dateien'} nicht importiert</summary>

@@ -63,6 +63,7 @@ Adaptation: trigger → strategy → diff → confirm.
 | 36 | Multi-distance templates (threshold anchor, G-1) | RESEARCH.md G-1, paces.md | later | open |
 | 37 | Lactate/HR-guided threshold sessions (Norwegian for amateurs, G-2) | RESEARCH.md G-2 | later | open |
 | 38 | Garmin sleep/HRV availability | modifiers.md §4 | 09-02 | open (research endpoints first) |
+| 41 | LTHR zone model (Friel's 85/90/95/100 % LTHR shares; how to get an LTHR: test, race, device estimate) — note missing; the option stays hidden (`LTHR_ZONES_ENABLED` in `lib/profile.ts`) until it exists | — (paces.md §2 covers the HFmax model only) | later | open |
 
 ## Proposed SAFETY additions (collected)
 

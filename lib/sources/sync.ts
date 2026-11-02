@@ -74,7 +74,7 @@ export async function syncSource(src: ActivitySource, { days = 28, enrichLimit =
     const { items } = await src.listActivities({ since: new Date(Date.now() - days * 86_400_000) })
     for (const a of items) {
       const u = await upsertSummary(src.meta.id, a)
-      r[u.result === 'inserted' ? 'inserted' : u.result === 'updated' ? 'updated' : 'duplicates']++
+      r[u.result === 'inserted' ? 'inserted' : u.result === 'duplicate' ? 'duplicates' : 'updated']++
     }
     r.log.push(`${src.meta.id}: ${r.inserted} new, ${r.updated} updated, ${r.duplicates} duplicates`)
     if (src.meta.capabilities.detailStreams) await enrichPending(src, enrichLimit, r)
@@ -131,8 +131,8 @@ export async function syncHistoryPage(src: ActivitySource, page: number, pageSiz
   for (const a of items) {
     const u = await upsertSummary(src.meta.id, a)
     if (u.result === 'inserted') inserted++
-    else if (u.result === 'updated') updated++
-    else duplicates++
+    else if (u.result === 'duplicate') duplicates++
+    else updated++
   }
   return { inserted, updated, duplicates, hasMore }
 }

@@ -1,7 +1,7 @@
 // AC-6 (Phase 2): zones, race caps, athlete facts and "today" derive from the runner's profile; a missing profile
 // gives marked example defaults.
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_PROFILE, resolveProfile, validateProfile } from '@/lib/profile'
+import { DEFAULT_PROFILE, LTHR_ZONES_ENABLED, resolveProfile, validateProfile } from '@/lib/profile'
 import { hrZones, raceHr, zonesFor } from '@/lib/analytics/hr'
 import { athlete } from '@/lib/athlete'
 import { createScope } from '@/lib/scope'
@@ -30,12 +30,18 @@ describe('Profil → Zonen', () => {
   })
 
   it('LTHR-Modell: Zonen als Anteile der LTHR (Friel), ohne LTHR zurück auf HFmax', () => {
-    const lt = resolveProfile({ hrMax: 195, lthr: 172, zoneModel: 'lthr' })
-    expect(lt.zoneModelUsed).toBe('lthr')
-    expect(zonesFor(lt).map((z) => z.max)).toEqual([146, 155, 163, 172, 999])
+    // The code path stays (hidden behind LTHR_ZONES_ENABLED until researched).
+    expect(zonesFor({ hrMax: 195, hrRest: 60, lthr: 172, zoneModelUsed: 'lthr' }).map((z) => z.max)).toEqual([146, 155, 163, 172, 999])
     const noLt = resolveProfile({ hrMax: 195, zoneModel: 'lthr' })
     expect(noLt.zoneModelUsed).toBe('hrmax')
     expect(zonesFor(noLt)).toEqual(zonesFor(resolveProfile({ hrMax: 195 })))
+  })
+
+  it('LTHR-Modell gesperrt: gespeichertes "lthr" ergibt HFmax-Zonen', () => {
+    expect(LTHR_ZONES_ENABLED).toBe(false)
+    const lt = resolveProfile({ hrMax: 195, lthr: 172, zoneModel: 'lthr' })
+    expect(lt.zoneModelUsed).toBe('hrmax')
+    expect(zonesFor(lt)).toEqual(zonesFor(resolveProfile({ hrMax: 195 })))
   })
 
   it('"heute" in der Zeitzone des Profils', () => {
@@ -56,6 +62,7 @@ describe('Profil-Formular', () => {
     [{ hrMax: 300 }, 'HFmax'],
     [{ hrMax: 130, hrRest: 100 }, 'Ruhepuls und HFmax'],
     [{ zoneModel: 'lthr' }, 'LTHR'],
+    [{ zoneModel: 'lthr', lthr: 170 }, 'noch nicht verfügbar'],
     [{ hrMax: 180, lthr: 185 }, 'LTHR muss unter'],
     [{ easyPace: '5:75' }, 'Lockeres Tempo'],
     [{ timezone: 'Nowhere/City' }, 'Zeitzone'],
