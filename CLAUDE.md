@@ -18,6 +18,7 @@ lib/profile.ts           — the runner's profile (HFmax, rest, LTHR, zone model
 lib/sources/              — data sources: types.ts (ActivitySource contract), registry.ts, ingest.ts (the only writer of
                            source activities; dedupe.ts), sync.ts; garmin-login/ (unofficial, per user, encrypted),
                            garmin-api.ts (placeholder), apple-health.ts, file/ (FIT/GPX/TCX/ZIP parsers, browser batching)
+lib/vendor/garmin-connect/ — fork of the unmaintained garmin-connect 1.6.2 (MIT, own LICENSE; never logs tokens)
 lib/analytics/           — hr.ts (the one HR model, from the profile), run-metrics, load (TRIMP, CTL/ATL/TSB, ACWR), progress
 lib/plan/                — blocks registry, generator/, methodology/, engine, effective (edits), pause, events, race week/day
 lib/plan/plan-files.ts   — hand-written plan files that are always registered (empty by default)
@@ -44,7 +45,8 @@ scripts/                 — backfill-run-metrics.mts, check-methodologies.mts, 
 - Secrets (Garmin login/session) are encrypted with `ENCRYPTION_KEY` (lib/crypto.ts), never logged, never returned.
   Source errors reach users and logs only as `SourceError` (code + German message), never as library output.
 - Data sources: implement `ActivitySource` (lib/sources/types.ts) and register it; store activities only through
-  lib/sources/ingest.ts (`source` + `source_activity_id`, cross-source dedupe). Never read a source-specific id column.
+  lib/sources/ingest.ts (`source` + `source_activity_id`, cross-source dedupe: the richer record replaces the stored one in
+  place and keeps the runner's RPE, run type override and feedback; otherwise the duplicate is skipped). Never read a source-specific id column.
   `tests/sources/contract.test.ts` runs every registered source against fixtures.
 - The block registry starts empty. Code must work with no block (`hasBlocks()`, `NO_BLOCK`) and must not special-case a
   block id; use block properties (`handWritten`, `base`, `paces`, `engine`).

@@ -7,11 +7,12 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserRound } from 'lucide-react'
 import type { HrZone } from '@/lib/analytics/hr'
-import type { ProfileField, ResolvedProfile, UserProfile } from '@/lib/profile'
+import { LTHR_ZONES_ENABLED, type ProfileField, type ResolvedProfile, type UserProfile } from '@/lib/profile'
 
 type View = { stored: UserProfile | null; resolved: ResolvedProfile; zones: HrZone[]; raceHr: Record<'marathon' | 'half' | 'tenK', { cap: number; hard: number }> }
 
-const FIELDS: { key: ProfileField; label: string; hint?: string; type?: 'number' | 'text' }[] = [
+// The LTHR field and the zone-model choice stay hidden until the LTHR model is researched (LTHR_ZONES_ENABLED).
+const ALL_FIELDS: { key: ProfileField; label: string; hint?: string; type?: 'number' | 'text' }[] = [
   { key: 'hrMax', label: 'HFmax', type: 'number' },
   { key: 'hrRest', label: 'Ruhepuls', type: 'number' },
   { key: 'lthr', label: 'LTHR (Schwellenpuls)', type: 'number', hint: 'optional, für das LTHR-Zonenmodell' },
@@ -23,6 +24,7 @@ const FIELDS: { key: ProfileField; label: string; hint?: string; type?: 'number'
   { key: 'easyPace', label: 'Lockeres Tempo', hint: 'm:ss pro km' },
   { key: 'timezone', label: 'Zeitzone', hint: 'z. B. Europe/Berlin' },
 ]
+const FIELDS = ALL_FIELDS.filter((f) => LTHR_ZONES_ENABLED || f.key !== 'lthr')
 
 export function ProfileCard() {
   const qc = useQueryClient()
@@ -32,7 +34,9 @@ export function ProfileCard() {
   useEffect(() => {
     if (!data) return
     const s = data.stored
-    setForm(Object.fromEntries([...FIELDS.map((f) => [f.key, s?.[f.key] == null ? '' : String(s[f.key])]), ['zoneModel', s?.zoneModel ?? 'hrmax']]))
+    // A hidden LTHR is kept as stored; the zone model falls back to HFmax while LTHR is off.
+    const zoneModel = LTHR_ZONES_ENABLED ? s?.zoneModel ?? 'hrmax' : 'hrmax'
+    setForm(Object.fromEntries([...ALL_FIELDS.map((f) => [f.key, s?.[f.key] == null ? '' : String(s[f.key])]), ['zoneModel', zoneModel]]))
   }, [data])
   const save = useMutation({
     mutationFn: async () => {
@@ -66,14 +70,14 @@ export function ProfileCard() {
             {f.hint && <span className="mt-0.5 block text-[11px] text-muted-foreground">{f.hint}</span>}
           </label>
         ))}
-        <label className="text-xs">
+        {LTHR_ZONES_ENABLED && <label className="text-xs">
           <span className="text-muted-foreground">Zonenmodell</span>
           <select className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={form.zoneModel ?? 'hrmax'}
             onChange={(e) => setForm({ ...form, zoneModel: e.target.value })}>
             <option value="hrmax">Anteile der HFmax</option>
             <option value="lthr">Anteile der LTHR (Friel)</option>
           </select>
-        </label>
+        </label>}
         <div className="sm:col-span-2 flex items-center gap-3">
           <button type="submit" disabled={save.isPending} className="rounded-md bg-secondary px-3 py-1.5 text-xs hover:bg-secondary/80 disabled:opacity-50">Speichern</button>
           {save.isError && <span className="text-xs text-red-400">{(save.error as Error).message}</span>}

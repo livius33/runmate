@@ -1,7 +1,7 @@
-// The `garmin-connect` client (unofficial, logs in like the Garmin Connect app), narrowed to what the source uses and
-// hardened: an MFA prompt becomes GarminMfaError, HTTP errors become GarminHttpError(status) without the library
-// logging the response body. Tests replace the factory with a fake (setGarminClientFactory).
-import { GarminConnect } from 'garmin-connect'
+// The `garmin-connect` client (unofficial, logs in like the Garmin Connect app; vendored in lib/vendor/garmin-connect/,
+// which never logs tokens or credentials), narrowed to what the source uses and hardened: an MFA prompt becomes
+// GarminMfaError, HTTP errors become GarminHttpError(status) without the response body. Tests replace the factory with a fake (setGarminClientFactory).
+import { GarminConnect } from '@/lib/vendor/garmin-connect'
 import { GarminHttpError, GarminMfaError } from './errors'
 
 export interface GarminClient {

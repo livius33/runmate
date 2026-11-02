@@ -8,6 +8,10 @@
 export const ZONE_MODELS = ['hrmax', 'lthr'] as const
 export type ZoneModel = (typeof ZONE_MODELS)[number]
 
+// The 'lthr' model (Friel's shares) has no note in methodologies/research/ yet ("research before generator rules"):
+// the form hides it, validateProfile rejects it and a stored 'lthr' resolves to 'hrmax' until this is true.
+export const LTHR_ZONES_ENABLED = false
+
 // As stored: every field may be empty (null = use the default).
 export interface UserProfile {
   hrMax: number | null
@@ -63,7 +67,7 @@ export function resolveProfile(p: Partial<UserProfile> | null | undefined): Reso
     hrRest: p?.hrRest ?? DEFAULT_PROFILE.hrRest,
     lthr,
     zoneModel,
-    zoneModelUsed: zoneModel === 'lthr' && lthr != null ? 'lthr' : 'hrmax',
+    zoneModelUsed: LTHR_ZONES_ENABLED && zoneModel === 'lthr' && lthr != null ? 'lthr' : 'hrmax',
     pbTime: p?.pbTime ?? DEFAULT_PROFILE.pbTime,
     pbRace: p?.pbRace ?? DEFAULT_PROFILE.pbRace,
     pbHr: p?.pbHr ?? Math.round(hrMax * 0.84),
@@ -112,6 +116,7 @@ export function validateProfile(raw: unknown): { ok: true; profile: UserProfile 
   if (timezone && !validTimeZone(timezone as string)) return { ok: false, error: 'Zeitzone unbekannt (z. B. Europe/Berlin).' }
   const zoneModel = r.zoneModel == null || r.zoneModel === '' ? 'hrmax' : r.zoneModel
   if (!ZONE_MODELS.includes(zoneModel as ZoneModel)) return { ok: false, error: 'Zonenmodell unbekannt.' }
+  if (zoneModel === 'lthr' && !LTHR_ZONES_ENABLED) return { ok: false, error: 'Das LTHR-Zonenmodell ist noch nicht verfügbar.' }
   if (zoneModel === 'lthr' && lthr == null) return { ok: false, error: 'Das LTHR-Modell braucht eine LTHR.' }
   const max = (hrMax as number | null) ?? DEFAULT_PROFILE.hrMax, rest = (hrRest as number | null) ?? DEFAULT_PROFILE.hrRest
   if (rest >= max - 40) return { ok: false, error: 'Ruhepuls und HFmax passen nicht zusammen.' }

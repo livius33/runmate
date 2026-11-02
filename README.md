@@ -90,10 +90,10 @@ Europe/Berlin, …), marked as such in the form.
 
 | Source | Self-host | Status |
 |---|---|---|
-| Garmin (login) | Unofficial `garmin-connect` login with each user's own credentials (Settings → Datenquellen, with consent; stored encrypted), flagged experimental. No MFA | Works today; the npm package is unmaintained since 01/2024 and Garmin can change its login any time |
+| Garmin (login) | Unofficial `garmin-connect` login with each user's own credentials (Settings → Datenquellen, with consent; stored encrypted), flagged experimental. No MFA | Works today; the client is a fork of the unmaintained `garmin-connect` package in `lib/vendor/garmin-connect/` (never logs tokens), and Garmin can change its login any time |
 | Garmin (official API) | Garmin Connect Developer Program (Personal key for your own data; Starter for a hosted app) | Placeholder (`lib/sources/garmin-api.ts`), not implemented |
 | Apple Health | iOS Shortcut posting to your personal secret link (`/api/health/[token]`); running workouts count only without another run source | Works today |
-| File import (FIT / GPX / TCX / Garmin export ZIP) | Account-free; the browser unpacks the export and uploads in batches (≤ 20 MB per file); duplicates (start ±2 min, distance ±3 %) are skipped | Works today |
+| File import (FIT / GPX / TCX / Garmin export ZIP) | Account-free; the browser unpacks the export and uploads in batches (≤ 20 MB per file); duplicates (start ±2 min, distance ±3 %, any source) are skipped unless the new record is richer (streams/laps, more channels, HR), which then replaces the old one and keeps the runner's RPE and feedback | Works today |
 | Strava | OAuth; 2026 API terms limit caching (7 days), AI use and showing data to others — an import trigger, not the source of record | Planned, after launch |
 | Polar / COROS / Suunto / Wahoo | — | Later |
 
