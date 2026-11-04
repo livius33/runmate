@@ -14,6 +14,8 @@ export interface PlanSession {
   anchor?: boolean        // fixed date (an event): the engine never moves or softens it, it cannot be moved by hand
   was?: PlanSession       // the pace session this day had before the runner switched it to Zone 2 (to switch back)
   paused?: 'krank' | 'pause'   // a day inside a Krank/Pause period (07-08, lib/plan/pause.ts)
+  // Kettlebell after the run (lib/plan/strength.ts): a marker only — no km, no load, never key or hard.
+  strength?: { minMin: number; maxMin: number; optional?: boolean }
 }
 
 export interface PlanWeek {

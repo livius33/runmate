@@ -9,6 +9,7 @@ import { athlete } from '@/lib/athlete'
 import { fitSession, formatNotes, parseStructure, rescale } from './structure'
 import { rulesFor } from './rules'
 import { pauseLayer, type PauseInput } from './pause'
+import { KB, withStrength } from './strength'
 
 // date → replacement session for that day (type 'rest' clears the day)
 export type Overrides = Record<string, PlanSession>
@@ -151,13 +152,13 @@ function addKm(target: PlanSession | undefined, date: string, km: number, note: 
 
 function mergeSessions(a: PlanSession, b: PlanSession, date: string): PlanSession {
   const [main, other] = rank(a) >= rank(b) ? [a, b] : [b, a]
-  return {
+  return withStrength({
     ...main,
     date,
     km: r1((a.km ?? 0) + (b.km ?? 0)),
     key: a.key || b.key,
     notes: join(main.notes, `+ ${fmtKm(other.km ?? 0)} km ${other.title}`),
-  }
+  }, main.strength ?? other.strength)   // a kettlebell marker stays with the merged run
 }
 
 // ─── Editing one day's km ─────────────────────────────────────────────────────
@@ -172,7 +173,8 @@ export function parseKm(input: string): number | null {
 
 function sameSession(a: PlanSession, b: PlanSession) {
   return a.type === b.type && (a.km ?? 0) === (b.km ?? 0) && a.title === b.title &&
-    (a.notes ?? '') === (b.notes ?? '') && (a.pace ?? '') === (b.pace ?? '') && !!a.key === !!b.key
+    (a.notes ?? '') === (b.notes ?? '') && (a.pace ?? '') === (b.pace ?? '') && !!a.key === !!b.key &&
+    JSON.stringify(a.strength ?? null) === JSON.stringify(b.strength ?? null)
 }
 
 // ─── Zone 2 or pace ───────────────────────────────────────────────────────────
@@ -194,7 +196,7 @@ export function setZone2(overrides: Overrides, date: string, sessions: PlanSessi
   const next: PlanSession = {
     date, type: 'easy', km: s!.km, title: s!.anchor ? `${s!.title} locker (Z2)` : 'Locker (Z2)',
     notes: `Zone 2 (HF ${athlete().zone2[0]}–${athlete().zone2[1]}) statt ${s!.title}.`,
-    ...(s!.anchor ? { anchor: true } : {}), was: orig,
+    ...(s!.anchor ? { anchor: true } : {}), ...(s!.strength ? { strength: s!.strength } : {}), was: orig,
   }
   return { ...overrides, [date]: next }
 }
@@ -206,10 +208,26 @@ export function setPace(overrides: Overrides, date: string, sessions: PlanSessio
   const original = allSessions().find((x) => x.date === date)
   const kept = s!.was ?? original
   // Event and test flags come from the plan day when the kept session lost them.
-  const back = kept && original ? { ...kept, anchor: kept.anchor ?? original.anchor, test: kept.test ?? original.test } : kept
+  const restored = kept && original ? { ...kept, anchor: kept.anchor ?? original.anchor, test: kept.test ?? original.test } : kept
+  const back = restored && withStrength(restored, s!.strength)   // the day's kettlebell marker as it is now
   const out = { ...overrides }
   if (!back || (original && sameSession(back, original) && !!back.anchor === !!original.anchor && back.test === original.test)) delete out[date]
   else out[date] = { ...back, date }
+  return out
+}
+
+// Kettlebell on/off for one day, as a manual edit of that day; back to the plan → the edit is dropped.
+// Never on race day or a paused day. A marker added by hand is a regular one (30–40 Min.).
+export const strengthEditable = (s: PlanSession | undefined, date: string) =>
+  !!s && s.type !== 'race' && !s.paused && date >= firstPlanStart()
+export function toggleStrength(overrides: Overrides, date: string, sessions: PlanSession[]): Overrides {
+  const s = sessions.find((x) => x.date === date)
+  if (!s || !strengthEditable(s, date)) return overrides
+  const next = withStrength(s, s.strength ? null : KB.regular)
+  const original = allSessions().find((x) => x.date === date)
+  const out = { ...overrides }
+  if (original && sameSession(next, original) && !next.was) delete out[date]
+  else out[date] = next
   return out
 }
 

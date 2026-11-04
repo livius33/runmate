@@ -498,6 +498,7 @@ function DayRow({ s }: { s: PlanSession }) {
         {s.type !== 'rest' && <span className="tabular-nums">{km(s.km)} km</span>}
         {s.key && <Star className="h-3.5 w-3.5 text-amber-600" aria-label="Schlüsseleinheit" />}
         {s.test && <Pill className="border-brand text-brand">{s.test}</Pill>}
+        {s.strength && <Pill className="border-dashed">Kettlebell {s.strength.minMin}–{s.strength.maxMin} Min.{s.strength.optional ? ' (optional)' : ''}</Pill>}
       </span>
       {s.notes && s.type !== 'rest' && <span className="pl-16 text-xs text-muted-foreground">{s.notes}</span>}
     </li>

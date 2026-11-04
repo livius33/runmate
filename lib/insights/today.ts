@@ -12,6 +12,7 @@ import { checkPace, matchSessionRuns, type DatedRun } from '@/lib/plan/pace-chec
 import { tired, type EngineChange } from '@/lib/plan/engine'
 import { raceWeekDay } from '@/lib/plan/race-week'
 import { acwrCaution, acwrStreak, acwrWhy, rulesFor } from '@/lib/plan/rules'
+import { strengthToday } from '@/lib/plan/strength'
 
 export type TodayState = 'race' | 'done' | 'rest' | 'hard' | 'easy'
 
@@ -23,6 +24,7 @@ export interface TodayInsight {
   yesterday?: string
   advice: string
   caution?: string               // 07-23: ACWR high, but not on enough days to change the plan
+  strength?: string              // today's kettlebell marker ("Danach Kettlebell …" / "… auslassen" when tired)
 }
 
 const Z2 = () => hrZones()[1]
@@ -131,6 +133,7 @@ export function todayInsight({ today, sessions, manual, engineLog, runs, tsb, ac
     why,
     yesterday: yesterdayText(today, sessions, runs),
     advice,
+    ...(s?.strength && s.type !== 'race' && !s.paused ? { strength: strengthToday(s, tired(fitness, rules) ? tiredWhy || 'sehr müde' : null)! } : {}),
     ...(acwr != null && acwrCaution(fitness, rules)
       ? { caution: `Belastung hoch (ACWR ${acwr.toFixed(2)}, ${acwrStreak(fitness, rules)}. Tag): vorsichtig, noch keine Planänderung.` } : {}),
   }

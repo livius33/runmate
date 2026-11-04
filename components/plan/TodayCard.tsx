@@ -2,7 +2,7 @@
 
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { Sun } from 'lucide-react'
+import { Dumbbell, Sun } from 'lucide-react'
 import { fmtKm } from '@/lib/plan/format'
 import type { TodayInsight } from '@/lib/insights/today'
 import { Pill, TypeTag } from './ui'
@@ -35,6 +35,11 @@ export function TodayCard({ today, insight, children }: { today: string; insight
 
       <p className="mt-3 text-[15px] font-semibold leading-snug">{insight.advice}</p>
       {insight.caution && <p className="mt-1 text-sm text-muted-foreground">{insight.caution}</p>}
+      {insight.strength && (
+        <p className="mt-2 inline-flex items-center gap-1.5 text-sm">
+          <Dumbbell className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />{insight.strength}
+        </p>
+      )}
 
       {insight.why.length > 0 && (
         <div className="mt-2 text-sm">
