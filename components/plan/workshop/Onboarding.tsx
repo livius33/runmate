@@ -123,6 +123,7 @@ export function Onboarding({ initial, events, connections, onSave, saving, error
             <One label="Langer Lauf" value={p.longRunDay} options={p.availableDays} onChange={(d) => set('longRunDay', d)} />
             <Days label="Qualitätstage (Tempo, Intervalle)" value={p.qualityDays} onToggle={(d) => toggle('qualityDays', d)} />
             <Days label="Kettlebell-Tage" value={p.kbDays} onToggle={(d) => toggle('kbDays', d)} />
+            <p className="-mt-2 text-xs text-muted-foreground">Nach dem Lauf, 30–40 Min. bei RPE 5–8; ab dem dritten Tag optional (20–30 Min.). Nie in den 2 Tagen vor Longrun-Test oder Rennen, nicht in der Rennwoche.</p>
             <One label="Fester Ruhetag" value={p.restDay} options={WEEKDAYS.map((w) => w.d)} onChange={(d) => set('restDay', d)} allowNone />
             <div className="grid gap-4 sm:grid-cols-2">
               <Num field="maxKmWeekday" label="Höchstens Mo–Fr" unit="km" value={p.maxKmWeekday} onChange={(v) => set('maxKmWeekday', v)} />

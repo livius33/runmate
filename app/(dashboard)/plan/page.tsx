@@ -23,6 +23,9 @@ import { PauseControl, usePauses } from '@/components/plan/PauseControl'
 import { TodayCard } from '@/components/plan/TodayCard'
 import { CrossTrainingToday, useCrossTraining } from '@/components/plan/CrossTrainingLog'
 import { CROSS_SPORTS } from '@/lib/analytics/cross-training'
+import { KB, kbDoneDates, syncedThroughOf } from '@/lib/plan/strength'
+import { todayLocal } from '@/lib/dates'
+import type { SourcesResponse } from '@/lib/sources/types'
 import { TodayFeedback } from '@/components/plan/TodayFeedback'
 import { NextPlanCard } from '@/components/plan/NextPlan'
 import { RaceWeekCard } from '@/components/plan/RaceWeekCard'
@@ -147,8 +150,8 @@ export default function PlanPage() {
   // Cross-training sessions per day for the week grid pills (08-04)
   const { data: crossList = [] } = useCrossTraining()
   const cross = useMemo(() => {
-    const m = new Map<string, { letter: string; label: string }[]>()
-    for (const r of crossList) m.set(r.date, [...(m.get(r.date) ?? []), { letter: CROSS_SPORTS[r.type].letter, label: `${r.label} ${r.minutes} Min.` }])
+    const m = new Map<string, { letter: string; label: string; kb: boolean }[]>()
+    for (const r of crossList) m.set(r.date, [...(m.get(r.date) ?? []), { letter: CROSS_SPORTS[r.type].letter, label: `${r.label} ${r.minutes} Min.`, kb: KB.doneTypes.includes(r.type) }])
     return m
   }, [crossList])
   // Nights (sleep, HRV, resting HR): nothing is shown without a source that delivers them.
@@ -159,6 +162,14 @@ export default function PlanPage() {
   })
   const wellness = wellnessData?.available ? wellnessData.nights : undefined
   const recoveryToday = useMemo(() => (wellness ? recoveryDay(wellness, today) : undefined), [wellness, today])
+  // Kettlebell markers: done = a Strength or Gym session that day; "ausgelassen" only for days a sync covers.
+  const kbDone = useMemo(() => kbDoneDates(crossList), [crossList])
+  const { data: sources } = useQuery<SourcesResponse>({
+    queryKey: ['sources'],
+    queryFn: () => fetch('/api/sources').then((r) => r.json()),
+    staleTime: 60_000,
+  })
+  const syncedThrough = syncedThroughOf(sources?.lastSync, (d) => todayLocal(d))
   const tsb = fitness.length ? fitness[fitness.length - 1].tsb : null
   const runs: DatedRun[] = useMemo(() => actualList.flatMap((a) => a.runs.map((r) => ({ ...r, date: a.date }))), [actualList])
   const insight = useMemo(
@@ -205,7 +216,7 @@ export default function PlanPage() {
       <RaceWeekCard today={today} />
 
       <div className="grid gap-5 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-7"><TrainingSchedule today={today} actuals={actuals} cross={cross} sessions={sessions}
+        <div className="min-w-0 lg:col-span-7"><TrainingSchedule today={today} actuals={actuals} cross={cross} kbDone={kbDone} syncedThrough={syncedThrough} sessions={sessions}
           overrides={overrides} baseSessions={baseSessions} engineOverrides={engine.overrides} engineNotes={engineNotes} onChange={(next) => save.mutate(next)} saving={save.isPending}
           saveError={save.isError} onRetry={() => save.variables && save.mutate(save.variables)} /></div>
         <div className="min-w-0 lg:col-span-5">{base

@@ -6,6 +6,7 @@ import { type PlanSession } from '@/lib/plan/types'
 import { estimateDurationS, fmtDuration, fmtKm } from '@/lib/plan/format'
 import { describeStructure, glossaryFor, sessionStructure, rescale, stridesCount, termsIn, totalKm } from '@/lib/plan/structure'
 import { sessionTargets } from '@/lib/insights/today'
+import { strengthDetail } from '@/lib/plan/strength'
 import { cn } from '@/lib/utils'
 import { Pill } from './ui'
 
@@ -40,6 +41,7 @@ export function SessionDetails({ session, why = [], compact = false }: { session
     .replace(/^Mit \d+ Steigerungen( am Ende)?\.?$/, '')
   const targets = sessionTargets(session)
   const reasons = [...why, ...history]
+  const kb = strengthDetail(session)                // kettlebell after the run
 
   if (compact) {
     return (
@@ -47,6 +49,7 @@ export function SessionDetails({ session, why = [], compact = false }: { session
         {targets.join(' · ')}
         {lines.length > 0 && <> · {lines[1]}</>}
         {strides != null && <> · {strides} Steigerungen am Ende</>}
+        {session.strength && <> · danach Kettlebell{session.strength.optional ? ' (optional)' : ''}</>}
       </p>
     )
   }
@@ -69,6 +72,7 @@ export function SessionDetails({ session, why = [], compact = false }: { session
         <p className="text-[13px]">Am Ende {strides} Steigerungen: je ca. 20 s zügig bis etwa 5-km-Tempo, locker zurück.</p>
       )}
       {rest && <p className="text-xs text-muted-foreground leading-relaxed">{rest}</p>}
+      {kb && <p className="text-[13px]">{kb}</p>}
       {terms.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           {terms.map((t) => (

@@ -10,7 +10,9 @@ import { trainingPaces, type Paces } from './paces'
 import { buildWorkouts, type WorkoutPlan } from './workouts'
 import type { MeasuredInputs } from './inputs'
 import { recoveryAfterRace } from './recovery'
-import type { PlanSession, PlanWeek } from '../types'
+import type { PlanSession, PlanWeek, RaceInfo } from '../types'
+import type { Weekday } from '../athlete-profile'
+import { kbDaysOf, placeStrength } from '../strength'
 
 export interface DraftOverrides { currentKm?: number | null; provenKm?: number | null; peakKm?: number | null; longest30Km?: number | null; goalS?: number | null }
 export interface DraftChoice {
@@ -69,7 +71,20 @@ export function generateDraft(c: DraftChoice): DraftResult {
     ...workouts.warnings.map((text) => ({ step: 'Einheiten' as const, text })),
   ]
   const recovery = recoveryOf({ distance, days, workouts, paces, raceDate: c.goal.date })
-  return { ok: true, distance, inputs, paces, skeleton, days, workouts, recovery, warnings }
+  // Kettlebell markers after the workouts: the tests (Generalprobe) are placed there and keep 2 days free.
+  const kb = markDraft({ weeks: days.weeks, sessions: workouts.sessions, recovery, raceDate: c.goal.date }, kbDaysOf(c.profile))
+  return { ok: true, distance, inputs, paces, skeleton, days, workouts: { ...workouts, sessions: kb.sessions }, recovery: kb.recovery, warnings }
+}
+
+// Markers on the draft's days and recovery weeks, by the same rules as every block (lib/plan/strength.ts).
+function markDraft(d: { weeks: PlanWeek[]; sessions: PlanSession[]; recovery: { weeks: PlanWeek[]; sessions: PlanSession[] }; raceDate: string }, kbDays: Weekday[]) {
+  const block = { id: 'draft', goalId: 'draft', race: { date: d.raceDate } as RaceInfo, planStart: d.weeks[0]?.start ?? d.raceDate, end: d.raceDate,
+    weeks: [...d.weeks, ...d.recovery.weeks], sessions: [...d.sessions, ...d.recovery.sessions], rules: [], stopRules: [], levers: [] }
+  const marked = new Map(placeStrength(block, kbDays).sessions.map((s) => [s.date, s]))
+  return {
+    sessions: d.sessions.map((s) => marked.get(s.date) ?? s),
+    recovery: { ...d.recovery, sessions: d.recovery.sessions.map((s) => marked.get(s.date) ?? s) },
+  }
 }
 
 // Recovery weeks after the race from the generated plan (07-22).

@@ -13,6 +13,7 @@ import { tired, type EngineChange } from '@/lib/plan/engine'
 import { raceWeekDay } from '@/lib/plan/race-week'
 import { acwrCaution, acwrStreak, acwrWhy, recoveryRedWhy, rulesFor } from '@/lib/plan/rules'
 import { flagsText, lastNightLine, type NightLine, type RecoveryDay } from '@/lib/analytics/recovery-data'
+import { strengthToday } from '@/lib/plan/strength'
 
 export type TodayState = 'race' | 'done' | 'rest' | 'hard' | 'easy'
 
@@ -26,6 +27,7 @@ export interface TodayInsight {
   caution?: string               // 07-23: ACWR high, but not on enough days to change the plan
   night?: NightLine              // "Letzte Nacht: …" (only when wellness data is available at all)
   hint?: string                  // a night flag that does not count as tired: "Heute eher locker halten (…)"
+  strength?: string              // today's kettlebell marker ("Danach Kettlebell …" / "… auslassen" when tired)
 }
 
 const Z2 = () => hrZones()[1]
@@ -139,6 +141,7 @@ export function todayInsight({ today, sessions, manual, engineLog, runs, tsb, ac
     why,
     yesterday: yesterdayText(today, sessions, runs),
     advice,
+    ...(s?.strength && s.type !== 'race' && !s.paused ? { strength: strengthToday(s, tired(fitness, rules) ? tiredWhy || 'sehr müde' : null)! } : {}),
     ...(acwr != null && acwrCaution(fitness, rules)
       ? { caution: `Belastung hoch (ACWR ${acwr.toFixed(2)}, ${acwrStreak(fitness, rules)}. Tag): vorsichtig, noch keine Planänderung.` } : {}),
     ...(recovery ? { night: lastNightLine(recovery) } : {}),

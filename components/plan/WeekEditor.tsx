@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { addDays, format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { Check, ChevronLeft, ChevronRight, AlertTriangle, RotateCcw, Scale, ArrowRight, SlidersHorizontal } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, AlertTriangle, RotateCcw, Scale, ArrowRight, SlidersHorizontal, Dumbbell } from 'lucide-react'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtKm } from '@/lib/plan/format'
 import {
-  applyMove, balanceWeek, planWeeks, dayLabel, dayState, kmEditEffect, moveModes, parseKm, resetWeek, runMark, setDayKm, setPace, setZone2, weekBreakdown, weekSummary, z2State,
+  applyMove, balanceWeek, planWeeks, dayLabel, dayState, kmEditEffect, moveModes, parseKm, resetWeek, runMark, setDayKm, setPace, setZone2, strengthEditable, toggleStrength, weekBreakdown, weekDates, weekSummary, z2State,
   type ActualKm, type DayState, type MoveMode, type Overrides,
 } from '@/lib/plan/effective'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
@@ -18,10 +18,11 @@ import { useIsPhone } from '@/lib/use-media'
 import { SessionDetails } from './SessionDetails'
 import { SessionEditor } from './SessionEditor'
 import { PauseControl } from './PauseControl'
+import { strengthDetail, strengthMark, strengthWeek, type KbMark } from '@/lib/plan/strength'
 
-type CrossPill = { letter: string; label: string }
+type CrossPill = { letter: string; label: string; kb?: boolean }   // kb: a Strength or Gym session (counts for a kettlebell marker)
 
-export function WeekEditor({ today, sessions, baseSessions, overrides, engineOverrides, engineNotes, actuals, cross, onChange, saving, saveError, onRetry }: {
+export function WeekEditor({ today, sessions, baseSessions, overrides, engineOverrides, engineNotes, actuals, cross, kbDone, syncedThrough = null, onChange, saving, saveError, onRetry }: {
   today: string
   sessions: PlanSession[]
   baseSessions: PlanSession[]
@@ -30,6 +31,8 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
   engineNotes: Map<string, string>
   actuals: Map<string, DayActual>
   cross?: Map<string, CrossPill[]>     // cross-training sessions per day (08-04): small letter pills, no km
+  kbDone?: Set<string>                 // days with a Strength or Gym session (kettlebell done check)
+  syncedThrough?: string | null        // last day a sync covers: before it an undone marker is "ausgelassen"
   onChange: (next: Overrides) => void
   saving: boolean
   saveError: boolean
@@ -52,6 +55,9 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
   const summary = weekSummary(week, today, sessions, actualKm)
   const edited = summary.days.some((d) => overrides[d.date])
   const weekOver = week.end < today
+  const done = kbDone ?? new Set<string>()
+  const kbOf = (d: DayState) => strengthMark(d.session, today, done.has(d.date), syncedThrough)
+  const kbCount = strengthWeek(weekDates(week), sessions, done)
 
   function change(next: Overrides) {
     setBalanceNote(null)
@@ -84,7 +90,13 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
           onSetKm={(km, opts) => change(setDayKm(overrides, selected, km, baseSessions, opts))}
           onZ2={(z2) => change(z2 ? setZone2(overrides, selected, baseSessions) : setPace(overrides, selected, baseSessions))}
           effective={sessions}
-          onEdit={(s) => change({ ...overrides, [selected]: s })}
+          onEdit={(s) => {
+            // A new session type keeps the day's kettlebell marker, a rest day drops it.
+            const kb = baseSessions.find((x) => x.date === selected)?.strength
+            change({ ...overrides, [selected]: s.strength || !kb || s.type === 'rest' ? s : { ...s, strength: kb } })
+          }}
+          kb={kbOf(summary.days.find((d) => d.date === selected)!)}
+          onKb={() => change(toggleStrength(overrides, selected, baseSessions))}
           onRestore={() => { const next = { ...overrides }; delete next[selected]; change(next) }}
         />
   ) : null
@@ -112,6 +124,7 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
               {summary.gapKm > 0 ? `−${fmtKm(summary.gapKm)}` : `+${fmtKm(-summary.gapKm)}`} km
             </span>
           )}
+          {kbCount && <><span>·</span><span title="Kettlebell erledigt / geplant (optionale zählen erst, wenn erledigt)">Kettlebell <span className="font-semibold text-foreground">{kbCount.done}/{kbCount.planned}</span></span></>}
         </div>
       </div>
 
@@ -121,7 +134,7 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
         <ul className="mt-3 flex flex-col gap-1.5">
           {summary.days.map((d) => (
             <li key={d.date}>
-              <DayRow day={d} today={today} edited={!!overrides[d.date]} auto={!overrides[d.date] && engineNotes.has(d.date)} cross={cross?.get(d.date)}
+              <DayRow day={d} today={today} edited={!!overrides[d.date]} auto={!overrides[d.date] && engineNotes.has(d.date)} cross={cross?.get(d.date)} kb={kbOf(d)}
                 selected={selected === d.date} onSelect={() => setSelected(selected === d.date ? null : d.date)} />
               {selected === d.date && panel}
             </li>
@@ -130,7 +143,7 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
       ) : (
         <div className="mt-3 grid grid-cols-7 gap-1.5">
           {summary.days.map((d) => (
-            <DayCell key={d.date} day={d} today={today} edited={!!overrides[d.date]} auto={!overrides[d.date] && engineNotes.has(d.date)} cross={cross?.get(d.date)}
+            <DayCell key={d.date} day={d} today={today} edited={!!overrides[d.date]} auto={!overrides[d.date] && engineNotes.has(d.date)} cross={cross?.get(d.date)} kb={kbOf(d)}
               selected={selected === d.date} onSelect={() => setSelected(selected === d.date ? null : d.date)} />
           ))}
         </div>
@@ -181,13 +194,24 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
 }
 
 // Cross-training on that day: one letter per session (K Kraft · S Schwimmen · R Rad · G Gym), the label as tooltip.
-function CrossPills({ pills, className }: { pills?: CrossPill[]; className?: string }) {
-  if (!pills?.length) return null
+// A kettlebell marker joins them: a grey dashed K when planned (lighter when optional), amber when the day is past
+// and synced without a session ("ausgelassen"), and when done the day's K/G pill turns teal.
+const KB_LABEL: Record<KbMark, string> = { planned: 'Kettlebell geplant', optional: 'Kettlebell optional', done: 'Kettlebell erledigt', skipped: 'Kettlebell ausgelassen' }
+function CrossPills({ pills = [], kb, wide, className }: { pills?: CrossPill[]; kb?: KbMark | null; wide?: boolean; className?: string }) {
+  if (!pills.length && !kb) return null
+  const doneAt = kb === 'done' ? Math.max(0, pills.findIndex((p) => p.kb)) : -1
+  const pill = 'inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none'
   return (
     <span className={cn('inline-flex gap-0.5', className)}>
+      {kb && kb !== 'done' && (
+        <span title={KB_LABEL[kb]} aria-label={KB_LABEL[kb]}
+          className={cn(pill, kb === 'skipped' ? 'bg-amber-100 text-amber-800' : 'border border-dashed border-muted-foreground/50 text-muted-foreground', kb === 'optional' && 'opacity-60')}>
+          K{wide && kb === 'skipped' ? ' ausgelassen' : ''}
+        </span>
+      )}
       {pills.map((p, i) => (
-        <span key={i} title={p.label} aria-label={p.label}
-          className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-secondary px-1 text-[9px] font-semibold leading-none text-foreground">
+        <span key={i} title={i === doneAt ? `${KB_LABEL.done} · ${p.label}` : p.label} aria-label={i === doneAt ? `${KB_LABEL.done} · ${p.label}` : p.label}
+          className={cn(pill, i === doneAt ? 'bg-teal-soft text-teal' : 'bg-secondary text-foreground')}>
           {p.letter}
         </span>
       ))}
@@ -195,8 +219,8 @@ function CrossPills({ pills, className }: { pills?: CrossPill[]; className?: str
   )
 }
 
-function DayCell({ day, today, edited, auto, cross, selected, onSelect }: {
-  day: DayState; today: string; edited: boolean; auto: boolean; cross?: CrossPill[]; selected: boolean; onSelect: () => void
+function DayCell({ day, today, edited, auto, cross, kb, selected, onSelect }: {
+  day: DayState; today: string; edited: boolean; auto: boolean; cross?: CrossPill[]; kb: KbMark | null; selected: boolean; onSelect: () => void
 }) {
   const { status } = day
   const mark = runMark(day)
@@ -215,7 +239,7 @@ function DayCell({ day, today, edited, auto, cross, selected, onSelect }: {
     >
       {edited && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-brand" aria-label="geändert" />}
       {auto && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-muted-foreground/60" aria-label="automatisch angepasst" />}
-      <CrossPills pills={cross} className="absolute left-1 top-1" />
+      <CrossPills pills={cross} kb={kb} className="absolute left-1 top-1" />
       <span className="text-[11px] text-muted-foreground uppercase">{format(parseISO(day.date), 'EEEEEE', { locale: de })}</span>
       <span className="h-4 grid place-items-center">
         {mark.ran ? <RunTick diffKm={mark.diffKm} />
@@ -229,7 +253,7 @@ function DayCell({ day, today, edited, auto, cross, selected, onSelect }: {
   )
 }
 
-function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, saving, onMove, onSetKm, onZ2, effective, onEdit, onRestore }: {
+function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, saving, onMove, onSetKm, onZ2, effective, onEdit, onRestore, kb, onKb }: {
   day: DayState
   engineNote?: string
   today: string
@@ -244,6 +268,8 @@ function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, 
   effective: PlanSession[]
   onEdit: (s: PlanSession) => void
   onRestore: () => void
+  kb: KbMark | null
+  onKb: () => void
 }) {
   const [pending, setPending] = useState<string | null>(null)
   const s = day.session
@@ -285,6 +311,23 @@ function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, 
             ))}
           </div>
           {z2 === 'z2' && s?.was && <span className="text-muted-foreground">Geplant war: {s.was.title}{s.was.km ? ` (${fmtKm(s.was.km)} km)` : ''}</span>}
+        </div>
+      )}
+      {strengthEditable(s, day.date) && s && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="inline-flex items-center gap-1 font-medium"><Dumbbell className="h-3.5 w-3.5" aria-hidden /> Kettlebell</span>
+          <div className="inline-flex rounded-lg border border-border p-0.5" role="group" aria-label="Kettlebell an diesem Tag">
+            {([[true, 'An'], [false, 'Aus']] as const).map(([on, label]) => (
+              <button key={label} type="button" disabled={saving} aria-pressed={!!s.strength === on} onClick={() => !!s.strength !== on && onKb()}
+                className={cn('tap rounded-md px-2.5 py-1 font-medium disabled:opacity-50', !!s.strength === on ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground')}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {kb === 'done' && <span className="font-medium text-teal">erledigt</span>}
+          {kb === 'skipped' && <span className="font-medium text-amber-700">ausgelassen</span>}
+          {kb === 'optional' && <span className="text-muted-foreground">optional</span>}
+          {s.strength && s.type === 'rest' && <span className="text-muted-foreground">{strengthDetail(s)}</span>}
         </div>
       )}
       {day.status === 'paused' && <p className="mt-2 text-xs text-muted-foreground">Dieser Tag liegt in deiner {s?.paused === 'krank' ? 'Krankheit' : 'Pause'}.</p>}
@@ -433,8 +476,8 @@ function RunTick({ diffKm, className }: { diffKm: number | null; className?: str
 }
 
 // Phones: one readable row per day (weekday, type, title, km, status); tap opens the day panel below it.
-function DayRow({ day, today, edited, auto, cross, selected, onSelect }: {
-  day: DayState; today: string; edited: boolean; auto: boolean; cross?: CrossPill[]; selected: boolean; onSelect: () => void
+function DayRow({ day, today, edited, auto, cross, kb, selected, onSelect }: {
+  day: DayState; today: string; edited: boolean; auto: boolean; cross?: CrossPill[]; kb: KbMark | null; selected: boolean; onSelect: () => void
 }) {
   const { status, session } = day
   const mark = runMark(day)
@@ -460,7 +503,7 @@ function DayRow({ day, today, edited, auto, cross, selected, onSelect }: {
           {session && <TypeTag type={session.type} />}
           {edited && <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-label="geändert" />}
           {auto && <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" aria-label="automatisch angepasst" />}
-          <CrossPills pills={cross} />
+          <CrossPills pills={cross} kb={kb} wide />
         </span>
         <span className="mt-0.5 block truncate text-sm">{session?.title ?? 'Ruhetag'}</span>
       </span>
