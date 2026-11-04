@@ -25,28 +25,19 @@ training methods.
 - **Calendar and Apple Health.** A private ICS feed of the plan; an iOS Shortcut can post daily Health data (sleep,
   resting HR, HRV, weight, other workouts) to a private link.
 
-## Self-host quick start (Neon + Clerk + Vercel)
+## Self-host
 
-Requirements: Node.js 22, a [Neon](https://neon.tech) Postgres database, a [Clerk](https://clerk.com) application.
+Full guide: **[docs/SELF-HOST.md](docs/SELF-HOST.md)** (Docker Compose with Postgres, or Neon + Vercel; Clerk for
+sign-in in both).
 
 ```bash
-git clone <your fork> runmate && cd runmate
-npm ci
-cp .env.example .env.local        # fill in the values (table below)
-npm run db:migrate                # applies drizzle/*.sql to DATABASE_URL (only the ones not applied yet)
-npm run dev                       # http://localhost:3001
+git clone https://github.com/livius33/runmate.git && cd runmate
+cp .env.example .env              # Clerk keys, POSTGRES_PASSWORD, ENCRYPTION_KEY, CRON_SECRET
+docker compose up -d --build      # Postgres + migrations + app on http://localhost:3000 + daily sync
 ```
 
-1. **Neon:** create a project (EU region recommended, e.g. `aws-eu-central-1`) and copy the pooled connection string
-   into `DATABASE_URL`.
-2. **Clerk:** create an application, copy the publishable and secret keys. To restrict sign-in with `ALLOWED_EMAILS`,
-   add the email to the session token: Clerk Dashboard → Sessions → Customize session token →
-   `{ "email": "{{user.primary_email_address}}" }`. Sessions without that claim are rejected while an allowlist is set.
-3. **Vercel:** import the repository, add the same environment variables, deploy. `vercel.json` schedules the daily
-   Garmin sync (`/api/cron/daily-sync`, 06:00 UTC); Vercel sends `CRON_SECRET` with it.
-4. Sign in, open **Settings**: fill in **Mein Profil** (HFmax, resting HR, time zone, …), then under **Datenquellen**
-   connect Garmin and/or import files (FIT/GPX/TCX or the Garmin data-export ZIP).
-5. Open **Saison**, add a goal race and create its plan (**Plan erstellen**).
+Then sign in and follow the onboarding: profile (HFmax, resting HR, time zone, …), a data source (Garmin login or file
+import), and a goal race with its first plan.
 
 ### Database migrations
 
@@ -61,8 +52,6 @@ npm run db:migrate                             # applies it (drizzle.config.ts r
 Every table has a `user_id` (the Clerk user id); queries go through `lib/db/owned.ts`, and `npm test` fails on a query
 of a user table without the owner filter.
 
-A Dockerfile is included for other hosts (untested in this pre-release; Docker Compose docs follow).
-
 The repository ships an example training block (a real 3:05 Porto Marathon build) in
 [`examples/porto-2026/`](examples/porto-2026/). The app does not load it unless you register it.
 
@@ -70,7 +59,9 @@ The repository ships an example training block (a real 3:05 Porto Marathon build
 
 | Name | Required | Purpose |
 |---|---|---|
-| `DATABASE_URL` | yes | Neon/Postgres connection string |
+| `DATABASE_URL` | yes (not with Compose) | Neon/Postgres connection string; Docker Compose builds it from `POSTGRES_PASSWORD` |
+| `POSTGRES_PASSWORD` | Compose only | Password of the Compose Postgres (letters and digits) |
+| `DATABASE_DRIVER` | no | `neon` or `pg` to override the driver guess (`*.neon.tech` → Neon HTTP, else node-postgres) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | yes | Clerk publishable key |
 | `CLERK_SECRET_KEY` | yes | Clerk secret key |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | recommended | `/sign-in` |

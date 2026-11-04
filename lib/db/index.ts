@@ -1,9 +1,18 @@
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
+import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres'
+import { Pool } from 'pg'
 import * as schema from './schema'
 import { ReadOnlyError, currentScope } from '@/lib/scope'
 
 type DB = ReturnType<typeof drizzle<typeof schema>>
+
+// Neon hosts use the serverless HTTP driver; any other Postgres (Docker Compose, a managed server) uses node-postgres.
+// DATABASE_DRIVER=neon|pg overrides the guess (e.g. a Neon database behind a custom domain).
+export function driverFor(url: string, override = process.env.DATABASE_DRIVER): 'neon' | 'pg' {
+  if (override === 'neon' || override === 'pg') return override
+  try { return new URL(url).hostname.endsWith('.neon.tech') ? 'neon' : 'pg' } catch { return 'pg' }
+}
 
 // Connects on first use, not on import: `next build` loads every route module and must work without DATABASE_URL.
 let instance: DB | null = null
@@ -11,7 +20,8 @@ function connect(): DB {
   if (!instance) {
     const url = process.env.DATABASE_URL
     if (!url) throw new Error('DATABASE_URL is not set (see .env.example)')
-    instance = drizzle(neon(url), { schema })
+    // Both drivers share drizzle's query API; the app uses no transactions or batches, so one type covers both.
+    instance = driverFor(url) === 'neon' ? drizzle(neon(url), { schema }) : drizzlePg(new Pool({ connectionString: url, max: 10 }), { schema }) as unknown as DB
   }
   return instance
 }
