@@ -6,7 +6,7 @@ import { PgTable, getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 import { strToU8, zipSync } from 'fflate'
 import { db } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
-import { activities, activityStreams, healthDays, healthWorkouts } from '@/lib/db/schema'
+import { activities, activityStreams, healthDays, healthWorkouts, wellnessDays } from '@/lib/db/schema'
 import { own } from '@/lib/db/owned'
 
 type UserTable = PgTable & { userId: PgColumn }
@@ -78,12 +78,13 @@ export async function deleteUserData(): Promise<string[]> {
   return done
 }
 
-// After revoking the health-data consent: activities with their streams and the Apple Health values. Plan, profile,
-// account and subscription stay.
-export const HEALTH_TABLES = ['activity_streams', 'activities', 'health_days', 'health_workouts']
+// After revoking the health-data consent: activities with their streams, the Apple Health values and the nights
+// (sleep, HRV, resting HR). Plan, profile, account and subscription stay.
+export const HEALTH_TABLES = ['activity_streams', 'activities', 'health_days', 'health_workouts', 'wellness_days']
 export async function deleteHealthData(): Promise<void> {
   await db.delete(activityStreams).where(own(activityStreams))
   await db.delete(activities).where(own(activities))
   await db.delete(healthDays).where(own(healthDays))
   await db.delete(healthWorkouts).where(own(healthWorkouts))
+  await db.delete(wellnessDays).where(own(wellnessDays))
 }

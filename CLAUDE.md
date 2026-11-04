@@ -23,6 +23,8 @@ lib/legal/, lib/account/  — Art. 9 consent + intake gate; export / deletion ov
 lib/sources/              — data sources: types.ts (ActivitySource contract), registry.ts, ingest.ts (the only writer of
                            source activities; dedupe.ts), sync.ts; garmin-login/ (unofficial, per user, encrypted),
                            garmin-api.ts (placeholder), apple-health.ts, file/ (FIT/GPX/TCX/ZIP parsers, browser batching)
+lib/wellness/            — nights (sleep, HRV, resting HR): store.ts (wellness_days + Apple sleep fallback), sync.ts
+                           (the wellness step of a pull source's sync, via ActivitySource.fetchNight)
 lib/vendor/garmin-connect/ — fork of the unmaintained garmin-connect 1.6.2 (MIT, own LICENSE; never logs tokens)
 lib/analytics/           — hr.ts (the one HR model, from the profile), run-metrics, load (TRIMP, CTL/ATL/TSB, ACWR), progress
 lib/plan/                — blocks registry, generator/, methodology/, engine, effective (edits), pause, events, race week/day

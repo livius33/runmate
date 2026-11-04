@@ -20,6 +20,7 @@ import {
 } from './workshop'
 import { THRESHOLD_FROM_RACE_S, isoDay, validProfile, type AthleteProfile, type Weekday } from './athlete-profile'
 import { loadPauses } from './pause-store'
+import { loadRecoveryToday } from '@/lib/wellness/store'
 import { loadRunFeedback } from '@/lib/feedback/run-store'
 import { loadWeekFeedback } from '@/lib/feedback/week-reader'
 import { weekEntryFor, type FeedbackInput } from '@/lib/feedback/rules'
@@ -60,7 +61,8 @@ async function loadInputs(today: string) {
   const now = localDate()        // the runner's day, like the fitness and stats routes (07-20)
   const series = fitnessSeries(rows, now)
   const ratio = acwr(runRows, now).acwr
-  const fitness = { tsb: series.length ? series[series.length - 1].tsb : null, acwr: ratio > 0 ? ratio : null, acwrRecent: acwrSeries(runRows, now) }
+  const recovery = await loadRecoveryToday(today)   // this morning's night flags; undefined without data
+  const fitness = { tsb: series.length ? series[series.length - 1].tsb : null, acwr: ratio > 0 ? ratio : null, acwrRecent: acwrSeries(runRows, now), ...(recovery ? { recovery } : {}) }
   const events = await loadEvents(plan)
   return { plan, manual, actual, fitness, events, profile, runRows, feedback }
 }

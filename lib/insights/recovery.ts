@@ -9,6 +9,8 @@ import { weekOf } from '@/lib/plan/blocks'
 import { dayLabel } from '@/lib/plan/effective'
 import type { DatedRun } from '@/lib/plan/pace-check'
 import type { ReadinessLine } from './readiness'
+import type { WellnessNight } from '@/lib/analytics/recovery-data'
+import { wellnessLine } from './wellness'
 
 export type RecoveryVerdict = 'Erholung läuft' | 'Etwas zu viel' | 'Erholung beendet'
 
@@ -20,11 +22,12 @@ const WEEKS: Record<number, string> = { 1: 'Eine Woche', 2: 'Zwei Wochen', 3: 'D
 
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0')
 
-export function recoveryStatus({ today, sessions, runs, fitness }: {
+export function recoveryStatus({ today, sessions, runs, fitness, wellness }: {
   today: string
   sessions: PlanSession[]
   runs: DatedRun[]
   fitness: { date: string; tsb: number }[]
+  wellness?: WellnessNight[]   // nights from a wellness source; undefined = no wellness data (no line)
 }): { verdict: RecoveryVerdict; lines: ReadinessLine[]; note: string } {
   const lines: ReadinessLine[] = []
   const block = activeBlock(today)
@@ -88,6 +91,9 @@ export function recoveryStatus({ today, sessions, runs, fitness }: {
     tone: 'open', label: 'Danach',
     text: done ? 'Erholung abgeschlossen. Der nächste Block ist noch nicht geplant.' : `Ab ${dayLabel(format(addDays(parseISO(block.end), 1), 'yyyy-MM-dd'))}: nächster Block, Plan folgt.`,
   })
+
+  // 5. Sleep, HRV and resting HR: a note, the verdict above does not read it.
+  if (wellness) lines.push(wellnessLine(wellness, today))
 
   const n = blocks.length
   const note = `${WEEKS[n] ?? `${n} Wochen`} locker: viel Ruhe, Puls unten, bei Schmerzen Pause. Danach beginnt der nächste Block.`

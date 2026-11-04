@@ -11,7 +11,7 @@ import { athlete } from '@/lib/athlete'
 import { allWeeks, blockFor, blockPaces, firstPlanStart, isEasyWeek, raceOf, recoveryWeekday, weekOf } from './blocks'
 import { canTakeExtra, dayLabel, effectiveSessions, isHard, join, maxKm, restDay, weekDates, type Overrides } from './effective'
 import { blockAttempted, matchSessionRuns, qualityBlock, type DatedRun } from './pace-check'
-import { DEFAULT_RULES, STRATEGY_LABEL, acwrStreak, acwrWhy, inRedZone, rulesFor, taperDaysOf, type EngineRules } from './rules'
+import { DEFAULT_RULES, STRATEGY_LABEL, acwrStreak, acwrWhy, inRedZone, recoveryRed, recoveryRedWhy, rulesFor, taperDaysOf, type EngineRules, type RedZoneFitness } from './rules'
 import { inPauseWindow, type Pause, type PauseInput } from './pause'
 
 export type EngineRule = 'missed-key' | 'rebalance' | 'fatigue' | 'recovery-week' | 'hr-cap' | 'recalibrate'
@@ -37,7 +37,8 @@ export interface EngineState {
 
 export const EMPTY_ENGINE: EngineState = { overrides: {}, log: [], vetoes: [] }
 
-export interface Fitness { tsb: number | null; acwr: number | null; acwrRecent?: (number | null)[] }   // acwrRecent: today first (07-23)
+// acwrRecent: today first (07-23); recovery: this morning's night flags, absent without data
+export type Fitness = RedZoneFitness
 
 export interface EngineInput {
   today: string
@@ -61,8 +62,9 @@ const pz = (i: { today: string; pauses?: Pause[] }): PauseInput | undefined => (
 export const TSB_RED = DEFAULT_RULES.tsbRed
 export const ACWR_RED = DEFAULT_RULES.acwrRed
 
+// Tired = the block's load red zone (TSB/ACWR) or a weak night (≥ 2 recovery flags).
 export function tired(f?: Fitness, r: EngineRules = DEFAULT_RULES) {
-  return inRedZone(f, r)
+  return inRedZone(f, r) || recoveryRed(f)
 }
 
 // Nothing moves into the block's taper (07-18: its own length; hand-written and older blocks 9 days, rules.ts).
@@ -114,6 +116,7 @@ function fatigue({ today, at, manual, state, runs, fitness, pauses }: EngineInpu
   const why = [
     fitness!.tsb != null && fitness!.tsb < r.tsbRed ? `TSB ${String(Math.round(fitness!.tsb)).replace('-', '−')}` : null,
     fitness!.acwr != null && acwrStreak(fitness, r) >= 1 ? acwrWhy(fitness!, r) : null,
+    recoveryRedWhy(fitness),
   ].filter(Boolean).join(', ')
   // The engine softens; a template asking for another strategy is named, until that strategy exists.
   const asked = r.fatigueStrategy === 'intensity_reduction' || r.fatigueStrategy === 'recovery_week_insertion' ? ''
@@ -159,7 +162,8 @@ export const insertedRecoveryWeek = (state: EngineState, date: string) => state.
 
 function recoveryWeek({ today, at, manual, state, fitness, pauses }: EngineInput): EngineChange[] {
   const r = rulesFor(today)
-  if (r.fatigueStrategy !== 'recovery_week_insertion' || !r.recoveryVolume || !tired(fitness, r)) return []
+  // Load red zone only: one weak night softens a session, it never turns a whole week into recovery.
+  if (r.fatigueStrategy !== 'recovery_week_insertion' || !r.recoveryVolume || !inRedZone(fitness, r)) return []
   const since = day(today, -RECOVERY_INSERT_GAP_DAYS)
   const recent = (key: string) => key.startsWith('recovery-week:') && key.slice('recovery-week:'.length) > since
   if (state.log.some((c) => c.status !== 'info' && recent(c.key)) || state.vetoes.some(recent)) return []

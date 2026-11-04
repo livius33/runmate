@@ -8,6 +8,9 @@ import { getSettingJson, setSettingJson } from '@/lib/db/settings'
 import { RUN_ACTIVITY_TYPES } from '@/lib/analytics/run-view'
 import { runAndSaveEngine } from '@/lib/plan/engine-store'
 import type { PlanSession } from '@/lib/plan/types'
+import { todayLocal } from '@/lib/dates'
+import { isMissingTable, loadStoredNights, saveNights } from '@/lib/wellness/store'
+import { wellnessStep } from '@/lib/wellness/sync'
 import { storeDetail, upsertSummary } from './ingest'
 import { connectedPullSources } from './registry'
 import { SourceError, type ActivitySource, type LastSync, type SourceErrorCode, type SourceId, type SyncResult } from './types'
@@ -79,6 +82,14 @@ export async function syncSource(src: ActivitySource, { days = 28, enrichLimit =
     r.log.push(`${src.meta.id}: ${r.inserted} new, ${r.updated} updated, ${r.duplicates} duplicates`)
     if (src.meta.capabilities.detailStreams) await enrichPending(src, enrichLimit, r)
     r.log.push(`${src.meta.id}: enriched ${r.enriched}, remaining ${r.remaining}`)
+    // Last nights' sleep, HRV and resting HR: before the engine reads them (runSync). Never fails the sync.
+    const fetchNight = src.fetchNight?.bind(src)
+    if (src.meta.capabilities.dailyWellness && fetchNight) {
+      await wellnessStep(r.log, async () => ({
+        today: todayLocal(), nowS: Math.floor(Date.now() / 1000), dayOf: (d: Date) => todayLocal(d), fetchNight,
+        load: loadStoredNights, save: (nights) => saveNights(src.meta.id, nights),
+      }), isMissingTable, `${src.meta.id} wellness`)
+    }
     const { log: _, ...summary } = r
     await setSettingJson(lastSyncKey(src.meta.id), { at: new Date().toISOString(), source: src.meta.id, ...summary } satisfies LastSync)
     await src.markSynced?.(null)

@@ -13,6 +13,8 @@ import { matchSessionRuns, qualityBlock, type DatedRun } from '@/lib/plan/pace-c
 import { rulesFor } from '@/lib/plan/rules'
 import type { RacePrediction } from './prediction'
 import { planTests, testResult } from '@/lib/plan/race-day'
+import type { WellnessNight } from '@/lib/analytics/recovery-data'
+import { wellnessLine } from './wellness'
 
 export type ReadinessTone = 'ok' | 'warn' | 'bad' | 'open'
 export interface ReadinessLine { tone: ReadinessTone; label: string; text: string }
@@ -44,13 +46,14 @@ export function plannedLoad(s: PlanSession): number {
   return trimp(qS, qHr) + trimp(Math.max(0, total - qS), zoneMid(1))
 }
 
-export function raceReadiness({ today, sessions, runs, prediction, fitness, acwr }: {
+export function raceReadiness({ today, sessions, runs, prediction, fitness, acwr, wellness }: {
   today: string
   sessions: PlanSession[]
   runs: DatedRun[]
   prediction: RacePrediction
   fitness: { date: string; ctl: number; atl: number; tsb: number }[]
   acwr: number | null
+  wellness?: WellnessNight[]   // nights from a wellness source; undefined = no wellness data (no line)
 }): { verdict: ReadinessVerdict; lines: ReadinessLine[]; note?: string } {
   const lines: ReadinessLine[] = []
   const block = activeBlock(today)
@@ -160,6 +163,8 @@ export function raceReadiness({ today, sessions, runs, prediction, fitness, acwr
   const bad = lines.filter((l) => l.tone === 'bad').length
   const warn = lines.filter((l) => l.tone === 'warn').length
   const verdict: ReadinessVerdict = bad >= 2 ? 'Kritisch' : bad >= 1 || warn >= 2 ? 'Mit Fragezeichen' : 'Auf Kurs'
+  // Erholung: sleep, HRV and resting HR of the last 7 nights. Added after the verdict: a note, never a rating.
+  if (wellness) lines.push(wellnessLine(wellness, today))
   // The decision rule under the card.
   const note = `Entscheidung: der zuletzt gelaufene Renntempo-Test zählt. Unter HF ${hr.cap} → Start auf ${fmtClock(race.goalS)}. Ab HF ${hr.hard} → ${fmtPace(race.fallbackPaceS)} anlaufen und ${fmtClock(race.fallbackS)} ins Ziel bringen.`
   return { verdict, lines, note }

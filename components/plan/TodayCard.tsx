@@ -2,7 +2,7 @@
 
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { Dumbbell, Sun } from 'lucide-react'
+import { Dumbbell, Moon, Sun } from 'lucide-react'
 import { fmtKm } from '@/lib/plan/format'
 import type { TodayInsight } from '@/lib/insights/today'
 import { Pill, TypeTag } from './ui'
@@ -34,6 +34,7 @@ export function TodayCard({ today, insight, children }: { today: string; insight
       {s?.notes && <p className="mt-3 text-sm leading-snug text-foreground/80">{s.notes}</p>}
 
       <p className="mt-3 text-[15px] font-semibold leading-snug">{insight.advice}</p>
+      {insight.hint && <p className="mt-1 text-sm text-amber-700">{insight.hint}</p>}
       {insight.caution && <p className="mt-1 text-sm text-muted-foreground">{insight.caution}</p>}
       {insight.strength && (
         <p className="mt-2 inline-flex items-center gap-1.5 text-sm">
@@ -48,6 +49,16 @@ export function TodayCard({ today, insight, children }: { today: string; insight
         </div>
       )}
       {insight.yesterday && <p className="mt-2 text-sm text-muted-foreground">{insight.yesterday}</p>}
+      {insight.night && (
+        <p className="mt-2 flex items-start gap-1.5 text-sm text-muted-foreground tabular-nums">
+          <Moon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          {insight.night.muted ? <span>{insight.night.text}</span> : (
+            <span>Letzte Nacht: {insight.night.parts.map((p, i) => (
+              <span key={p.text}>{i > 0 && ' · '}<span className={p.flagged ? 'font-medium text-amber-700' : undefined}>{p.text}</span></span>
+            ))}</span>
+          )}
+        </p>
+      )}
       {children}
     </section>
   )

@@ -168,6 +168,24 @@ export const healthWorkouts = pgTable('health_workouts', {
   createdAt: integer('created_at').notNull().default(unixNow),
 }, (t) => [primaryKey({ columns: [t.userId, t.id] }), index('health_workouts_user_date').on(t.userId, t.date)])
 
+// ─── Nights from a pull source (the Garmin login): sleep, HRV, resting HR ─────
+// One row per morning (the night ending on `date`), written by the sync's wellness step (lib/wellness/sync.ts).
+// All values null = a night without data, stored so it is not refetched on every sync.
+export const wellnessDays = pgTable('wellness_days', {
+  userId: userId(),
+  date: text('date').notNull(),                  // 'YYYY-MM-DD' (the morning the sleep ends)
+  source: text('source').notNull(),              // SourceId that delivered the night ('garmin')
+  sleepS: integer('sleep_s'),
+  deepS: integer('deep_s'),
+  remS: integer('rem_s'),
+  sleepScore: integer('sleep_score'),
+  hrvAvg: integer('hrv_avg'),                    // overnight HRV average, ms (Garmin)
+  hrvStatus: text('hrv_status'),                 // Garmin: BALANCED | UNBALANCED | LOW | POOR | …
+  rhr: integer('rhr'),
+  rhrSource: text('rhr_source'),                 // 'night' (sleep response) | 'day' (daily heart rate, fallback)
+  fetchedAt: integer('fetched_at').notNull().default(unixNow),   // unix seconds of the last fetch
+}, (t) => [primaryKey({ columns: [t.userId, t.date] })])
+
 // ─── Billing (Phase 4): Paddle subscription and the in-app trial, one row per user ─
 
 // Written only by lib/billing (the first sign-in starts the trial; Paddle's webhook keeps the rest in sync). Without
