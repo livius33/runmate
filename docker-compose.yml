@@ -38,6 +38,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://runmate:${POSTGRES_PASSWORD}@db:5432/runmate
+      PORT: "3000"                     # inside the container; PORT in .env only picks the host port
     ports:
       - "${PORT:-3000}:3000"
     depends_on:

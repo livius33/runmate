@@ -65,20 +65,3 @@ export function weekError(week: string, today: string, weeks: { start: string; e
 // German labels for the two scales (the UI and the feedback loop share them).
 export const RATING_LABEL: Record<Score, string> = { 1: 'schlecht', 2: 'mäßig', 3: 'okay', 4: 'gut', 5: 'sehr gut' }
 export const FATIGUE_LABEL: Record<Score, string> = { 1: 'frisch', 2: 'leicht müde', 3: 'müde', 4: 'sehr müde', 5: 'erschöpft' }
-
-// ─── Store (server only; the db module is loaded on first use so pure callers and tests never touch it) ───────────
-
-const store = () => import('@/lib/db/settings')
-
-export async function loadWeekFeedback(): Promise<WeekFeedback> {
-  const raw = await (await store()).getSettingJson<unknown>(WEEK_FEEDBACK_KEY)
-  return raw == null ? EMPTY_WEEK_FEEDBACK : storedWeekFeedback(raw)
-}
-
-// Merges one week into the stored map and returns the new whole.
-export async function saveWeekFeedback(week: string, entry: WeekFeedbackEntry): Promise<WeekFeedback> {
-  const current = await loadWeekFeedback()
-  const next: WeekFeedback = { v: 1, byWeek: { ...current.byWeek, [week]: entry } }
-  await (await store()).setSettingJson(WEEK_FEEDBACK_KEY, next)
-  return next
-}
