@@ -1,5 +1,6 @@
 // A stand-in for the garmin-connect client (lib/sources/garmin-login/client.ts): synthetic Garmin JSON in the shapes
-// the source reads (activity list, splits, chart data), and hooks to make login fail in each way Garmin does.
+// the source reads (activity list, splits, chart data, sleep and daily heart rate), and hooks to make login fail in
+// each way Garmin does.
 import { vi } from 'vitest'
 import { setGarminClientFactory, type GarminClient } from '@/lib/sources/garmin-login/client'
 import type { GarminListActivity } from '@/lib/sources/garmin-login/map'
@@ -45,8 +46,45 @@ export function chart(n = 120, start = Date.parse('2026-05-10T06:00:00Z')) {
 
 export const SPLITS = { lapDTOs: [{ distance: 1000, duration: 330, elevationGain: 4, averageSpeed: 3.03, averageHR: 144 }, { distance: 1000, duration: 325, elevationGain: 2, averageSpeed: 3.08, averageHR: 147 }] }
 
+// dailySleepData: dailySleepDTO with sleepTimeSeconds, deep/REM and sleepScores; avgOvernightHrv, hrvStatus and
+// restingHeartRate on top. Synthetic values.
+export const sleepNight = (o: { sleepS?: number | null; hrv?: number | null; status?: string | null; rhr?: number | null; score?: number } = {}) => ({
+  dailySleepDTO: {
+    id: 1, userProfilePK: 1, calendarDate: '2026-05-10',
+    sleepTimeSeconds: o.sleepS === undefined ? 24000 : o.sleepS,
+    deepSleepSeconds: 5400, lightSleepSeconds: 12600, remSleepSeconds: 6000, awakeSleepSeconds: 900,
+    sleepStartTimestampGMT: 1778364000000, sleepEndTimestampGMT: 1778388000000,
+    sleepScores: { totalDuration: { qualifierKey: 'FAIR' }, stress: { qualifierKey: 'GOOD' }, overall: { value: o.score ?? 78, qualifierKey: 'FAIR' } },
+  },
+  sleepMovement: [], remSleepData: true, sleepLevels: [], restlessMomentsCount: 12,
+  avgOvernightHrv: o.hrv === undefined ? 58 : o.hrv,
+  hrvStatus: o.status === undefined ? 'BALANCED' : o.status,
+  bodyBatteryChange: 54,
+  restingHeartRate: o.rhr === undefined ? 52 : o.rhr,
+})
+
+// A night without the watch: the DTO exists, all values null, no HRV.
+export const emptyNightResponse = {
+  dailySleepDTO: {
+    id: 1, userProfilePK: 1, calendarDate: '2026-05-11', sleepTimeSeconds: null, napTimeSeconds: 0,
+    deepSleepSeconds: null, lightSleepSeconds: null, remSleepSeconds: null, awakeSleepSeconds: null,
+    sleepWindowConfirmed: false, sleepFromDevice: false,
+  },
+  remSleepData: false, restlessMomentsCount: 0,
+}
+
+// Same night, but Garmin also sends the day's resting HR: not a night value.
+export const emptyNightWithDayRhr = { ...emptyNightResponse, restingHeartRate: 75 }
+
+export const heartRateDay = (rhr: number | null) => ({ calendarDate: '2026-05-10', restingHeartRate: rhr, maxHeartRate: 160, minHeartRate: rhr })
+
+const dateOf = (url: string) => /[?&]date=(\d{4}-\d{2}-\d{2})/.exec(url)?.[1] ?? ''
+
 export interface FakeGarmin {
   activities: GarminListActivity[]
+  sleep: Record<string, unknown>          // date → dailySleepData response (default: a night without the watch)
+  restingHr: number | null                // dailyHeartRate's resting HR
+  wellnessError: ((url: string) => unknown) | null   // returns an error to throw for that sleep / heart-rate request
   loginError: unknown
   profileError: unknown
   created: { username: string; password: string }[]
@@ -55,7 +93,7 @@ export interface FakeGarmin {
 }
 
 export function installFakeGarmin(): FakeGarmin & { restore: () => void } {
-  const state: FakeGarmin = { activities: [], loginError: null, profileError: null, created: [], logins: 0, client: null }
+  const state: FakeGarmin = { activities: [], sleep: {}, restingHr: null, wellnessError: null, loginError: null, profileError: null, created: [], logins: 0, client: null }
   setGarminClientFactory((credentials) => {
     state.created.push(credentials)
     const client: GarminClient = {
@@ -64,7 +102,14 @@ export function installFakeGarmin(): FakeGarmin & { restore: () => void } {
       exportToken: () => ({ oauth1: { oauth_token: 'oauth1-token-value', oauth_token_secret: 'oauth1-secret-value' }, oauth2: { access_token: 'oauth2-access-value' } }),
       getUserProfile: vi.fn(async () => { if (state.profileError) throw state.profileError; return {} }),
       getActivities: vi.fn(async (start: number, limit: number) => state.activities.slice(start, start + limit)),
-      get: vi.fn(async (url: string) => (url.endsWith('/splits') ? SPLITS : chart())) as GarminClient['get'],
+      get: vi.fn(async (url: string) => {
+        if (/sleep-service|wellness-service/.test(url)) {
+          const err = state.wellnessError?.(url)
+          if (err) throw err
+          return url.includes('/dailySleepData') ? state.sleep[dateOf(url)] ?? emptyNightResponse : heartRateDay(state.restingHr)
+        }
+        return url.endsWith('/splits') ? SPLITS : chart()
+      }) as GarminClient['get'],
     }
     state.client = client
     return client

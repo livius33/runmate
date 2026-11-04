@@ -3,6 +3,7 @@
 // block carries the rules frozen from its (tuned) template. Pure.
 import type { Distance, Methodology, STRATEGIES } from './methodology/schema'
 import { blockFor } from './blocks'
+import { recoveryCounts, recoveryWhy, type RecoveryFitness } from '@/lib/analytics/recovery-data'
 
 export type Strategy = (typeof STRATEGIES)[number]
 
@@ -96,7 +97,8 @@ export function rulesFor(date: string): EngineRules {
 
 // Red zone by the rules of that date.
 // acwrRecent: ACWR of today and the days before it (today first); without it only today is known.
-export interface RedZoneFitness { tsb: number | null; acwr: number | null; acwrRecent?: (number | null)[] }
+// recovery: flags of that morning from the night's sleep, HRV and resting HR; absent without data.
+export interface RedZoneFitness { tsb: number | null; acwr: number | null; acwrRecent?: (number | null)[]; recovery?: RecoveryFitness }
 
 // Days in a row, today first, with ACWR above the block's threshold (0 when today is not above).
 export function acwrStreak(f: RedZoneFitness | undefined, r: EngineRules): number {
@@ -109,6 +111,11 @@ export function acwrStreak(f: RedZoneFitness | undefined, r: EngineRules): numbe
 export function inRedZone(f: RedZoneFitness | undefined, r: EngineRules) {
   return !!f && ((f.tsb != null && f.tsb < r.tsbRed) || acwrStreak(f, r) >= acwrPersistOf(r))
 }
+
+// Weak recovery: ≥ 2 flags on that morning. Thresholds are the night's own (lib/analytics/recovery-data.ts), not the
+// block's TSB/ACWR rules.
+export const recoveryRed = (f: RedZoneFitness | undefined) => recoveryCounts(f?.recovery)
+export const recoveryRedWhy = (f: RedZoneFitness | undefined) => (recoveryRed(f) ? recoveryWhy(f!.recovery!.flags) : null)
 
 // ACWR above the threshold, but not yet on enough days to count: a note only, no plan change.
 export function acwrCaution(f: RedZoneFitness | undefined, r: EngineRules) {

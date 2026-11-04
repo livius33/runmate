@@ -11,7 +11,7 @@ import {
 import { testWindow, tired, type Fitness } from './engine'
 import { fitSession } from './structure'
 import { dayAvailable, isoDay, profileMaxKm, type AthleteProfile } from './athlete-profile'
-import { acwrStreak, acwrWhy, rulesFor } from './rules'
+import { acwrStreak, acwrWhy, recoveryRedWhy, rulesFor } from './rules'
 import { inPauseWindow, type PauseInput } from './pause'
 import { feedbackHints, feedbackSignals, type FeedbackHint, type FeedbackInput } from '@/lib/feedback/rules'
 
@@ -294,6 +294,7 @@ function fatigue(input: WorkshopInput): Suggestion | null {
   const why = [
     fitness.tsb != null && fitness.tsb < r.tsbRed ? `TSB ${Math.round(fitness.tsb)} (rot unter ${r.tsbRed})` : null,
     fitness.acwr != null && acwrStreak(fitness, r) >= 1 ? `${acwrWhy(fitness, r)} (rot über ${r.acwrRed})` : null,
+    recoveryRedWhy(fitness),
   ].filter((x): x is string => !!x)
   return softenNext(input, 'fatigue', why, 'Erholung')
 }

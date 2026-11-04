@@ -9,6 +9,7 @@ import { formatNotes } from './structure'
 import { fmtKm, paceToS } from './format'
 import { ACWR_PERSIST_DAYS, DEFAULT_PACES, DEFAULT_RULES, DEFAULT_STOP_RULES } from './rules'
 import { NO_BLOCK } from './blocks'
+import { kbDaysOf, placeStrength } from './strength'
 
 export const BASE = {
   minKm: 30,              // never below (between-blocks.md §2, 07-08 AC-1)
@@ -144,10 +145,10 @@ function baseWeek(start: string, km: number, cutback: boolean, i: { runs: BaseRu
   return sessions
 }
 
-// The base blocks for every gap (none when paused).
+// The base blocks for every gap (none when paused), with kettlebell markers on the profile's days.
 export function baseBlocks(i: BaseInput): TrainingBlock[] {
   if (i.settings?.paused) return []
-  return baseGaps(i.blocks, i.today, i.settings?.start ?? null).map((g) => {
+  return baseGaps(i.blocks, i.today, i.settings?.start ?? null).map((g): TrainingBlock => {
     const plan = baseWeekKm(g, i.runs, i.today, i.settings?.capKm ?? null, g.before === NO_GOAL ? i.profile?.weeklyKm ?? null : null)
     // Without a block before it, the threshold pace comes from the runner's profile when it has one.
     const own: Record<string, string> = g.before === NO_GOAL && i.profile?.thresholdPaceS ? { threshold: fmtPace(i.profile.thresholdPaceS) } : {}
@@ -162,7 +163,7 @@ export function baseBlocks(i: BaseInput): TrainingBlock[] {
         focus: `Grundlage ${k + 1}${w.cutback ? ': leichtere Woche' : ''} (${fmtKm(km)} km)` })
       sessions.push(...days)
     })
-    return {
+    return placeStrength({
       id: `base-${g.start}`, goalId: 'base', base: true, race: g.before.race, planStart: g.start, end: g.end, weeks, sessions,
       rules: [
         'Grundlagenblock: Umfang auf dem Niveau der letzten Wochen, höchstens 5 % mehr pro Woche, nie über deinem gehaltenen Umfang.',
@@ -171,6 +172,6 @@ export function baseBlocks(i: BaseInput): TrainingBlock[] {
       ],
       stopRules: g.before.stopRules, levers: [], paces,
       engine: { ...(g.before.engine ?? DEFAULT_RULES), acwrPersistDays: ACWR_PERSIST_DAYS },   // 07-23: ACWR alone needs 3 days
-    }
+    }, kbDaysOf(i.profile))
   })
 }

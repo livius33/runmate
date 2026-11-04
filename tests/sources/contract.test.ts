@@ -1,6 +1,6 @@
 // AC-1 (Phase 3): every registered source keeps the ActivitySource contract — the methods match the declared
 // capabilities, summaries are normalised, details have aligned streams and valid laps — fed with synthetic fixtures
-// (a fake Garmin client, FIT/GPX/TCX/ZIP files, an Apple Health payload). Unavailable sources say so and throw.
+// (a fake Garmin client, FIT/GPX/TCX/ZIP files, an Apple Health payload, stored nights). Unavailable sources say so and throw.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { randomBytes } from 'node:crypto'
 import { strToU8 } from 'fflate'
@@ -10,11 +10,11 @@ import { toActivityRow } from '@/lib/sources/ingest'
 import { isImportedSport } from '@/lib/sources/sports'
 import { parseHealth } from '@/lib/health/parse'
 import { encrypt } from '@/lib/crypto'
-import { garminAccounts, healthDays } from '@/lib/db/schema'
+import { garminAccounts, healthDays, wellnessDays } from '@/lib/db/schema'
 import { runAsUser } from '@/lib/server/scope'
 import { useFakeDb, rowOf } from '../scope/fake-db'
 import { fitFile, garminExportZip, gpxFile, RUN, tcxFile } from './fixtures'
-import { installFakeGarmin, listActivity } from './garmin-fake'
+import { installFakeGarmin, listActivity, sleepNight } from './garmin-fake'
 
 const asUser = <T>(fn: () => Promise<T>) => runAsUser('user-a', fn, { profile: null })
 
@@ -28,9 +28,12 @@ beforeAll(() => {
     .reverse()
   const account = rowOf(garminAccounts, { userId: 'user-a', usernameEnc: encrypt('runner@example.com'), passwordEnc: encrypt('pw'), updatedAt: 0 })
   const day = rowOf(healthDays, { userId: 'user-a', date: '2026-05-10', sleepMin: 450, restingHr: 48, hrvMs: 61.5, steps: 9000, activeKcal: 600, weightKg: 70, source: 'apple-health', updatedAt: 0 })
+  const night = rowOf(wellnessDays, { userId: 'user-a', date: '2026-05-10', source: 'garmin', sleepS: 27000, hrvAvg: 60, hrvStatus: 'BALANCED', rhr: 48, rhrSource: 'night', fetchedAt: 0 })
+  garmin.sleep['2026-05-10'] = sleepNight()
   fake = useFakeDb((q) => {
     if (/from "garmin_accounts"/.test(q.sql)) return q.sql.startsWith('select "user_id", "username_enc"') ? [account] : [[null, null, null, null, null]]
     if (/from "health_days"/.test(q.sql)) return q.params.includes('2026-05-10') ? [day] : []
+    if (/from "wellness_days"/.test(q.sql)) return q.params.includes('2026-05-10') ? [night] : []
     return []
   })
 })
@@ -113,6 +116,8 @@ describe.each(SOURCES.map((s) => [s.meta.id, s] as const))('Quelle %s', (_id, s)
     if (c.mode === 'pull' && c.detailStreams) expect(typeof s.getActivityDetail).toBe('function')
     if (c.mode === 'upload') expect(isUploadSource(s)).toBe(true)
     if (c.dailyWellness) expect(typeof s.getDaily).toBe('function')
+    if (c.mode === 'pull' && c.dailyWellness) expect(typeof s.fetchNight).toBe('function')
+    if (s.fetchNight) expect(c.dailyWellness && c.mode === 'pull').toBe(true)
     if (s.meta.auth === 'credentials' || s.meta.auth === 'oauth' || s.meta.auth === 'link') expect(typeof s.connect).toBe('function')
     if (c.history) expect(c.mode === 'pull' || c.mode === 'upload').toBe(true)
   })
@@ -143,8 +148,25 @@ describe.each(SOURCES.map((s) => [s.meta.id, s] as const))('Quelle %s', (_id, s)
   if (c.dailyWellness) {
     it('Tageswerte für ein Datum, null ohne Daten', async () => {
       const day = await asUser(() => s.getDaily!('2026-05-10'))
-      expect(day).toMatchObject({ date: '2026-05-10', restingHr: 48, steps: 9000 })
+      expect(day).toMatchObject({ date: '2026-05-10', restingHr: 48 })
+      for (const k of ['sleepMin', 'restingHr', 'hrvMs', 'steps', 'activeKcal', 'weightKg'] as const) expect(nonNeg(day![k]), k).toBe(true)
       expect(await asUser(() => s.getDaily!('2026-05-11'))).toBeNull()
+    })
+  }
+
+  if (s.fetchNight) {
+    it('Nächte: normalisiert, eine leere Nacht ohne Werte, Budget eingehalten', async () => {
+      const { night, requests } = await asUser(() => s.fetchNight!('2026-05-10', 8))
+      expect(night).toMatchObject({ date: '2026-05-10' })
+      expect(night.sleepS).toBeGreaterThan(0)
+      for (const k of ['sleepS', 'deepS', 'remS', 'sleepScore', 'hrvAvg', 'rhr'] as const) expect(nonNeg(night[k]), k).toBe(true)
+      expect(night.hrvStatus == null || /^[A-Z_]+$/.test(night.hrvStatus)).toBe(true)
+      expect([null, 'night', 'day']).toContain(night.rhrSource)
+      expect(requests).toBeGreaterThanOrEqual(1)
+      expect(requests).toBeLessThanOrEqual(8)
+      const empty = await asUser(() => s.fetchNight!('2026-05-11', 1))
+      expect(empty.night).toMatchObject({ date: '2026-05-11', sleepS: null, hrvAvg: null })
+      expect(empty.requests).toBe(1)
     })
   }
 

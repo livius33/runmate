@@ -28,6 +28,14 @@ export async function hasOtherRunSource(except: SourceId): Promise<boolean> {
   return status.some((s) => s.connected)
 }
 
+// Whether this user has a connected source that delivers nights or daily values (Garmin login, Apple Health): only
+// then do the cards show sleep and recovery.
+export async function hasWellnessSource(): Promise<boolean> {
+  const candidates = SOURCES.filter((s) => s.meta.available && s.meta.capabilities.dailyWellness)
+  const status = await Promise.all(candidates.map((s) => s.status()))
+  return status.some((s) => s.connected)
+}
+
 // cross-user: whom the daily cron syncs — every user with a connected pull source, least recently synced first.
 export async function usersToSync(): Promise<string[]> {
   const lists = await Promise.all(pullSources().map((s) => s.connectedUsers?.() ?? Promise.resolve([])))

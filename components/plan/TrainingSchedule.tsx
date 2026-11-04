@@ -19,10 +19,12 @@ function relativeDay(date: string, today: string) {
   return format(parseISO(date), 'EEEE', { locale: de })
 }
 
-export function TrainingSchedule({ today, actuals, cross, sessions, overrides, baseSessions, engineOverrides, engineNotes, onChange, saving, saveError, onRetry }: {
+export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough, sessions, overrides, baseSessions, engineOverrides, engineNotes, onChange, saving, saveError, onRetry }: {
   today: string
   actuals: Map<string, DayActual>
-  cross?: Map<string, { letter: string; label: string }[]>   // cross-training sessions per day (08-04)
+  cross?: Map<string, { letter: string; label: string; kb?: boolean }[]>   // cross-training sessions per day (08-04)
+  kbDone?: Set<string>               // days with a Strength or Gym session
+  syncedThrough?: string | null      // last day the latest sync covers
   sessions: PlanSession[]
   overrides: Overrides
   baseSessions: PlanSession[]        // plan without engine 'Ausgleich' km — what edits work on
@@ -71,7 +73,7 @@ export function TrainingSchedule({ today, actuals, cross, sessions, overrides, b
         </ul>
       </div>
 
-      <WeekEditor today={today} sessions={sessions} baseSessions={baseSessions} overrides={overrides} engineOverrides={engineOverrides} engineNotes={engineNotes} actuals={actuals} cross={cross} onChange={onChange} saving={saving} saveError={saveError} onRetry={onRetry} />
+      <WeekEditor today={today} sessions={sessions} baseSessions={baseSessions} overrides={overrides} engineOverrides={engineOverrides} engineNotes={engineNotes} actuals={actuals} cross={cross} kbDone={kbDone} syncedThrough={syncedThrough} onChange={onChange} saving={saving} saveError={saveError} onRetry={onRetry} />
     </Card>
   )
 }
