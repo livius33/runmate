@@ -63,5 +63,5 @@ describe('Einheiten: zufällige Vorlagen, Profile, Gerüste und Ziele', () => {
       expect(checkDays({ ...days, sessions: w.sessions }, sk, daysIn)).toEqual([])
       expect(buildWorkouts(days, sk, structuredClone(input))).toEqual(w)
     }), { numRuns: RUNS })
-  })
+  }, 600_000)   // ~2 min on a 2-core CI runner; the 120 s default timed out on GitHub Actions
 })

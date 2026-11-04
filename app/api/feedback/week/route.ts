@@ -4,7 +4,8 @@ import { getSettingJson } from '@/lib/db/settings'
 import { todayLocal } from '@/lib/dates'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { planWeeks } from '@/lib/plan/effective'
-import { feedbackEntry, loadWeekFeedback, saveWeekFeedback, weekError, NOTE_MAX, Ymd, type Score } from '@/lib/feedback/week'
+import { feedbackEntry, weekError, NOTE_MAX, Ymd, type Score } from '@/lib/feedback/week'
+import { loadWeekFeedback, saveWeekFeedback } from '@/lib/feedback/week-store'
 import { withUser } from '@/lib/server/scope'
 
 const score = z.number().int().min(1).max(5)
