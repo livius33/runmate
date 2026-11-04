@@ -15,6 +15,7 @@ import { builtInBlocks, registerLiveBlocks } from './blocks'
 import { applyEvents } from './events'
 import { validProfile } from './athlete-profile'
 import { BASE_DEFAULTS, baseBlocks, type BaseSettings } from './base-block'
+import { kbDaysOf, placeStrength } from './strength'
 import type { TrainingBlock } from './types'
 
 export const LIVE_BLOCKS_KEY = 'plan_blocks'
@@ -64,8 +65,10 @@ async function readLiveBlocks(): Promise<TrainingBlock[]> {
   let profile: unknown = null
   try { profile = JSON.parse(value('athlete_profile') ?? 'null') } catch { /* none */ }
   const runs = runRows.map((r) => ({ date: r.date, km: (r.distanceM ?? 0) / 1000 }))
-  const base = baseBlocks({ blocks: [...builtInBlocks(), ...live], runs, today, profile: validProfile(profile) ? profile : null, settings: parseBase(value(BASE_KEY)) })
-  return [...live, ...base].map((b) => applyEvents(b, goals))
+  const athlete = validProfile(profile) ? profile : null
+  const base = baseBlocks({ blocks: [...builtInBlocks(), ...live], runs, today, profile: athlete, settings: parseBase(value(BASE_KEY)) })
+  // Kettlebell markers last: after the minor races, so none lands in the 2 days before one; they follow the profile.
+  return [...live, ...base].map((b) => placeStrength(applyEvents(b, goals), kbDaysOf(athlete)))
 }
 
 // This user's live blocks, by user id: { at, blocks }. Bounded so a long-running instance does not grow without limit.
