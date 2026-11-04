@@ -36,6 +36,13 @@
       "when": 1793639290090,
       "tag": "0004_retention_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793819866838,
+      "tag": "0005_wellness_days",
+      "breakpoints": true
     }
   ]
 }

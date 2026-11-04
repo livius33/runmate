@@ -69,9 +69,9 @@ describe('Löschen (Art. 17)', () => {
     }
   })
 
-  it('Gesundheitsdaten löschen: Aktivitäten, Streams, Apple-Health-Werte – nichts sonst', async () => {
+  it('Gesundheitsdaten löschen: Aktivitäten, Streams, Apple-Health-Werte, Nächte – nichts sonst', async () => {
     await asUser(deleteHealthData)
-    expect(deletes().map((q) => tableOf(q.sql))).toEqual(['activity_streams', 'activities', 'health_days', 'health_workouts'])
+    expect(deletes().map((q) => tableOf(q.sql))).toEqual(['activity_streams', 'activities', 'health_days', 'health_workouts', 'wellness_days'])
   })
 })
 

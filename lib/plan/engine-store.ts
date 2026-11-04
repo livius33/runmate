@@ -12,6 +12,7 @@ import { loadOverrides } from './load'
 import { EMPTY_ENGINE, runEngine, undoChange, type EngineChange, type EngineState, type Fitness } from './engine'
 import type { DatedRun } from './pace-check'
 import { loadPauses } from './pause-store'
+import { loadRecoveryToday } from '@/lib/wellness/store'
 import { hasFeature } from '@/lib/billing/access'
 
 const ENGINE_KEY = 'plan_engine'
@@ -64,7 +65,10 @@ export interface EngineResult extends EngineState { suggestions?: EngineChange[]
 
 async function runNow(today: string) {
   await ensureLiveBlocks()
-  const [manual, state, { runs, fitness }, syncedThrough, pauses] = await Promise.all([loadOverrides(), loadEngineState(), loadRunsAndFitness(), loadSyncedThrough(), loadPauses()])
+  const [manual, state, { runs, fitness: load }, syncedThrough, pauses, recovery] = await Promise.all([
+    loadOverrides(), loadEngineState(), loadRunsAndFitness(), loadSyncedThrough(), loadPauses(), loadRecoveryToday(today)])
+  // This morning's night flags join the fitness; without wellness data nothing changes.
+  const fitness: Fitness = recovery ? { ...load, recovery } : load
   return { state, r: runEngine({ today, at: new Date().toISOString(), manual, state, runs, fitness, syncedThrough, pauses }) }
 }
 

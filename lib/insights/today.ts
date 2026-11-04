@@ -11,7 +11,8 @@ import { dayLabel, isHard, type Overrides } from '@/lib/plan/effective'
 import { checkPace, matchSessionRuns, type DatedRun } from '@/lib/plan/pace-check'
 import { tired, type EngineChange } from '@/lib/plan/engine'
 import { raceWeekDay } from '@/lib/plan/race-week'
-import { acwrCaution, acwrStreak, acwrWhy, rulesFor } from '@/lib/plan/rules'
+import { acwrCaution, acwrStreak, acwrWhy, recoveryRedWhy, rulesFor } from '@/lib/plan/rules'
+import { flagsText, lastNightLine, type NightLine, type RecoveryDay } from '@/lib/analytics/recovery-data'
 
 export type TodayState = 'race' | 'done' | 'rest' | 'hard' | 'easy'
 
@@ -23,6 +24,8 @@ export interface TodayInsight {
   yesterday?: string
   advice: string
   caution?: string               // 07-23: ACWR high, but not on enough days to change the plan
+  night?: NightLine              // "Letzte Nacht: …" (only when wellness data is available at all)
+  hint?: string                  // a night flag that does not count as tired: "Heute eher locker halten (…)"
 }
 
 const Z2 = () => hrZones()[1]
@@ -69,7 +72,7 @@ function yesterdayText(today: string, sessions: PlanSession[], runs: DatedRun[])
   return `Gestern: ${ps.title}${when}: ${fmtPace(c.actualS)}${c.hr?.avg != null ? `, Ø HF ${c.hr.avg} / ${c.hr.cap}` : ''}.`
 }
 
-export function todayInsight({ today, sessions, manual, engineLog, runs, tsb, acwr, acwrRecent }: {
+export function todayInsight({ today, sessions, manual, engineLog, runs, tsb, acwr, acwrRecent, recovery }: {
   today: string
   sessions: PlanSession[]
   manual: Overrides
@@ -78,6 +81,7 @@ export function todayInsight({ today, sessions, manual, engineLog, runs, tsb, ac
   tsb: number | null
   acwr: number | null
   acwrRecent?: (number | null)[]   // today first (07-23)
+  recovery?: RecoveryDay           // this morning from the night; undefined = no wellness data (nothing shown)
 }): TodayInsight {
   const s = sessions.find((x) => x.date === today)
   const done = runs.filter((r) => r.date === today)
@@ -89,12 +93,16 @@ export function todayInsight({ today, sessions, manual, engineLog, runs, tsb, ac
   const why = engineLog.filter((c) => c.status === 'active' && c.after[today]).map((c) => c.reason)
   if (manual[today]) why.push('Von dir angepasst.')
 
-  const fitness = { tsb, acwr, acwrRecent }
+  const fitness = { tsb, acwr, acwrRecent, ...(recovery?.flags.length ? { recovery: { date: recovery.date, flags: recovery.flags } } : {}) }
   const rules = rulesFor(today)                                // the red zone of today's block
   const tiredWhy = [
     tsb != null && tsb < rules.tsbRed ? `TSB ${String(Math.round(tsb)).replace('-', '−')}` : null,
     acwr != null && acwrStreak(fitness, rules) >= 1 ? acwrWhy(fitness, rules) : null,
+    recoveryRedWhy(fitness),
   ].filter(Boolean).join(', ')
+  // A night flag that does not count as tired (one flag): a hint only, the plan stays.
+  const hint = recovery?.flags.length && !tired(fitness, rules) && (state === 'hard' || state === 'easy')
+    ? `Heute eher locker halten (${flagsText(recovery.flags)}).` : undefined
 
   let advice: string
   if (state === 'race') {
@@ -133,5 +141,7 @@ export function todayInsight({ today, sessions, manual, engineLog, runs, tsb, ac
     advice,
     ...(acwr != null && acwrCaution(fitness, rules)
       ? { caution: `Belastung hoch (ACWR ${acwr.toFixed(2)}, ${acwrStreak(fitness, rules)}. Tag): vorsichtig, noch keine Planänderung.` } : {}),
+    ...(recovery ? { night: lastNightLine(recovery) } : {}),
+    ...(hint ? { hint } : {}),
   }
 }

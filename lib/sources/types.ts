@@ -87,6 +87,21 @@ export interface DailyWellness {
   weightKg: number | null
 }
 
+// One night as a pull source delivers it: the night that ends on `date` (the morning). All values null = a night
+// without data (watch not worn). lib/wellness/ stores it; lib/analytics/recovery-data.ts reads it.
+export interface WellnessNight {
+  date: string
+  sleepS: number | null
+  deepS: number | null
+  remS: number | null
+  sleepScore: number | null
+  hrvAvg: number | null              // overnight HRV average, ms
+  hrvStatus: string | null           // the source's own HRV verdict, upper case (Garmin: BALANCED, LOW, …)
+  rhr: number | null
+  rhrSource: 'night' | 'day' | null  // 'day' = the day's resting HR (fallback, never used for flags)
+  sleepSource?: 'apple'              // sleep duration filled from Apple Health when the source has no night
+}
+
 // ─── Status and errors ────────────────────────────────────────────────────────
 
 export type SourceErrorCode =
@@ -145,6 +160,9 @@ export interface ActivitySource {
   listActivities?(q: ListQuery): Promise<{ items: ActivitySummary[]; hasMore: boolean }>
   getActivityDetail?(sourceActivityId: string): Promise<ActivityDetail>
   getDaily?(date: string): Promise<DailyWellness | null>
+  // Pull sources with dailyWellness: fetch one night from the source (the sync's wellness step, lib/wellness/sync.ts).
+  // `requestsLeft` = requests this sync may still make; returns how many it used. Throws SourceError.
+  fetchNight?(date: string, requestsLeft: number): Promise<{ night: WellnessNight; requests: number }>
   // cross-user: the cron's list of whom to sync (pull sources), least recently synced first.
   connectedUsers?(): Promise<string[]>
   // Called after a successful sync (e.g. to clear a stored error state).

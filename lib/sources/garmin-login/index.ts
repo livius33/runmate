@@ -12,6 +12,8 @@ import {
   deleteGarminAccount, garminAccountStatus, garminUserIds, loadGarminAccount, markGarminSynced, saveGarminAccount, saveGarminSession,
   type GarminSession,
 } from './account'
+import { loadDaily } from '@/lib/wellness/store'
+import { fetchGarminNight } from './wellness'
 import { parseDetailStreams, toLaps, toSummary, type GarminActivityDetailsResponse, type GarminListActivity, type GarminSplit } from './map'
 
 const CLIENT_KEY = 'garmin.client'
@@ -77,11 +79,11 @@ export const garminLoginSource: ActivitySource = {
   meta: {
     id: 'garmin',
     label: 'Garmin Connect (Anmeldung)',
-    description: 'Läufe, Krafttraining und Detaildaten direkt aus Garmin Connect, mit deinen Garmin-Zugangsdaten.',
+    description: 'Läufe, Krafttraining, Detaildaten sowie Schlaf, HRV und Ruhepuls direkt aus Garmin Connect, mit deinen Garmin-Zugangsdaten.',
     auth: 'credentials',
     experimental: true,
     available: true,
-    capabilities: { activities: true, detailStreams: true, dailyWellness: false, mode: 'pull', history: true, runs: true },
+    capabilities: { activities: true, detailStreams: true, dailyWellness: true, mode: 'pull', history: true, runs: true },
   },
 
   async status(): Promise<SourceStatus> {
@@ -145,6 +147,14 @@ export const garminLoginSource: ActivitySource = {
     }
     const chart = await call((gc) => gc.get<GarminActivityDetailsResponse>(`${API}/${id}/details?maxChartSize=1000&maxPolylineSize=1000`))
     return { laps: toLaps(splits), streams: parseDetailStreams(chart) }
+  },
+
+  // Stored nights (the sync's wellness step fetches them with fetchNight).
+  getDaily: loadDaily,
+
+  async fetchNight(date: string, requestsLeft: number) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw garminError('unknown')
+    return fetchGarminNight((url) => call((gc) => gc.get<unknown>(url)), date, requestsLeft)
   },
 
   connectedUsers: garminUserIds,

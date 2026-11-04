@@ -10,7 +10,7 @@ import { de } from 'date-fns/locale'
 import type { LastSync, SourceInfo } from '@/lib/sources/types'
 
 // Data that changes after a sync or import (also components/HeaderSync.tsx).
-export const AFTER_SYNC = ['sources', 'running-stats', 'runs', 'run', 'analytics', 'running-fitness', 'plan-actuals', 'plan-engine']
+export const AFTER_SYNC = ['sources', 'running-stats', 'runs', 'run', 'analytics', 'running-fitness', 'plan-actuals', 'plan-engine', 'running-wellness']
 
 const syncCounts = (s: { inserted: number; updated: number; enriched: number }) =>
   `${s.inserted} neu · ${s.updated} aktualisiert · ${s.enriched} ergänzt`

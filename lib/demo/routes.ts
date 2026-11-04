@@ -28,6 +28,7 @@ const ROUTES: [pattern: string, load: () => Promise<unknown>][] = [
   ['running/runs', () => import('@/app/api/running/runs/route')],
   ['running/runs/[id]', () => import('@/app/api/running/runs/[id]/route')],
   ['running/stats', () => import('@/app/api/running/stats/route')],
+  ['running/wellness', () => import('@/app/api/running/wellness/route')],
   ['running/workshop', () => import('@/app/api/running/workshop/route')],
   ['season', () => import('@/app/api/season/route')],
   ['sources', () => import('@/app/api/sources/route')],

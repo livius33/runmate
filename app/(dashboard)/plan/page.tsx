@@ -36,6 +36,7 @@ import { PredictionCard } from '@/components/plan/PredictionCard'
 import { WeekReview } from '@/components/plan/WeekReview'
 import type { DatedRun } from '@/lib/plan/pace-check'
 import { EMPTY_ENGINE, withoutRebalance, type EngineState } from '@/lib/plan/engine'
+import { recoveryDay, type WellnessNight } from '@/lib/analytics/recovery-data'
 
 export default function PlanPage() {
   const today = useToday()
@@ -150,21 +151,29 @@ export default function PlanPage() {
     for (const r of crossList) m.set(r.date, [...(m.get(r.date) ?? []), { letter: CROSS_SPORTS[r.type].letter, label: `${r.label} ${r.minutes} Min.` }])
     return m
   }, [crossList])
+  // Nights (sleep, HRV, resting HR): nothing is shown without a source that delivers them.
+  const { data: wellnessData } = useQuery<{ available: boolean; nights: WellnessNight[] }>({
+    queryKey: ['running-wellness'],
+    queryFn: () => fetch('/api/running/wellness?days=7').then((r) => (r.ok ? r.json() : { available: false, nights: [] })),
+    staleTime: 10 * 60 * 1000,
+  })
+  const wellness = wellnessData?.available ? wellnessData.nights : undefined
+  const recoveryToday = useMemo(() => (wellness ? recoveryDay(wellness, today) : undefined), [wellness, today])
   const tsb = fitness.length ? fitness[fitness.length - 1].tsb : null
   const runs: DatedRun[] = useMemo(() => actualList.flatMap((a) => a.runs.map((r) => ({ ...r, date: a.date }))), [actualList])
   const insight = useMemo(
-    () => todayInsight({ today, sessions, manual: overrides, engineLog: engine.log, runs, tsb, acwr: stats?.acwr ?? null, acwrRecent: stats?.acwrRecent }),
-    [today, sessions, overrides, engine.log, runs, tsb, stats?.acwr, stats?.acwrRecent])
+    () => todayInsight({ today, sessions, manual: overrides, engineLog: engine.log, runs, tsb, acwr: stats?.acwr ?? null, acwrRecent: stats?.acwrRecent, recovery: recoveryToday }),
+    [today, sessions, overrides, engine.log, runs, tsb, stats?.acwr, stats?.acwrRecent, recoveryToday])
   const prediction = useMemo(() => racePrediction({ today, sessions, runs }), [today, sessions, runs])
   const readiness = useMemo(
-    () => raceReadiness({ today, sessions, runs, prediction, fitness, acwr: stats?.acwr ?? null }),
-    [today, sessions, runs, prediction, fitness, stats?.acwr])
+    () => raceReadiness({ today, sessions, runs, prediction, fitness, acwr: stats?.acwr ?? null, wellness }),
+    [today, sessions, runs, prediction, fitness, stats?.acwr, wellness])
   const base = !!activeBlock(today).base                     // rolling base block between goal blocks (07-17)
   const afterRace = isAfterRace(today) && !base
   // Course map, pacing strategy and the race analysis card need the race's GPX; race week works for every block (07-15).
   const race = activeBlock(today).race
   const withCourse = !!race.gpxPath
-  const recovery = useMemo(() => recoveryStatus({ today, sessions, runs, fitness }), [today, sessions, runs, fitness])
+  const recovery = useMemo(() => recoveryStatus({ today, sessions, runs, fitness, wellness }), [today, sessions, runs, fitness, wellness])
   const baseCard = useMemo(() => baseStatus({ today, sessions, runs }), [today, sessions, runs])
 
   // Fresh install: no training block yet (no generated block live, no plan file registered).
