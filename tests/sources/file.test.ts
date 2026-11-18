@@ -101,6 +101,18 @@ describe('Datei-Parser', () => {
     await expect(parse('broken.zip', strToU8('PK nonsense'))).rejects.toThrow(/ZIP/)
     expect(await parse('empty.zip', zipSync({ 'readme.txt': strToU8('x') }))).toEqual([])
   })
+
+  // 11 × 20 MB of zeros pack to ~230 kB: every entry is within the per-file limit, together they took 220 MB of memory
+  // (60 entries from a 1.2 MB upload: 1.2 GB). One upload may unpack to MAX_UNPACKED_BYTES in total, at any depth.
+  it('ZIP-Bombe: viele erlaubte Dateien, gepackt in gz oder in einem inneren ZIP', async () => {
+    const zeros = new Uint8Array(MAX_FILE_BYTES)
+    const many = (name: (i: number) => string, b: Uint8Array, level: 0 | 9) => zipSync(Object.fromEntries(Array.from({ length: 11 }, (_, i) => [name(i), b])), { level })
+    const plain = many((i) => `a${i}.fit`, zeros, 9)
+    expect(plain.length).toBeLessThan(1024 * 1024)
+    await expect(parse('bomb.zip', plain)).rejects.toThrow(/zu groß/)
+    await expect(parse('gz.zip', many((i) => `a${i}.fit.gz`, gzipSync(zeros, { level: 9 }), 0))).rejects.toThrow(/zu groß/)
+    await expect(parse('nested.zip', zipSync({ 'inner.zip': plain }))).rejects.toThrow(/zu groß/)
+  }, 30_000)
 })
 
 describe('Hilfsfunktionen', () => {

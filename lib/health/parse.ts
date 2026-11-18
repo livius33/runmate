@@ -18,9 +18,12 @@ export interface HealthWorkoutInput { id: string; date: string; type: string; st
 // otherwise a run that carries a distance becomes an activity (source 'apple-health', deduplicated on import).
 const RUNNING = /run|lauf|jogg/i
 
+// A whole number. In text, a separator followed by exactly three digits groups thousands ("7.432", "12,345"); any
+// other one is the decimal mark ("512,3 kcal" → 512).
 function int(v: unknown, lo: number, hi: number): number | null {
   if (v == null || v === '') return null
-  const n = typeof v === 'number' ? Math.round(v) : Number(String(v).replace(/[^\d-]/g, ''))
+  const t = typeof v === 'number' ? null : String(v).match(/-?\d[\d.,]*/)?.[0].replace(/[.,](?=\d{3}(\D|$))/g, '').replace(',', '.')
+  const n = typeof v === 'number' ? Math.round(v) : t ? Math.round(Number(t)) : NaN
   return Number.isFinite(n) && n >= lo && n <= hi ? n : null
 }
 function dec(v: unknown, lo: number, hi: number): number | null {
