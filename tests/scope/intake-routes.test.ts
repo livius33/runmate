@@ -7,6 +7,7 @@ import { rowOf, useFakeDb, type Query } from './fake-db'
 
 const cross = await import('@/app/api/cross-training/route')
 const crossOne = await import('@/app/api/cross-training/[id]/route')
+const profile = await import('@/app/api/runner/profile/route')
 
 const MANUAL = { id: 'manual-1763000000000', source: 'manual', type: 'Strength', sportType: 'manual', name: 'Kraft', distanceM: 0, durationS: 1800, elapsedTimeS: 1800, date: '2026-05-10' }
 const fake = useFakeDb((q: Query) => (/^select .* from "activities"/.test(q.sql) ? [rowOf(activities, MANUAL)] : []))
@@ -16,6 +17,25 @@ beforeEach(() => { fake.log.length = 0 })
 const asUser = <T>(fn: () => Promise<T>) => runAsUser('user-a', fn, { profile: null })
 const json = (method: string, body: unknown) => new Request('http://localhost/api/x', { method, body: typeof body === 'string' ? body : JSON.stringify(body) })
 const writes = () => fake.log.filter((q) => /^(insert|update|delete)/.test(q.sql))
+
+// A body that is no JSON made req.json() throw: the route answered 500.
+describe('Läuferprofil: kein gültiges JSON', () => {
+  it.each(['POST', 'PATCH'] as const)('%s mit kaputtem Body: 400, nichts gespeichert', async (method) => {
+    for (const body of ['{"experience": ', '', 'null', '[1, 2]', '"text"']) {
+      const res = await asUser(() => profile[method](json(method, body))).catch((err: Error) => Response.json({ threw: err.name }, { status: 500 }))
+      expect([res.status, await res.json()], JSON.stringify(body)).toEqual([400, { error: 'JSON-Objekt erwartet' }])
+    }
+    expect(writes()).toEqual([])
+  })
+
+  it('ein gültiges Objekt wird wie bisher gespeichert', async () => {
+    const res = await asUser(() => profile.POST(json('POST', { experience: 'advanced' })))
+    expect([res.status, await res.json()]).toEqual([200, { ok: true }])
+    const patched = await asUser(() => profile.PATCH(json('PATCH', { weeklyKm: 50 })))
+    expect([patched.status, await patched.json()]).toEqual([200, { ok: true, profile: { weeklyKm: 50 } }])
+    expect(writes().map((q) => q.sql.slice(0, 22))).toEqual(['insert into "settings"', 'insert into "settings"'])
+  })
+})
 
 describe('Cross-Training: Datum', () => {
   const entry = (date: string) => ({ date, sport: 'Strength', minutes: 30, rpe: 6 })
