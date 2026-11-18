@@ -102,6 +102,7 @@ export function moveModes(from: string, to: string, today: string, sessions: Pla
   const dst = dayState(to, today, sessions, actual)
   if (src.session?.type === 'race' || src.session?.anchor || dst.session?.anchor) return []   // events stay put
   if (dst.actualKm > 0) return []                                // that day is already run
+  if (dst.session?.paused) return []                             // Krank/Pause wins there: the session would vanish
   // Partly run: swap the whole session with a planned day (the run was really a different session),
   // or add the rest on top of that day.
   if (src.status === 'partial') return isRun(dst.session) ? ['swap', 'merge'] : ['merge']
