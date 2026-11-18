@@ -29,7 +29,12 @@ const base = {
 }
 // `was`: the pace session behind a Zone 2 day, one level deep (a kept session keeps no further one).
 export const SavedSession = z.object({ ...base, was: z.object(base).optional() })
+// The key names the day: every reader goes by it and effectiveSessions overwrites an entry's `date` with it. So an
+// entry sent with another `date` is not refused but stored with its key as the date — the plan shows the same either
+// way, and the stored map then says what the plan shows. (`was.date` stays as sent: a Zone 2 day moved to another day
+// carries its pace session from there, and nothing reads that date.)
 export const SavedOverrides = z.record(DATE, SavedSession)
+  .transform((o) => Object.fromEntries(Object.entries(o).map(([d, s]) => [d, { ...s, date: d }])))
 
 // Compile-time guard: a field added to PlanSession must be added above or listed here as never stored.
 type NeverStored = 'paused'
@@ -48,9 +53,10 @@ const MOVE_REACH_DAYS = 14
 // it is unchanged: edits of a block that has ended or gone offline must not block every later save.
 export function daysOutsidePlan(next: Overrides, stored: Overrides, today: string): string[] {
   const inPlan = new Set(planWeeks().flatMap(weekDates))
-  const canon = (s: unknown) => { const p = SavedSession.safeParse(s); return JSON.stringify(p.success ? p.data : s) }   // same key order
+  // same key order; the entry's own date is not compared (a save sets it to the key)
+  const canon = (s: unknown, d: string) => { const p = SavedSession.safeParse(s); return JSON.stringify(p.success ? { ...p.data, date: d } : s) }
   return Object.keys(next).filter((d) => {
-    if (stored[d] && canon(stored[d]) === canon(next[d])) return false
+    if (stored[d] && canon(stored[d], d) === canon(next[d], d)) return false
     const t = parseISO(d)
     return !isValid(t) || !(inPlan.has(d) || Math.abs(differenceInCalendarDays(t, parseISO(today))) <= MOVE_REACH_DAYS)
   }).sort()
