@@ -27,7 +27,7 @@ type Ctx = { goals: SeasonGoal[]; templates: Template[]; defaultStart: string; p
 type Field = 'currentKm' | 'provenKm' | 'longest30Km' | 'peakKm' | 'goalS'
 
 const DISTANCE: Record<string, string> = { marathon: 'marathon', half: 'half', '10k': '10k' }
-const SOURCE: Record<string, string> = { mean4: 'Schnitt der letzten 4 Wochen', recoveryBlock: 'letzte Woche deines Erholungsblocks', plan: 'geplante Woche vor dem Start', manual: 'von dir gesetzt' }
+const SOURCE: Record<string, string> = { mean4: 'Schnitt der letzten 4 Wochen', recoveryBlock: 'letzte Woche deines Erholungsblocks', plan: 'geplante Woche vor dem Start', manual: 'von dir gesetzt', runs2: 'Schnitt deiner letzten 2 Wochen', return: 'Wiedereinstieg nach der Pause' }
 const PHASE: Record<string, string> = { base: 'Grundlage', build: 'Aufbau', peak: 'Spitze', taper: 'Taper' }
 const longDate = (d: string) => format(parseISO(d), 'EEEEEE. d. MMMM yyyy', { locale: de })
 const dayLabel = (d: string) => format(parseISO(d), 'EEEEEE d.M.', { locale: de })

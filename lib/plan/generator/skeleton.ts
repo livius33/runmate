@@ -15,7 +15,7 @@ export interface SkeletonInput {
   raceDate: string                 // 'yyyy-MM-dd'
   start: string                    // plan start; the skeleton starts on that week's Monday
   currentKm: number                // B: mean of the last 4 weeks, or the last week of a planned recovery block
-  currentKmSource?: 'mean4' | 'recoveryBlock' | 'plan' | 'manual'
+  currentKmSource?: 'mean4' | 'recoveryBlock' | 'plan' | 'manual' | 'runs2' | 'return'
   provenKm?: number | null         // P: highest 4-week mean in the last 52 weeks (missing = B)
   peakKm?: number | null           // set by hand (capped by what is reachable, with a warning)
   tuneUps?: string[]               // dates of tune-up races (≥ ½ goal distance or ≥ 15 km — the caller decides)
@@ -129,7 +129,9 @@ function peakFor(input: SkeletonInput, Wg: number) {
 function explain(input: SkeletonInput, p: ReturnType<typeof peakFor>, Wg: number, K: number, chosen: number): string[] {
   const source = input.currentKmSource === 'recoveryBlock' ? 'letzte Woche deines Erholungsblocks'
     : input.currentKmSource === 'plan' ? 'geplante Woche vor dem Start'
-    : input.currentKmSource === 'manual' ? 'von dir gesetzt' : 'Schnitt der letzten 4 Wochen'
+    : input.currentKmSource === 'manual' ? 'von dir gesetzt'
+    : input.currentKmSource === 'runs2' ? 'Schnitt deiner letzten 2 Wochen'
+    : input.currentKmSource === 'return' ? 'Wiedereinstieg nach der Pause' : 'Schnitt der letzten 4 Wochen'
   const v = input.template.volume
   const why = [chosen === K ? `Spitze ${num(K)} km pro Woche.` : `Empfohlene Spitze ${num(K)} km pro Woche (geplant: ${num(chosen)} km, von dir gesetzt).`, `Ausgangspunkt: Du läufst zurzeit ${num(p.B)} km pro Woche (${source}).`]
   if (p.binding === 'history') {

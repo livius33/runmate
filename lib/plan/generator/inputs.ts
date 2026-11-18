@@ -17,7 +17,7 @@ export interface MeasureInput {
 }
 export interface MeasuredInputs {
   currentKm: number
-  currentKmSource: 'mean4' | 'recoveryBlock' | 'plan'
+  currentKmSource: 'mean4' | 'recoveryBlock' | 'plan' | 'runs2' | 'return'   // runs2, return: a rebuild (lib/plan/rebuild.ts)
   provenKm: number
   longest30Km: number
   longest12mKm: number
