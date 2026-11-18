@@ -12,6 +12,8 @@ import { acwr, acwrSeries, fitnessSeries } from '@/lib/analytics/load'
 import { allGoals, storedGoals } from '@/lib/season/goals'
 import { activeBlock } from './blocks'
 import { athlete } from '@/lib/athlete'
+import { currentScope } from '@/lib/scope'
+import { loadOwnProfile, saveUserProfile } from '@/lib/profile-store'
 import { loadOverrides, loadPlan, saveOverrides } from './load'
 import { loadRecoveryForPlan, runAndSaveEngine } from './engine-store'
 import { isHard } from './effective'
@@ -36,7 +38,13 @@ export const loadProfile = () => getSetting<AthleteProfile>(PROFILE_KEY)
 export async function saveProfile(p: AthleteProfile) {
   if (!validProfile(p)) throw new Error('Profil unvollständig')
   await setSetting(PROFILE_KEY, { ...p, savedAt: new Date().toISOString() })
+  // The weight is asked once: Settings → Mein Profil (carb amounts) takes it over as long as it holds none of its own.
+  if (p.weightKg != null) {
+    const own = await loadOwnProfile()
+    if (own?.weightKg == null) await saveUserProfile({ ...EMPTY_PROFILE, ...own, weightKg: p.weightKg })
+  }
 }
+const EMPTY_PROFILE = { hrMax: null, hrRest: null, lthr: null, zoneModel: null, pbTime: null, pbRace: null, pbHr: null, vo2max: null, weightKg: null, easyPace: null, timezone: null, locale: null }
 
 // Events the period can run up to: race and anchored plan days, plus the Saison page's own goals.
 async function loadEvents(plan: { date: string; title: string; type: string; anchor?: boolean }[]): Promise<WorkshopEvent[]> {
@@ -126,7 +134,7 @@ export async function profilePrefill(today: string): Promise<AthleteProfile> {
   const weekdayMax = Math.max(0, ...recent.filter((s) => isoDay(s.date) <= 5 && s.type !== 'race').map((s) => s.km ?? 0))
   const weekendMax = Math.max(0, ...recent.filter((s) => isoDay(s.date) >= 6 && s.type !== 'race').map((s) => s.km ?? 0))
   return {
-    v: 1, age: null, weightKg: athlete().weightKg, heightCm: null,
+    v: 1, age: null, weightKg: currentScope().profile.defaults.includes('weightKg') ? null : athlete().weightKg, heightCm: null,   // never the example weight
     experience: null, weeklyKm: Math.round(km4 / 4) || null,      // not measurable: the runner says it
     availableDays: [1, 2, 3, 4, 5, 6, 7],
     longRunDay, qualityDays: mostCommon(hardDays.filter((d) => d !== longRunDay), 2), kbDays: [],
