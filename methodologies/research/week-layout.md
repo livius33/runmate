@@ -70,6 +70,44 @@ Inputs: template week.runs (r_t), week.key_sessions[phase] (q), profile.availabl
            not on the long-run day, not on the rest day
 ```
 
+### 1.3 No run longer than the long run (2026-11-18)
+
+The fit check above spreads `K_w − L_w` over the other run days without looking at the size of a single run. With few
+run days, or a day limit on the long-run day, one "easy" or key run then carries most of the week. Measured over all
+templates × distances × 20/40/60/90 km/week × 8 day sets × 16 weeks (before the rule): with 2 or 3 run days every
+week had a run longer than its long run (up to 108 km in one run at 90 km/week); with 4–7 days 28–65 % of the weeks
+(up to 11 km over the long run, up to 30 km with a weekend limit of 12 km).
+
+| Source | Finding | Use |
+|---|---|---|
+| Frandsen et al. 2025, *Br J Sports Med* 59(17):1203–1210 (5,205 runners) | A single run > 10 % longer than the longest run of the last 30 days raises the injury hazard; the weekly ratio does not | The bound belongs on the single run, and on every run — not only on the one called "long run" |
+| Pfitzinger & Douglas 2019; Daniels 2014; Hansons 2012 | The long run is the longest run of the week; the medium-long run stays clearly below it | **Convention** |
+
+```text
+bound_w = max(L_w, longest long run of the 30 days before this week's long-run day, MIN_RUN_KM)
+          // the same 30-day window as the spike rule (long-run.md 2); before the plan start it holds the measured
+          // longest run
+every key / easy / recovery run ≤ min(profile day cap, bound_w)
+what does not fit lowers the week; one warning per plan names the number of weeks, the largest gap and the way out
+  "Kein Lauf ist länger als der Longrun – n Wochen bleiben deshalb unter dem Ziel (am stärksten KW k: x statt y km).
+   Mehr Lauftage oder ein höheres Tageslimit am Longrun-Tag heben sie an."
+```
+
+- The 30-day window keeps recovery and taper weeks (short long run) from squeezing the other runs below what the runner
+  did one to four weeks earlier. The bound is the plain longest run, without the 10 % of the spike rule: a "tempo run"
+  2.5 km longer than a 27-km long run would be allowed by the study and still be the wrong plan.
+- At low volume a few weeks lose 0.5–3.5 km (a 20-km week on a template with a 25 % long run: three other runs of
+  5.5 km next to a 5-km long run). One warning per plan, not one per week.
+- The race week keeps the same bound for its easy runs and the race-pace reminder. A race the runner entered (B race,
+  event) is theirs to run and is not bounded.
+- Where a profile day limit binds in the same week, the week keeps its "Tageslimit begrenzt die Woche" line and is not
+  counted in the warning above.
+- Planned km lost to the rule in the same grid (no day limit): 6–7 run days −0.9 %, 5 days −2.7 %, 4 days −7 %,
+  3 days −22 %, 2 days −49 %. After the rule no week of the grid has a run above the bound.
+- The weekly target of the skeleton stays as it is. With 2 run days a 90-km target cannot be met (2 × L); the plan says
+  so instead of putting 60 km into one run. Lowering the target in the skeleton (so that the ramp is planned on what
+  the days can carry) is the cleaner fix and stays open (suggestion 3 below).
+
 ---
 
 ## 2. Key-session spacing and hard days
@@ -167,6 +205,7 @@ reports it.
 | `week.key_sessions[phase]` | per template | 0–4 | template (exists) | Books 2–3. **Convention** |
 | `week.key_gap_days` | 2 | 1–4 | template (exists) | Hard/easy convention; Pfitzinger 1. **Convention** |
 | `MIN_RUN_KM` | 5 | fixed | code constant (07-02) | — |
+| non-long run ≤ long run (this week's or the longest of the last 30 days) | fixed | — | engine rule (1.3) | Frandsen 2025 (**moderate**) for the single-run bound; long run = longest run is **convention** |
 | `HARD_LONG_KM` | 25 | fixed | code constant | A long run ≥ 25 km is a hard day (Porto practice). **Convention** |
 | `MAX_HARD_DAYS` | q + 1, ≤ 4 | fixed | safety rule | Porto rule "max zwei harte Tage" generalised. **Convention** |
 | novice runs ≤ 4 | fixed | — | engine rule | Videbæk 2015, Kluitenberg 2015. **Weak** |
@@ -200,6 +239,7 @@ Laufökonomie um 2–8 % (Übersichtsarbeit über 24 Studien), die Ausdauer leid
 |---|---|
 | Runs per week from template, capped by available days | **Convention** (profile is the constraint) |
 | Novices ≤ 4 runs | **Weak** |
+| No run longer than the long run | **Moderate** (single-run spike, cohort study) + **convention** |
 | Hard/easy, ≥ 1 easy day between hard days | **Convention** with plausible physiology; no trial |
 | Long run on the profile day, not Sunday (the reference runner), rest day Friday | **Preference/profile** |
 | Doubles only when needed, easy, ≤ 8 km | **Convention** (elite practice) |
@@ -210,6 +250,8 @@ Laufökonomie um 2–8 % (Übersichtsarbeit über 24 Studien), die Ausdauer leid
 
 1. 07-03: implement 1.2 and 2.2 on top of 07-02's `buildDays`; read the profile for days and caps; keep `ruleWarnings`.
 2. 08-02: implement 4.2 as code constants; show moved kettlebell days in the draft review.
+3. Open: let the skeleton know what the run days can carry (runs × long-run bound), so that weekly targets and the ramp
+   are planned on reachable km instead of being lowered week by week in `buildDays` (1.3).
 3. Schema: G-11 (layout per phase), G-2 (doubles), G-15 (hard-day constants as optional fields), G-16 (low priority).
 
 ## Sources

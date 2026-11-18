@@ -107,6 +107,21 @@ describe('Grenzfälle', () => {
     expect(p.warnings.join(' ')).toContain('Tageslimit begrenzt die Woche')
     expect(Math.max(...p.sessions.filter((s) => weekday(s.date) <= 5 && s.type !== 'race').map((s) => s.km ?? 0))).toBeLessThanOrEqual(12)
   })
+  it('3 Tage Fr–So, Wochenende höchstens 12 km: kein Lauf länger als der Longrun, ein Hinweis für alle gesenkten Wochen', () => {
+    const profile: AthleteProfile = { ...LIVIUS, availableDays: [5, 6, 7], longRunDay: 7, restDay: 1, qualityDays: [5], maxKmWeekday: null, maxKmWeekend: 12 }
+    const sk = skeleton({ template: template('pfitzinger-half'), distance: 'half', raceDate: '2027-02-21', start: '2026-11-30', currentKm: 60, provenKm: 60 })
+    const p = days(sk, { ...hmIn, profile, longest30Km: 12 })
+    expect(Math.max(...p.sessions.filter((s) => s.type !== 'race').map((s) => s.km ?? 0))).toBeLessThanOrEqual(12)
+    const hint = p.warnings.filter((x) => x.startsWith('Kein Lauf ist länger als der Longrun'))
+    expect(hint).toHaveLength(1)
+    expect(hint[0]).toMatch(/\d+ Wochen bleiben deshalb unter dem Ziel \(am stärksten KW \d+: [\d,]+ statt [\d,]+ km\)\. Mehr Lauftage oder ein höheres Tageslimit am Longrun-Tag heben sie an\./)
+    expect(p.warnings.filter((x) => /^KW \d+: /.test(x) && !x.includes('Rennwoche'))).toEqual([])
+  })
+  it('Beispielprofil mit 6 Tagen: kein Hinweis, nur die Rennwoche liegt unter dem Gerüst', () => {
+    const p = days(hmSk, hmIn)
+    expect(p.warnings.join(' ')).not.toContain('Kein Lauf ist länger')
+    expect(p.weeks.slice(0, -1).map((w) => w.km)).toEqual(hmSk.weeks.slice(0, -1).map((w) => w.km))
+  })
   it('Einsteiger: höchstens 4 Läufe pro Woche', () => {
     const p = days(hmSk, { ...hmIn, profile: { ...LIVIUS, experience: 'novice' } })
     for (const w of p.weeks.slice(0, -1)) {

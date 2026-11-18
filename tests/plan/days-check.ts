@@ -44,6 +44,15 @@ export function checkDays(plan: DaysPlan, sk: Skeleton, input: DaysInput): strin
     if (km > 0 && km < R.minRunKm && s.title !== 'Shakeout') out.push(`${s.date}: ${km} km unter ${R.minRunKm} km`)
   }
 
+  // No run longer than the long run: this week's or the longest of the 30 days before it (week-layout.md 1.3).
+  const longRuns = days.filter((s) => s.type === 'long')
+  for (const w of sk.weeks) {
+    const end = ymd(addDays(parseISO(w.start), 6))
+    const from = ymd(addDays(parseISO(end), -36))
+    const bound = Math.max(R.minRunKm, from < first ? input.longest30Km : 0, ...longRuns.filter((s) => s.date > from && s.date <= end).map((s) => s.km ?? 0))
+    for (const s of days) if (s.date >= w.start && s.date <= end && s.type !== 'long' && !s.anchor && runKm(s) > bound + 1e-9) out.push(`${s.date}: ${runKm(s)} km länger als der Longrun (${bound} km)`)
+  }
+
   // Weeks: km = skeleton km (lower only with a warning); long run day; hard days and spacing.
   let lastLoadLong: number | null = null
   let lastPeakLong: number | null = null
@@ -58,7 +67,7 @@ export function checkDays(plan: DaysPlan, sk: Skeleton, input: DaysInput): strin
     const km = week.reduce((a, s) => a + runKm(s), 0)
     const kw = `KW ${w.kw}`
     if (km > w.km + 1e-9) out.push(`${kw}: ${km} km über dem Gerüst (${w.km} km)`)
-    if (km < w.km - 1e-9 && !plan.warnings.some((x) => x.includes(kw))) out.push(`${kw}: ${km} statt ${w.km} km ohne Hinweis`)
+    if (km < w.km - 1e-9 && !plan.warnings.some((x) => x.includes(kw) || x.startsWith('Kein Lauf ist länger als der Longrun'))) out.push(`${kw}: ${km} statt ${w.km} km ohne Hinweis`)
     const long = week.find((s) => s?.type === 'long')
     if (i === raceIdx) { if (long) out.push(`${kw}: Longrun in der Rennwoche`); continue }
     if (profile.longRunDay && avail.has(profile.longRunDay) && long && getISODay(parseISO(long.date)) !== profile.longRunDay) {

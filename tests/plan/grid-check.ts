@@ -81,6 +81,14 @@ export function checkDraft(d: Draft, c: DraftChoice): string[] {
     }
   }
 
+  // No run longer than the long run: this week's or the longest of the 30 days before it (week-layout.md 1.3).
+  const longs = sessions.filter((s) => s.type === 'long')
+  for (const w of weeks) {
+    const from = format(addDays(parseISO(w.end), -36), 'yyyy-MM-dd')
+    const bound = Math.max(DAY_RULES.minRunKm, from < weeks[0].start ? d.inputs.longest30Km.value ?? 0 : 0, ...longs.filter((s) => s.date > from && s.date <= w.end).map((s) => s.km ?? 0))
+    for (const s of sessions) if (s.date >= w.start && s.date <= w.end && isRun(s) && s.type !== 'long' && !s.anchor && (s.km ?? 0) > bound + 1e-9) out.push(`${s.date}: ${s.title} ${s.km} km länger als der Longrun (${bound} km)`)
+  }
+
   // Never two hard days in a row unless the template allows touching key days (key_gap_days 1), never three.
   const hard = (s?: PlanSession) => !!s && s.type !== 'race' && (!!s.key || s.type === 'tempo' || s.type === 'intervals' || (s.type === 'long' && (s.km ?? 0) >= SAFETY.longRunMinKmForHard))
   for (let i = 1; i < sessions.length; i++) {
