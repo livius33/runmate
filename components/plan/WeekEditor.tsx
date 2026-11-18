@@ -22,10 +22,11 @@ import { strengthDetail, strengthMark, strengthWeek, type KbMark } from '@/lib/p
 
 type CrossPill = { letter: string; label: string; kb?: boolean }   // kb: a Strength or Gym session (counts for a kettlebell marker)
 
-export function WeekEditor({ today, sessions, baseSessions, overrides, engineOverrides, engineNotes, actuals, cross, kbDone, syncedThrough = null, onChange, saving, saveError, onRetry }: {
+export function WeekEditor({ today, sessions, baseSessions, autoSessions, overrides, engineOverrides, engineNotes, actuals, cross, kbDone, syncedThrough = null, onChange, saving, saveError, onRetry }: {
   today: string
   sessions: PlanSession[]
   baseSessions: PlanSession[]
+  autoSessions: PlanSession[]          // the plan as shown without manual edits: an edit back at the plan value stays where this differs
   overrides: Overrides
   engineOverrides: Overrides
   engineNotes: Map<string, string>
@@ -87,8 +88,8 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
             setSelected(to)
           }}
           edited={!!overrides[selected]}
-          onSetKm={(km, opts) => change(setDayKm(overrides, selected, km, baseSessions, opts))}
-          onZ2={(z2) => change(z2 ? setZone2(overrides, selected, baseSessions) : setPace(overrides, selected, baseSessions))}
+          onSetKm={(km, opts) => change(setDayKm(overrides, selected, km, baseSessions, opts, autoSessions))}
+          onZ2={(z2) => change(z2 ? setZone2(overrides, selected, baseSessions) : setPace(overrides, selected, baseSessions, autoSessions))}
           effective={sessions}
           onEdit={(s) => {
             // A new session type keeps the day's kettlebell marker, a rest day drops it.

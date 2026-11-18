@@ -179,6 +179,13 @@ function sameSession(a: PlanSession, b: PlanSession) {
     JSON.stringify(a.strength ?? null) === JSON.stringify(b.strength ?? null)
 }
 
+// An edit back at the plan file's value is only dropped when the day then shows it: with an engine change or a return
+// cap on that day (`auto` = the plan as shown without manual edits) the edit stays, or it would do nothing.
+function showsWithout(next: PlanSession, date: string, auto?: PlanSession[]) {
+  const shown = auto?.find((x) => x.date === date)
+  return !shown || sameSession(next, shown)
+}
+
 // ─── Zone 2 or pace ───────────────────────────────────────────────────────────
 
 // A day that can be switched: a run with pace (tempo, intervals, long run with pace, a test) or one already switched.
@@ -204,7 +211,7 @@ export function setZone2(overrides: Overrides, date: string, sessions: PlanSessi
 }
 
 // Back to the pace session: the kept one, or the original plan day. Same as the original plan → the edit is dropped.
-export function setPace(overrides: Overrides, date: string, sessions: PlanSession[]): Overrides {
+export function setPace(overrides: Overrides, date: string, sessions: PlanSession[], auto?: PlanSession[]): Overrides {
   const s = sessions.find((x) => x.date === date)
   if (z2State(s, date) !== 'z2') return overrides
   const original = allSessions().find((x) => x.date === date)
@@ -213,7 +220,8 @@ export function setPace(overrides: Overrides, date: string, sessions: PlanSessio
   const restored = kept && original ? { ...kept, anchor: kept.anchor ?? original.anchor, test: kept.test ?? original.test } : kept
   const back = restored && withStrength(restored, s!.strength)   // the day's kettlebell marker as it is now
   const out = { ...overrides }
-  if (!back || (original && sameSession(back, original) && !!back.anchor === !!original.anchor && back.test === original.test)) delete out[date]
+  const atPlan = !!back && !!original && sameSession(back, original) && !!back.anchor === !!original.anchor && back.test === original.test
+  if (!back || (atPlan && showsWithout(back, date, auto))) delete out[date]
   else out[date] = { ...back, date }
   return out
 }
@@ -247,7 +255,7 @@ export function kmEditEffect(session: PlanSession | undefined, km: number): { ki
 // Structured sessions keep their block and adapt warm-up/cool-down; a block that no longer fits
 // is shortened (same rule as fitSession). Back to the original plan → the override is dropped.
 // Race day stays as it is. (`shortenBlock` is kept for old callers; shortening always applies.)
-export function setDayKm(overrides: Overrides, date: string, km: number, sessions: PlanSession[], _opts: { shortenBlock?: boolean } = {}): Overrides {
+export function setDayKm(overrides: Overrides, date: string, km: number, sessions: PlanSession[], _opts: { shortenBlock?: boolean } = {}, auto?: PlanSession[]): Overrides {
   const session = sessions.find((s) => s.date === date)
   if (session?.type === 'race') return overrides
   km = r1(Math.min(60, Math.max(0, km)))
@@ -258,7 +266,7 @@ export function setDayKm(overrides: Overrides, date: string, km: number, session
     : { date, type: 'easy', km, title: 'Locker', notes: 'Locker, Zone 2' }
   const original = allSessions().find((s) => s.date === date)
   const out = { ...overrides }
-  if (original && sameSession(next, original)) delete out[date]
+  if (original && sameSession(next, original) && showsWithout(next, date, auto)) delete out[date]
   else out[date] = next
   return out
 }

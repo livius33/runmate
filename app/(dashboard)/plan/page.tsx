@@ -140,6 +140,8 @@ export default function PlanPage() {
   const sessions = useMemo(() => effectiveSessions(overrides, engine.overrides, pauseInput), [overrides, engine.overrides, pauseInput])
   // What manual edits work on: the plan without the engine's 'Ausgleich' km, so moves never carry them.
   const baseSessions = useMemo(() => effectiveSessions(overrides, withoutRebalance(engine), pauseInput), [overrides, engine, pauseInput])
+  // The plan as shown without manual edits: where it differs from the plan file, an edit back at the plan value stays.
+  const autoSessions = useMemo(() => effectiveSessions({}, engine.overrides, pauseInput), [engine.overrides, pauseInput])
   // date → reason of the latest active engine change on that day
   const engineNotes = useMemo(() => {
     const m = new Map<string, string>()
@@ -217,7 +219,7 @@ export default function PlanPage() {
 
       <div className="grid gap-5 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-7"><TrainingSchedule today={today} actuals={actuals} cross={cross} kbDone={kbDone} syncedThrough={syncedThrough} sessions={sessions}
-          overrides={overrides} baseSessions={baseSessions} engineOverrides={engine.overrides} engineNotes={engineNotes} onChange={(next) => save.mutate(next)} saving={save.isPending}
+          overrides={overrides} baseSessions={baseSessions} autoSessions={autoSessions} engineOverrides={engine.overrides} engineNotes={engineNotes} onChange={(next) => save.mutate(next)} saving={save.isPending}
           saveError={save.isError} onRetry={() => save.variables && save.mutate(save.variables)} /></div>
         <div className="min-w-0 lg:col-span-5">{base
           ? <ReadinessCard title="Grundlage" verdict={baseCard.verdict} lines={baseCard.lines} note={BASE_NOTE} />
