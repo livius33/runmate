@@ -93,8 +93,10 @@ export function implausible(a: Pick<ActivitySummary, 'sport' | 'distanceM' | 'mo
   return null
 }
 
+// `incomplete` (only with `existing: 'skip'`): this very record is stored, but its detail data is not, because an
+// earlier storeDetail failed after the row was written. The caller stores the detail again instead of skipping.
 export type UpsertResult =
-  | { result: 'inserted' | 'updated' | 'replaced' | 'duplicate'; id: string }
+  | { result: 'inserted' | 'updated' | 'replaced' | 'duplicate'; id: string; incomplete?: boolean }
   | { result: 'rejected'; id: null; reason: Implausible }      // impossible values (PLAUSIBLE): nothing stored
 
 // An activity from another source (or another id of the same source) that is the same one: ±2 min, ±3 %.
@@ -119,11 +121,15 @@ export async function upsertSummary(source: SourceId, summary: ActivitySummary, 
   if (reason) return { result: 'rejected', id: null, reason }
   const row = toActivityRow(source, summary)
   const [existing] = await db
-    .select({ id: activities.id })
+    .select({ id: activities.id, type: activities.type, hasDetailedData: activities.hasDetailedData })
     .from(activities)
     .where(own(activities, eq(activities.source, source), eq(activities.sourceActivityId, summary.sourceActivityId)))
     .limit(1)
-  if (existing && opts.existing === 'skip') return { result: 'duplicate', id: existing.id }
+  if (existing && opts.existing === 'skip') {
+    // Only runs carry detail data (storeDetail), and storeDetail sets the flag as its last step.
+    const incomplete = RUN_ACTIVITY_TYPES.includes(existing.type) && !existing.hasDetailedData
+    return { result: 'duplicate', id: existing.id, ...(incomplete ? { incomplete } : {}) }
+  }
   if (existing) {
     const { id: _id, source: _s, sourceActivityId: _sid, ...set } = row
     await db.update(activities).set(set).where(own(activities, eq(activities.id, existing.id)))
@@ -202,6 +208,11 @@ const json = (v: unknown) => (v ? JSON.stringify(v) : null)
 
 // Laps and streams for one stored activity, then its run metrics. Splits, streams and metrics are run data: a
 // cross-training row is never enriched (returns false).
+// Not atomic with the row itself: the app has no transaction that works on both drivers (Neon HTTP has none that
+// spans reads; lib/db/index.ts). So the writes are ordered instead: `hasDetailedData` is set last, after streams and
+// metrics. A failure at any step leaves the row marked as lacking detail, and every step may run again (the streams
+// are upserted): the next sync of a pull source (sync.ts missingDetail) or importing the file again (upsertSummary:
+// `incomplete`) completes it.
 export async function storeDetail(activityId: string, detail: ActivityDetail, plan?: PlanSession[]): Promise<boolean> {
   const [row] = await db.select({ type: activities.type }).from(activities).where(own(activities, eq(activities.id, activityId))).limit(1)
   if (!row) throw new Error(`Activity ${activityId} not in DB`)
@@ -227,10 +238,10 @@ export async function storeDetail(activityId: string, detail: ActivityDetail, pl
       .values(mine({ activityId, ...values }))
       .onConflictDoUpdate({ target: [activityStreams.userId, activityStreams.activityId], set: values })
   }
+  await storeRunMetrics(activityId, plan)
   await db
     .update(activities)
     .set({ splitsMetricJson: detail.laps.length ? JSON.stringify(detail.laps) : null, hasDetailedData: true, hasStreams: !!st })
     .where(own(activities, eq(activities.id, activityId)))
-  await storeRunMetrics(activityId, plan)
   return true
 }

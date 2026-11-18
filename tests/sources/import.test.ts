@@ -49,8 +49,10 @@ const userOf = (q: Query) => {
   return m ? String(q.params[Number(m[1]) - 1]) : null
 }
 
-function fakeActivities(tables: Record<string, Act[]>) {
+// `before` sees every query first and may throw (a database error at that point).
+function fakeActivities(tables: Record<string, Act[]>, before: (q: Query) => void = () => {}) {
   const fake = useFakeDb((q: Query) => {
+    before(q)
     const user = userOf(q)
     if (!user) return []
     const rows = tables[user] ??= []
@@ -62,9 +64,9 @@ function fakeActivities(tables: Record<string, Act[]>) {
       rows.push({ id: String(v.id), source: String(v.source), sourceActivityId: v.source_activity_id as string, startedAt: v.started_at as number, date: String(v.date), startTime: v.start_time as string, distanceM: Number(v.distance_m), type: String(v.type) })
       return []
     }
-    if (/^select "id" from "activities"/.test(q.sql)) {          // by (source, source id)
+    if (/^select "id", "type", "has_detailed_data" from "activities"/.test(q.sql)) {   // by (source, source id)
       const [, source, sid] = q.params                         // user, source, source id
-      return rows.filter((r) => r.source === source && r.sourceActivityId === sid).map((r) => [r.id])
+      return rows.filter((r) => r.source === source && r.sourceActivityId === sid).map((r) => [r.id, r.type, !!r.hasDetailedData])
     }
     if (/^select "id", "started_at", "date", "start_time", "distance_m" from "activities"/.test(q.sql)) {
       return rows.map((r) => [r.id, r.startedAt, r.date, r.startTime, r.distanceM])
@@ -242,6 +244,69 @@ describe('Reichhaltigkeit (rein)', () => {
     // Detail still to be fetched (channels unknown): only detail and HR count.
     expect(isRicher(r(true, 8, false), r(true, null, true))).toBe(false)
     expect(isRicher(r(true, null, true), r(true, 8, false))).toBe(true)
+  })
+})
+
+// 08-02 follow-up: the activity row is written before its detail data (streams, laps, run metrics), and there is no
+// transaction across both database drivers. A failure in between must show in the report and heal on the next import.
+describe('Detaildaten scheitern nach dem Einfügen', () => {
+  afterEach(() => metrics.storeRunMetrics.mockClear())
+  const failOnce = (pattern: RegExp) => {
+    let failed = false
+    return (q: Query) => { if (!failed && pattern.test(q.sql)) { failed = true; throw new Error('connection reset') } }
+  }
+
+  it('Verlauf lässt sich nicht speichern: der Bericht sagt, was da ist; dieselbe Datei erneut → vervollständigt, keine Dublette', async () => {
+    const tables: Record<string, Act[]> = {}
+    fake = fakeActivities(tables, failOnce(/^insert into "activity_streams"/))
+    const first = await asUser('user-a', () => importFiles([{ name: 'run.fit', bytes: fitFile() }]))
+    // The row is there (it counts for load and plan), its detail is not: both are said.
+    expect(tables['user-a']).toHaveLength(1)
+    expect(tables['user-a'][0]).not.toMatchObject({ hasDetailedData: true })
+    expect(first).toMatchObject({ inserted: 1, duplicates: 0, repaired: 0 })
+    expect(first.errors).toEqual([{ name: 'run.fit', message: expect.stringMatching(/^run\.fit: Aktivität vom 10\.05\.2026 gespeichert, aber ohne Detaildaten .*erneut importieren/) }])
+
+    const again = await asUser('user-a', () => importFiles([{ name: 'run.fit', bytes: fitFile() }]))
+    expect(again).toMatchObject({ inserted: 0, duplicates: 0, repaired: 1, errors: [] })
+    expect(tables['user-a']).toHaveLength(1)
+    expect(tables['user-a'][0]).toMatchObject({ hasDetailedData: true, hasStreams: true, laps: true })
+    expect(metrics.storeRunMetrics).toHaveBeenCalledTimes(1)
+
+    // Complete now: a third import is an ordinary duplicate.
+    expect(await asUser('user-a', () => importFiles([{ name: 'run.fit', bytes: fitFile() }]))).toMatchObject({ inserted: 0, duplicates: 1, repaired: 0, errors: [] })
+  })
+
+  it('die Laufauswertung scheitert als letzter Schritt: nicht als vollständig markiert, der nächste Import holt sie nach', async () => {
+    const tables: Record<string, Act[]> = {}
+    fake = fakeActivities(tables)
+    metrics.storeRunMetrics.mockRejectedValueOnce(new Error('connection reset'))
+    const first = await asUser('user-a', () => importFiles([{ name: 'run.fit', bytes: fitFile() }]))
+    expect(first).toMatchObject({ inserted: 1, repaired: 0 })
+    expect(first.errors).toHaveLength(1)
+    expect(tables['user-a'][0]).not.toMatchObject({ hasDetailedData: true })
+    const again = await asUser('user-a', () => importFiles([{ name: 'run.fit', bytes: fitFile() }]))
+    expect(again).toMatchObject({ inserted: 0, duplicates: 0, repaired: 1, errors: [] })
+    expect(tables['user-a'][0]).toMatchObject({ hasDetailedData: true, hasStreams: true })
+    expect(metrics.storeRunMetrics).toHaveBeenCalledTimes(2)
+  })
+
+  it('eine Datei ersetzt einen ärmeren Eintrag und die Details scheitern: ersetzt gezählt, beim nächsten Mal vervollständigt', async () => {
+    const tables: Record<string, Act[]> = { 'user-a': [{ id: 'a1', source: 'apple-health', sourceActivityId: 'apple-1', startedAt: T + 60, date: '2026-05-10', startTime: '08:01:00', distanceM: 5150, type: 'Run', averageHr: 148, perceivedExertion: 7 }] }
+    fake = fakeActivities(tables, failOnce(/^insert into "activity_streams"/))
+    const first = await asUser('user-a', () => importFiles([{ name: 'run.fit', bytes: fitFile() }]))
+    expect(first).toMatchObject({ inserted: 0, replaced: 1, repaired: 0 })
+    expect(first.errors).toHaveLength(1)
+    const again = await asUser('user-a', () => importFiles([{ name: 'run.fit', bytes: fitFile() }]))
+    expect(again).toMatchObject({ replaced: 0, duplicates: 0, repaired: 1, errors: [] })
+    expect(tables['user-a']).toEqual([expect.objectContaining({ id: 'a1', source: 'file', hasDetailedData: true, hasStreams: true, perceivedExertion: 7 })])
+  })
+
+  it('eine Radeinheit hat keine Detaildaten: erneut importiert bleibt sie eine Dublette', async () => {
+    const tables: Record<string, Act[]> = {}
+    fake = fakeActivities(tables)
+    const ride = () => fitFile({ ...RUN, sport: 'cycling' })
+    expect(await asUser('user-a', () => importFiles([{ name: 'ride.fit', bytes: ride() }]))).toMatchObject({ inserted: 1, errors: [] })
+    expect(await asUser('user-a', () => importFiles([{ name: 'ride.fit', bytes: ride() }]))).toMatchObject({ inserted: 0, duplicates: 1, repaired: 0, errors: [] })
   })
 })
 
