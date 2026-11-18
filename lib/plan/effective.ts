@@ -9,7 +9,7 @@ import { athlete } from '@/lib/athlete'
 import { fitSession, formatNotes, parseStructure, rescale } from './structure'
 import { rulesFor } from './rules'
 import { pauseLayer, type PauseInput } from './pause'
-import { KB, withStrength } from './strength'
+import { KB, isKeyDay, withStrength } from './strength'
 
 // date → replacement session for that day (type 'rest' clears the day)
 export type Overrides = Record<string, PlanSession>
@@ -130,7 +130,8 @@ export function applyMove(
   // Whole session. A missed day keeps what was run (nothing) and gives up its km.
   const moving = { ...S, km: src.status === 'missed' ? src.openKm : S.km }
   if (mode === 'move') {
-    next[to] = { ...moving, date: to }
+    // A kettlebell marker set on the free day stays with that day; a key day itself takes none (strength.ts).
+    next[to] = withStrength({ ...moving, date: to }, moving.strength ?? (isKeyDay(moving) ? null : dst.session?.strength))
     next[from] = restDay(from, `verschoben auf ${dayLabel(to)}`)
   } else if (mode === 'swap') {
     next[to] = { ...moving, date: to }
@@ -155,7 +156,7 @@ export function restDay(date: string, notes: string): PlanSession {
 
 function addKm(target: PlanSession | undefined, date: string, km: number, note: string): PlanSession {
   if (isRun(target)) return { ...target, date, km: r1(target.km + km), notes: join(target.notes, note) }
-  return { date, type: 'easy', km, title: 'Nachholen', notes: join('Locker, Zone 2', note) }
+  return withStrength({ date, type: 'easy', km, title: 'Nachholen', notes: join('Locker, Zone 2', note) }, target?.strength)   // the free day's kettlebell marker stays
 }
 
 function mergeSessions(a: PlanSession, b: PlanSession, date: string): PlanSession {
