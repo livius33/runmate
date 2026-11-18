@@ -157,10 +157,12 @@ export function blockProgress({ block, sessions, runs, today }: {
 
   // ── Volume ─────────────────────────────────────────────────────────────────
   // Soll bis heute: finished weeks count their target, the current week its sessions up to today (never above the target).
+  // Today counts once it is run, as in the readiness check: nobody is behind plan before the day's run.
   // Session km alone would not do: the history weeks before planStart hold an older plan than the week targets.
+  const ranToday = volumeRuns.some((r) => r.date === today)
   const planToDateKm = r1(weeks.filter((w) => w.start <= today).reduce((t, w) => {
     if (w.end < today) return t + w.km
-    const sessionKm = inBlock.filter((s) => inWeek(w, s.date) && s.date <= today && s.type !== 'race' && s.type !== 'rest').reduce((u, s) => u + (s.km ?? 0), 0)
+    const sessionKm = inBlock.filter((s) => inWeek(w, s.date) && (s.date < today || (s.date === today && ranToday)) && s.type !== 'race' && s.type !== 'rest').reduce((u, s) => u + (s.km ?? 0), 0)
     return t + Math.min(w.km, sessionKm)
   }, 0))
   const actualToDateKm = r1(volumeRuns.reduce((t, r) => t + r.km, 0))

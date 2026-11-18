@@ -217,7 +217,8 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
       if (!e) { relaxed(s, s.date >= lastHardFrom ? 'Frische vor dem Rennen' : 'keine passende Einheit in der Vorlage'); continue }
       s.title = KIND_TITLE[e.kind] ?? s.title
       if (e.kind === 'hills') { s.notes = `${num(s.km ?? 0)} km locker, darin ${Math.round(q0)} × 45 s zügig bergauf, locker zurück.`; delete s.pace; continue }
-      if (e.kind === 'medium_long') { s.notes = `Mittellanger Lauf, ruhig: Puls ≤ ${Z2().max}.`; delete s.pace; continue }
+      // The medium-long run is the week's key by its length, not by pace: an easy run, so nothing offers to "run it easy instead".
+      if (e.kind === 'medium_long') { s.notes = `Mittellanger Lauf, ruhig: Puls ≤ ${Z2().max}.`; delete s.pace; s.type = 'easy'; continue }
       const q = floorKm(q0 * f)
       const paceS = paceOf(e.kind)
       if (q < 1) { relaxed(s, 'zu kurz für eine Qualitätseinheit'); continue }

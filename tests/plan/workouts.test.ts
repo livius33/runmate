@@ -145,10 +145,12 @@ describe('Renntempo im Longrun je Vorlage (07-04)', () => {
 describe('Titel der Schlüsseleinheiten', () => {
   it('eine gefüllte Einheit heißt nach ihrem Inhalt, nicht „Qualität“', () => {
     const { w } = plan(hmSk, hmIn)
-    const keys = w.sessions.filter((s) => s.key && s.type === 'tempo')
+    const keys = w.sessions.filter((s) => s.key && (s.type === 'tempo' || s.type === 'easy'))
     expect(keys.length).toBeGreaterThan(10)
     expect(keys.filter((s) => s.title === 'Qualität')).toEqual([])
-    expect(keys.find((s) => s.notes?.startsWith('Mittellanger Lauf'))?.title).toBe('Mittellanger Lauf')
+    // The medium-long run is the key by its length: an easy run without a pace, not a tempo day.
+    expect(keys.find((s) => s.notes?.startsWith('Mittellanger Lauf'))).toMatchObject({ title: 'Mittellanger Lauf', type: 'easy', key: true })
+    expect(keys.filter((s) => s.type === 'easy').every((s) => s.title === 'Mittellanger Lauf' && !s.pace)).toBe(true)
     expect(keys.find((s) => s.notes?.includes('VO2max'))?.title).toBe('Intervalle')
     expect(keys.find((s) => s.notes?.includes('Schwelle:'))?.title).toMatch(/Schwellenlauf|Tempolauf/)
   })

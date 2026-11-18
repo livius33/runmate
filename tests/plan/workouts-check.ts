@@ -27,11 +27,11 @@ export function checkWorkouts(plan: WorkoutPlan, days: DaysPlan, sk: Skeleton, i
   }
 
   // Days unchanged: same dates, types, km — except a quality slot made easy (no workout, or freshness before a test), which becomes an easy run
-  // (07-21, audit finding 14).
+  // (07-21, audit finding 14), and the medium-long run, which stays the key but is an easy run.
   if (plan.sessions.length !== days.sessions.length) out.push('Anzahl Tage geändert')
   plan.sessions.forEach((s, i) => {
     const d = days.sessions[i]
-    const relaxed = (d?.type === 'tempo' || d?.type === 'intervals') && s.type === 'easy' && !s.key && !s.pace
+    const relaxed = (d?.type === 'tempo' || d?.type === 'intervals') && s.type === 'easy' && !s.pace && (!s.key || s.title === 'Mittellanger Lauf')
     if (!d || s.date !== d.date || (s.type !== d.type && !relaxed) || (s.km ?? 0) !== (d.km ?? 0)) out.push(`${s.date}: Tag geändert (${d?.type} ${d?.km} → ${s.type} ${s.km})`)
   })
 
