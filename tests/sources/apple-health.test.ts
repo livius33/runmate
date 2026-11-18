@@ -118,6 +118,14 @@ describe('Kurzbefehl-Route je Nutzer', () => {
     expect(fake.log.filter((q) => /^(insert|update|delete)/.test(q.sql))).toEqual([])
   })
 
+  it('mehr Workouts als erlaubt: 400 auf Deutsch, nichts gespeichert', async () => {
+    fake.log.length = 0
+    const workouts = Array.from({ length: 201 }, (_, i) => ({ ...STRENGTH, type: `Workout ${i}` }))
+    const res = await POST(new Request('http://localhost/api/health/x', { method: 'POST', body: JSON.stringify({ date: '2026-05-10', steps: 8000, workouts }) }), { params: Promise.resolve({ token: 'B'.repeat(32) }) })
+    expect([res.status, (await res.json()).error]).toEqual([400, 'workouts: höchstens 200 pro Upload'])
+    expect(fake.log.filter((q) => /^(insert|update|delete)/.test(q.sql))).toEqual([])
+  })
+
   it('unbekanntes Token: 404', async () => {
     expect((await post('C'.repeat(32))).status).toBe(404)
   })

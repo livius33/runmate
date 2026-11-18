@@ -98,7 +98,9 @@ describe('saveHealth: ein Schreibfehler mittendrin', () => {
     fake = fakeWorkouts(rows)
     await asUser(() => saveHealth(DAY, null))
     expect(mineOn(rows, '2026-05-10')).toEqual([['kraft', 45], ['yoga', 30]])
-    await asUser(() => saveHealth(DAY, [w('yoga', 35), w('yoga', 50)]))
+    // Counted once as well: steps + one workout, in the answer and in the last-upload record.
+    expect(await asUser(() => saveHealth(DAY, [w('yoga', 35), w('yoga', 50), w('yoga', 50)]))).toBe(2)
+    expect(JSON.parse(String(lastUploads().at(-1)!.params.find((p) => /"values"/.test(String(p)))))).toMatchObject({ date: DAY.date, values: 2 })
     expect(mineOn(rows, '2026-05-10')).toEqual([['yoga', 35]])
     await asUser(() => saveHealth(DAY, []))
     expect(mineOn(rows, '2026-05-10')).toEqual([])

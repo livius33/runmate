@@ -1,7 +1,7 @@
 // The Shortcut sends numbers as text in the phone's format. Whole-number fields (kcal, resting HR, steps, sleep
 // minutes) must read a decimal value as that value, not as its digits glued together ("512,3" kcal is not 5123).
 import { describe, expect, it } from 'vitest'
-import { parseHealth } from '@/lib/health/parse'
+import { MAX_WORKOUTS, parseHealth } from '@/lib/health/parse'
 
 const day = (body: Record<string, unknown>) => {
   const r = parseHealth({ date: '2026-05-10', ...body }, '2026-05-09')
@@ -46,6 +46,17 @@ describe('Apple Health: ganze Zahlen aus Text', () => {
     expect(r.skipped).toBe(3)
     const runs = parseHealth({ date: '2026-05-10', workouts: [{ type: 'Outdoor Run', start: '2026-02-31T07:00:00+02:00', minutes: 50, distanceKm: 10 }] }, '2026-05-09', { keepRuns: true, latest: '2026-05-11' })
     expect(runs).toMatchObject({ ok: false })                     // nothing left: the run would have carried the impossible day
+  })
+
+  // 08-02 follow-up: the list had no upper bound; every entry became a row in one statement.
+  it('Workouts: höchstens MAX_WORKOUTS je Upload, darüber wird der ganze Upload abgelehnt', () => {
+    const list = (n: number) => Array.from({ length: n }, (_, i) => ({ type: 'Yoga', start: `2026-05-10T08:00:${String(i % 60).padStart(2, '0')}+02:00`, minutes: 1 + i }))
+    const full = parseHealth({ date: '2026-05-10', workouts: list(MAX_WORKOUTS) }, '2026-05-09')
+    expect(full.ok && full.workouts!.length).toBe(MAX_WORKOUTS)
+    expect(parseHealth({ date: '2026-05-10', steps: 8000, workouts: list(MAX_WORKOUTS + 1) }, '2026-05-09')).toEqual({ ok: false, error: 'workouts: höchstens 200 pro Upload' })
+    // Running workouts count too: the bound is on what is sent, not on what is kept.
+    const runs = [...list(MAX_WORKOUTS), { type: 'Outdoor Run', start: '2026-05-10T07:00:00+02:00', minutes: 50, distanceKm: 10 }]
+    expect(parseHealth({ date: '2026-05-10', workouts: runs }, '2026-05-09', { keepRuns: true })).toMatchObject({ ok: false })
   })
 
   it('Text ohne Zahl ist kein Wert (nicht 0)', () => {

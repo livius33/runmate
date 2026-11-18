@@ -69,6 +69,11 @@ function runSummary(w: Record<string, unknown>, id: string, start: string, date:
   }
 }
 
+// Workouts in one upload. The Shortcut sends a day, at most a few: more is a Shortcut gone wrong (a whole history in
+// one request) and is refused as a whole. A list cut short would be stored as the days' full list, and saveHealth
+// would remove the stored workouts that were cut.
+export const MAX_WORKOUTS = 200
+
 // `latest`: the last day accepted, for the day itself and for every workout (the route passes tomorrow).
 export function parseHealth(body: unknown, fallbackDate: string, opts: { keepRuns?: boolean; latest?: string } = {}):
   { ok: true; day: HealthDayInput; workouts: HealthWorkoutInput[] | null; runs: ActivitySummary[]; skipped: number } | { ok: false; error: string } {
@@ -93,6 +98,7 @@ export function parseHealth(body: unknown, fallbackDate: string, opts: { keepRun
   const runs: ActivitySummary[] = []
   let skipped = 0
   if (Array.isArray(b.workouts)) {
+    if (b.workouts.length > MAX_WORKOUTS) return { ok: false, error: `workouts: höchstens ${MAX_WORKOUTS} pro Upload` }
     workouts = []
     for (const w of b.workouts as Record<string, unknown>[]) {
       const type = String(w?.type ?? '').trim().slice(0, 60)

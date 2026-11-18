@@ -19,10 +19,11 @@ export async function saveHealth(day: HealthDayInput, workouts: HealthWorkoutInp
   const set = Object.fromEntries(Object.entries(day).filter(([k, v]) => k !== 'date' && v != null))
   await db.insert(healthDays).values(mine({ ...day, updatedAt: now }))
     .onConflictDoUpdate({ target: [healthDays.userId, healthDays.date], set: { ...set, updatedAt: now } })
-  if (workouts) {
-    const days = [...new Set([day.date, ...workouts.map((w) => w.date)])]
-    const ids = new Set<string>()
-    const rows = workouts.filter((w) => !ids.has(w.id) && ids.add(w.id))      // sent twice: the first counts
+  // Sent twice in one upload: the first counts, in the table and in `values`.
+  const ids = new Set<string>()
+  const rows = workouts?.filter((w) => !ids.has(w.id) && ids.add(w.id))
+  if (rows) {
+    const days = [...new Set([day.date, ...rows.map((w) => w.date)])]
     // New and re-sent workouts first (the id is date + start + type, so only the values can differ), then the ones
     // these days no longer have. The other way round, a failed insert left the days without any workout.
     const col = (c: string) => sql.raw(`excluded."${c}"`)
@@ -30,7 +31,7 @@ export async function saveHealth(day: HealthDayInput, workouts: HealthWorkoutInp
       .onConflictDoUpdate({ target: [healthWorkouts.userId, healthWorkouts.id], set: { minutes: col('minutes'), kcal: col('kcal'), avgHr: col('avg_hr') } })
     await db.delete(healthWorkouts).where(own(healthWorkouts, inArray(healthWorkouts.date, days), rows.length ? notInArray(healthWorkouts.id, [...ids]) : undefined))
   }
-  const values = Object.values(set).length + (workouts?.length ?? 0)
+  const values = Object.values(set).length + (rows?.length ?? 0)
   await setSettingJson(LAST_KEY, { at: new Date().toISOString(), date: day.date, values })
   return values
 }
