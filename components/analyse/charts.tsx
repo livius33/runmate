@@ -94,6 +94,9 @@ export function YearComparison({ runs, today }: { runs: AnalyticsRun[]; today: s
     <div className="flex flex-col gap-2">
       <Readout>
         {hover ? <>{hover.year}, Ende {format(new Date(hover.year, hover.month, 1), 'MMMM', { locale: de })}: <b className="text-foreground">{fmtNum(hover.km)} km</b></>
+          : series[2][lastCur] != null && !series[1][11]
+            // No run in the year before (a new account): nothing to compare with.
+            ? <>{current} bis jetzt <b className="text-foreground">{fmtNum(series[2][lastCur]!)} km</b></>
           : prevSame != null && series[2][lastCur] != null
             ? <>{current} bis jetzt <b className="text-foreground">{fmtNum(series[2][lastCur]!)} km</b>, {series[2][lastCur]! >= prevSame ? `${fmtNum(series[2][lastCur]! - prevSame)} km mehr` : `${fmtNum(prevSame - series[2][lastCur]!)} km weniger`} als {current - 1} zur selben Zeit</>
             : 'Kumulierte Kilometer je Jahr'}
@@ -293,7 +296,7 @@ export function FitnessForm({ points, target }: { points: FitnessPoint[]; target
     <div className="flex flex-col gap-2">
       <Readout>
         {format(parseISO(cur.date), 'EEE d. MMM yyyy', { locale: de })}: Fitness <b className="text-foreground">{fmtNum(cur.ctl)}</b>
-        {' '}· Ermüdung <b className="text-foreground">{fmtNum(cur.atl)}</b> · Form <b className="text-foreground">{cur.tsb > 0 ? '+' : ''}{fmtNum(cur.tsb)}</b> ({formLabel(cur.tsb)})
+        {' '}· Ermüdung <b className="text-foreground">{fmtNum(cur.atl)}</b> · Form <b className="text-foreground">{cur.tsb > 0 ? '+' : cur.tsb < 0 ? '−' : ''}{fmtNum(Math.abs(cur.tsb))}</b> ({formLabel(cur.tsb)})
         {target && hover == null && <> · bis zum Ziel noch {fmtNum(Math.max(0, target.ctl - last.ctl))} Fitness-Punkte</>}
       </Readout>
       <svg viewBox={`0 0 ${W} ${H1}`} className="w-full h-auto touch-none" role="img" aria-label="Fitness und Ermüdung" onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
