@@ -1,6 +1,6 @@
 // 08-02 follow-up: what the user routes that take data do with input that cannot be right. Through the real route
 // handlers, as a signed-in user, against the fake database.
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { activities } from '@/lib/db/schema'
 import { runAsUser } from '@/lib/server/scope'
 import { rowOf, useFakeDb, type Query } from './fake-db'
@@ -34,6 +34,31 @@ describe('Läuferprofil: kein gültiges JSON', () => {
     const patched = await asUser(() => profile.PATCH(json('PATCH', { weeklyKm: 50 })))
     expect([patched.status, await patched.json()]).toEqual([200, { ok: true, profile: { weeklyKm: 50 } }])
     expect(writes().map((q) => q.sql.slice(0, 22))).toEqual(['insert into "settings"', 'insert into "settings"'])
+  })
+})
+
+// The id was `manual-${Date.now()}`: two entries in the same millisecond (a double tap, two tabs) got the same one,
+// and the second insert broke the primary key (user, id).
+describe('Cross-Training: Ids', () => {
+  const at = (id: string) => ({ params: Promise.resolve({ id }) })
+
+  it('zwei Einheiten in derselben Millisekunde bekommen verschiedene Ids', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1763000000000)
+    try {
+      for (const minutes of [30, 45]) expect((await asUser(() => cross.POST(json('POST', { date: '2026-05-10', sport: 'Strength', minutes })))).status).toBe(201)
+    } finally { now.mockRestore() }
+    const ids = writes().map((q) => q.params.find((p) => typeof p === 'string' && p.startsWith('manual-')))
+    expect(ids).toHaveLength(2)
+    expect(ids[0]).not.toBe(ids[1])
+    for (const id of ids) expect(id).toMatch(/^manual-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  })
+
+  it.each([MANUAL.id, 'manual-3f0c2a9e-5b1d-4c7a-9e2f-6d8b0a1c4e57'])('%s lässt sich ändern und löschen (altes und neues Format)', async (id) => {
+    const patched = await asUser(() => crossOne.PATCH(json('PATCH', { minutes: 40 }), at(id)))
+    expect(patched.status).toBe(200)
+    const deleted = await asUser(() => crossOne.DELETE(json('DELETE', {}), at(id)))
+    expect(deleted.status).toBe(200)
+    expect(writes().map((q) => [q.sql.slice(0, 6), q.params.includes(id)])).toEqual([['update', true], ['delete', true]])
   })
 })
 

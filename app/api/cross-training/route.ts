@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import { and, desc, gte, inArray, lte } from 'drizzle-orm'
 import { db } from '@/lib/db'
@@ -33,7 +34,7 @@ export const POST = withUser(async (req: Request) => {
   const e = parsed.entry
   try {
     const row = {
-      id: `${MANUAL_ID_PREFIX}${Date.now()}`,
+      id: `${MANUAL_ID_PREFIX}${randomUUID()}`,           // older rows: prefix + milliseconds; only the prefix is ever read
       source: 'manual',
       type: e.type,
       sportType: 'manual',
