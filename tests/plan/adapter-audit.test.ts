@@ -2,6 +2,7 @@
 // block, then fixed. The rules they pin come from methodologies/research/adaptation.md.
 import { describe, expect, it } from 'vitest'
 import { EMPTY_ENGINE, runEngine } from '@/lib/plan/engine'
+import { applySuggestion, suggestionAlone, withoutSuggestions } from '@/lib/plan/engine-store'
 import { effectiveSessions } from '@/lib/plan/effective'
 import { allSessions } from '@/lib/plan/blocks'
 import { makeRun } from './arbitraries'
@@ -43,5 +44,30 @@ describe('Audit Plan-Engine', () => {
     const again = runEngine({ ...input, at: 'C', state: second.state })
     expect(again.added.map((c) => c.reason)).toEqual([])
     expect(again.state.overrides).toEqual(second.state.overrides)
+  })
+})
+
+describe('Audit Engine-Vorschläge (ohne automatische Anpassung)', () => {
+  // A-03: the rules of one run build on each other, so the heart-rate note is written onto days that rebalance has
+  // just raised. Taking over only the note saved those days with the extra km (Wed 14 → 17, Thu 15 → 18) and no
+  // rebalance entry; declining the rebalance afterwards left the km in the plan, and the next run offered 2.5 km more.
+  it('A-03 ein einzeln übernommener Hinweis bringt nicht die km eines anderen Vorschlags mit', () => {
+    const runs = [makeRun('2026-09-28', 20, 340, 130, 1), makeRun('2026-09-29', 18, 263, 160, 2), makeRun('2026-09-30', 14, 340, 130, 3),
+      makeRun('2026-10-01', 13, 340, 145, 4), makeRun('2026-10-03', 30, 263, 160, 5), makeRun('2026-10-04', 10, 350, 145, 6), makeRun('2026-10-05', 7, 340, 145, 7)]
+    const input = { today: '2026-10-06', at: 'A', manual: {}, state: EMPTY_ENGINE, runs, fitness: FRESH, syncedThrough: '2026-10-05' }
+    const r = runEngine(input)
+    const { state, suggestions } = withoutSuggestions(r.state, r.added)
+    expect(suggestions.map((c) => c.rule)).toEqual(expect.arrayContaining(['rebalance', 'hr-cap']))
+    const key = suggestions.find((c) => c.rule === 'hr-cap')!.key
+
+    const note = suggestionAlone(input, state, suggestions, key)!
+    const saved = applySuggestion(state, note)
+    const plan = effectiveSessions({}, saved.overrides)
+    expect([kmOf(plan, '2026-10-07'), kmOf(plan, '2026-10-08')]).toEqual([14, 15])
+    expect(plan.find((s) => s.date === '2026-10-07')?.notes).toMatch(/^HF-Deckel/)
+    expect(plan.find((s) => s.date === '2026-10-07')?.notes).not.toMatch(/Ausgleich/)
+    // The rebalance is still on offer afterwards, with the same km as before.
+    const next = runEngine({ ...input, at: 'B', state: saved }).added.find((c) => c.rule === 'rebalance')
+    expect(next?.addedKm).toBe(suggestions.find((c) => c.rule === 'rebalance')!.addedKm)
   })
 })
