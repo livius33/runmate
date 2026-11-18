@@ -25,7 +25,7 @@ export interface Structure {
 const NUM = '(\\d+(?:[.,]\\d+)?)'
 const RE = new RegExp(
   `^(.*?)${NUM}\\s*(km locker|ein|locker)\\s*→\\s*` +
-  `(?:${NUM}\\s*×\\s*)?${NUM}\\s*km\\s*@\\s*(\\d:\\d{2})` +
+  `(?:${NUM}\\s*×\\s*)?${NUM}\\s*km\\s*@\\s*(\\d{1,2}:\\d{2})` +
   `(?:\\s*\\(${NUM}\\s*km\\s*(Trabpause|Trab)\\))?` +
   `\\s*→\\s*${NUM}\\s*(km ausrollen|ausrollen|aus)(.*)$`,
 )

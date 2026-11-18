@@ -3,7 +3,7 @@
 // 4th week lighter. Recomputed from the runs whenever the blocks are registered, never stored: a week only reads runs
 // before it, so past weeks never change; a goal block going live simply takes its dates. Pure.
 import { addDays, differenceInCalendarDays, format, getISODay, getISOWeek, parseISO } from 'date-fns'
-import type { AthleteProfile, Weekday } from './athlete-profile'
+import { profileMaxKm, type AthleteProfile, type Weekday } from './athlete-profile'
 import type { PlanSession, PlanWeek, TrainingBlock } from './types'
 import { formatNotes } from './structure'
 import { fmtKm, paceToS } from './format'
@@ -109,7 +109,9 @@ function baseWeek(start: string, km: number, cutback: boolean, i: { runs: BaseRu
   const qDay = (p?.qualityDays ?? [DEFAULT_DAYS.quality]).find((d) => runDays.includes(d) && d !== longDay && d !== (longDay % 7) + 1)
     ?? runDays.find((d) => d !== longDay && d !== (longDay % 7) + 1) ?? null
   const longest30 = Math.max(0, ...i.runs.filter((r) => r.date >= day(start, -30) && r.date < start).map((r) => r.km))
-  let long = half(Math.min(BASE.longShare * km, BASE.longSpike * longest30, BASE.longMaxKm))
+  // The profile's day limit holds here too (week-layout.md): a capped run is not handed to another day, the week gets lighter.
+  const top = (wd: number) => half(profileMaxKm(p, day(start, wd - 1)) ?? Infinity)
+  let long = half(Math.min(BASE.longShare * km, BASE.longSpike * longest30, BASE.longMaxKm, top(longDay)))
   if (long < BASE.longMinKm) long = 0
   const tPace = i.paces.threshold ?? DEFAULT_PACES.threshold
   const q = half((BASE.thresholdMin * 60) / paceToS(tPace))
@@ -129,14 +131,14 @@ function baseWeek(start: string, km: number, cutback: boolean, i: { runs: BaseRu
     if (long && wd === longDay) {
       s = { date, type: 'long', km: long, title: 'Grundlage: Longrun', notes: 'Ruhig, Zone 2.' }
     } else if (easyDays.includes(wd as Weekday) && each >= BASE.minRunKm) {
-      if (key && wd === qDay) {
-        const warm = Math.max(1.5, half(each / 2))
+      const warm = Math.max(1.5, half(Math.min(each, top(wd) - q) / 2))
+      if (key && wd === qDay && warm * 2 + q <= top(wd)) {
         s = { date, type: 'tempo', km: r1(warm * 2 + q), title: 'Grundlage: Schwelle', pace: tPace, key: true,
           notes: formatNotes({ prefix: '', warmKm: warm, warmWord: 'ein', reps: 1, repKm: q, pace: tPace, recKm: 0, recWord: 'Trab', coolKm: warm, coolWord: 'aus',
             suffix: `. ${BASE.thresholdMin} min Schwelle hält die Form.` }) }
       } else {
         const strides = cutback && wd === qDay
-        s = { date, type: 'easy', km: each, title: strides ? 'Grundlage: locker mit Steigerungen' : 'Grundlage: locker',
+        s = { date, type: 'easy', km: Math.min(each, top(wd)), title: strides ? 'Grundlage: locker mit Steigerungen' : 'Grundlage: locker',
           notes: strides ? 'Locker, 6 × 20 s Steigerungen.' : 'Locker, Zone 2.' }
       }
     }

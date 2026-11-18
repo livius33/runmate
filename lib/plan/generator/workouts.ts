@@ -126,8 +126,9 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
     const slot = wk.find((s) => s.key && s.type === 'tempo')
     const onLong = long && (long.km ?? 0) - W.warmCoolMinKm >= 0.75 * entry.to && long.date < lastHardFrom && (long.key || spacingOk(long.date))
     const s = onLong ? long : slot && slot.date < lastHardFrom ? slot : null
-    if (!s) { warnings.push(`${name} passt in KW ${sk.weeks[idx].kw} auf keinen Tag.`); return }
-    const q = floorKm(Math.min(entry.to, (s.km ?? 0) - W.warmCoolMinKm))
+    // A day too short for warm-up, 1 km at race pace and cool-down (a low day limit) takes no test.
+    const q = s ? floorKm(Math.min(entry.to, (s.km ?? 0) - W.warmCoolMinKm)) : 0
+    if (!s || q < 1) { warnings.push(`${name} passt in KW ${sk.weeks[idx].kw} auf keinen Tag.`); return }
     // A test on a long run that was easy adds a hard day: the last key slot before it becomes an easy run.
     if (s === long && !long.key) {
       const before = wk.filter((x) => x.key && x.type === 'tempo' && x.date < long.date).pop()

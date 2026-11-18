@@ -36,9 +36,9 @@ export function qualityParts(notes = ''): { km: number; paceS: number }[] {
     const s = (p: string) => Number(p.split(':')[0]) * 60 + Number(p.split(':')[1])
     return b ? Math.round((s(a) + s(b)) / 2) : s(a)
   }
-  const reps = notes.match(/(\d+(?:[.,]\d+)?)\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*km\s*\(?[^@]{0,20}?@\s*(\d:\d{2})(?:\s*[–-]\s*(\d:\d{2}))?/)
+  const reps = notes.match(/(\d+(?:[.,]\d+)?)\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*km\s*\(?[^@]{0,20}?@\s*(\d{1,2}:\d{2})(?:\s*[–-]\s*(\d{1,2}:\d{2}))?/)
   if (reps) return [{ km: num(reps[1]) * num(reps[2]), paceS: pace(reps[3], reps[4]) }]
-  const block = notes.match(/(\d+(?:[.,]\d+)?)\s*km[^@\d]{0,30}@\s*(\d:\d{2})(?:\s*[–-]\s*(\d:\d{2}))?/)
+  const block = notes.match(/(\d+(?:[.,]\d+)?)\s*km[^@\d]{0,30}@\s*(\d{1,2}:\d{2})(?:\s*[–-]\s*(\d{1,2}:\d{2}))?/)
   if (block) return [{ km: num(block[1]), paceS: pace(block[2], block[3]) }]
   return []
 }
