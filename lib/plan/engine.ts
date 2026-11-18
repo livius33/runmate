@@ -341,14 +341,16 @@ function correctRebalance(input: EngineInput): { state: EngineState; added: Engi
   const week = weekOf(today)
   const takeBack = (c: EngineChange, why: string) => {
     const overrides = { ...state.overrides }
-    for (const d of Object.keys(c.after)) {
-      const prev = c.before[d]
-      if (prev) overrides[d] = prev
-      else delete overrides[d]
+    revertAddition(overrides, c)
+    // A newer change written on top of the addition remembers it as its `before`: point that at what was there
+    // before the addition, or undoing the newer change would bring the addition back.
+    const rewire = (x: EngineChange): EngineChange => {
+      const days = x.status === 'active' ? Object.keys(c.after).filter((d) => x.before[d] && JSON.stringify(x.before[d]) === JSON.stringify(c.after[d])) : []
+      return days.length ? { ...x, before: { ...x.before, ...Object.fromEntries(days.map((d) => [d, c.before[d] ?? null])) } } : x
     }
     state = {
       ...state, overrides,
-      log: [...state.log.map((x) => (x.id === c.id ? { ...x, status: 'undone' as const } : x)), {
+      log: [...state.log.map((x) => (x.id === c.id ? { ...x, status: 'undone' as const } : rewire(x))), {
         id: `rebalance-fix:${c.id}@${at}`, at, rule: 'rebalance', key: `rebalance-fix:${c.id}`,
         before: {}, after: {}, status: 'info',
         reason: `Ausgleich zurückgenommen (${why}): ${c.reason}`,
@@ -393,16 +395,23 @@ function correctRebalance(input: EngineInput): { state: EngineState; added: Engi
   return { state, added }
 }
 
+// Remove one rebalance addition from the overrides: each of its days goes back to what it was before — except where a
+// newer change has put another session on the day since (a missed key session moved there): that session stays.
+function revertAddition(overrides: Overrides, c: EngineChange) {
+  for (const d of Object.keys(c.after)) {
+    const now = overrides[d]
+    if (now && (now.type !== c.after[d].type || now.title !== c.after[d].title)) continue
+    const prev = c.before[d]
+    if (prev) overrides[d] = prev
+    else delete overrides[d]
+  }
+}
+
 // Engine overrides without active rebalance additions: the base that manual edits work on.
 export function withoutRebalance(state: EngineState): Overrides {
   const overrides = { ...state.overrides }
   for (const c of [...state.log].reverse()) {
-    if (c.rule !== 'rebalance' || c.status !== 'active') continue
-    for (const d of Object.keys(c.after)) {
-      const prev = c.before[d]
-      if (prev) overrides[d] = prev
-      else delete overrides[d]
-    }
+    if (c.rule === 'rebalance' && c.status === 'active') revertAddition(overrides, c)
   }
   return overrides
 }

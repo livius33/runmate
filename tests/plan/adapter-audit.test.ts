@@ -1,7 +1,7 @@
 // Findings of the plan-adapter audit before launch (phase 08): each one reproduced with fixed inputs on the example
 // block, then fixed. The rules they pin come from methodologies/research/adaptation.md.
 import { describe, expect, it } from 'vitest'
-import { EMPTY_ENGINE, runEngine } from '@/lib/plan/engine'
+import { EMPTY_ENGINE, runEngine, undoChange, withoutRebalance, type EngineState } from '@/lib/plan/engine'
 import { applySuggestion, suggestionAlone, withoutSuggestions } from '@/lib/plan/engine-store'
 import { effectiveSessions } from '@/lib/plan/effective'
 import { allSessions } from '@/lib/plan/blocks'
@@ -44,6 +44,40 @@ describe('Audit Plan-Engine', () => {
     const again = runEngine({ ...input, at: 'C', state: second.state })
     expect(again.added.map((c) => c.reason)).toEqual([])
     expect(again.state.overrides).toEqual(second.state.overrides)
+  })
+
+  // A-04: taking back a rebalance restored its days to what they were before it, also where a newer change had been
+  // written on top. (a) Tuesday's missed Schwelle was moved onto Wednesday (a day with +3 km); the runner then edits
+  // Thursday, the rebalance is taken back — and the Schwelle was gone from Wednesday, with Tuesday still a rest day
+  // "verschoben auf Mi.". (b) The heart-rate note was written onto the raised days; after the take-back, undoing the
+  // note brought the +3 km back.
+  const KW40 = [makeRun('2026-09-28', 20, 340, 130, 1), makeRun('2026-09-29', 18, 263, 160, 2), makeRun('2026-09-30', 14, 340, 130, 3),
+    makeRun('2026-10-01', 13, 340, 145, 4), makeRun('2026-10-03', 30, 263, 160, 5), makeRun('2026-10-04', 10, 350, 145, 6)]
+  it('A-04a eine nachgeholte Schlüsseleinheit übersteht die Rücknahme des Ausgleichs darunter', () => {
+    const runs = [...KW40.map((r) => ({ ...r, avgHr: 130 })), makeRun('2026-10-05', 7, 340, 130, 7)]
+    const tue = runEngine({ today: '2026-10-06', at: 'A', manual: {}, state: EMPTY_ENGINE, runs, fitness: FRESH, syncedThrough: '2026-10-05' })
+    const wed = runEngine({ today: '2026-10-07', at: 'B', manual: {}, state: tue.state, runs, fitness: FRESH, syncedThrough: '2026-10-06' })
+    expect(effectiveSessions({}, wed.state.overrides).find((s) => s.date === '2026-10-07')).toMatchObject({ type: 'tempo', title: 'Schwelle', km: 17 })
+
+    const manual = { '2026-10-08': { date: '2026-10-08', type: 'easy' as const, km: 10, title: 'Lockerer Lauf' } }
+    const edited = runEngine({ today: '2026-10-07', at: 'C', manual, state: wed.state, runs, fitness: FRESH, syncedThrough: '2026-10-06' })
+    expect(edited.state.log.find((c) => c.rule === 'rebalance' && c.before['2026-10-07'] !== undefined)?.status).toBe('undone')
+    expect(effectiveSessions(manual, edited.state.overrides).find((s) => s.date === '2026-10-07')).toMatchObject({ type: 'tempo', title: 'Schwelle', km: 17 })
+    expect(effectiveSessions(manual, withoutRebalance(wed.state)).find((s) => s.date === '2026-10-07')).toMatchObject({ title: 'Schwelle' })
+
+    // Undoing the move afterwards gives the plain planned day back, not the addition that was taken back.
+    const undone = undoChange(edited.state, edited.state.log.find((c) => c.key === 'missed-key:2026-10-06')!.id) as EngineState
+    expect(effectiveSessions(manual, undone.overrides).find((s) => s.date === '2026-10-07')).toMatchObject({ type: 'easy', km: 14 })
+  })
+  it('A-04b ein zurückgenommener Ausgleich kommt nicht über das Zurücknehmen des HF-Hinweises zurück', () => {
+    const first = runEngine({ today: '2026-10-06', at: 'A', manual: {}, state: EMPTY_ENGINE, runs: [...KW40, makeRun('2026-10-05', 7, 340, 145, 7)], fitness: FRESH, syncedThrough: '2026-10-05' })
+    expect(kmOf(effectiveSessions({}, first.state.overrides), '2026-10-07')).toBe(17)
+    // Monday's full run arrives with a later sync: the rebalance is taken back.
+    const late = runEngine({ today: '2026-10-06', at: 'B', manual: {}, state: first.state, runs: [...KW40, makeRun('2026-10-05', 13, 340, 145, 7)], fitness: FRESH, syncedThrough: '2026-10-05' })
+    expect(kmOf(effectiveSessions({}, late.state.overrides), '2026-10-07')).toBe(14)
+    const undone = undoChange(late.state, late.state.log.find((c) => c.rule === 'hr-cap')!.id) as EngineState
+    const plan = effectiveSessions({}, undone.overrides)
+    expect([kmOf(plan, '2026-10-07'), kmOf(plan, '2026-10-08')]).toEqual([14, 15])
   })
 })
 
