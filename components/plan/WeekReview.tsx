@@ -110,7 +110,7 @@ export function WeekReview({ today, sessions, runs, fitness, engineLog }: {
     }>
       {r.running && <Pill className="mb-3 border-teal/20 bg-teal-soft text-teal">läuft noch</Pill>}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label="Umfang" value={`${fmtKm(r.km)}/${r.targetKm}`} unit={`km · ${r.pct} %`} />
+        <Stat label="Umfang" value={`${fmtKm(r.km)}/${fmtKm(r.targetKm)}`} unit={`km · ${r.pct} %`} />
         <Stat label="Läufe" value={r.runs} />
         <Stat label="Locker (Z1+Z2)" value={r.easyPct != null ? `${r.easyPct} %` : '–'}
           className={r.easyPct != null && r.easyPct < 75 ? '[&_div:last-child]:text-brand' : undefined} />
