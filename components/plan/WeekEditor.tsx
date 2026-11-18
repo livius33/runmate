@@ -22,7 +22,7 @@ import { strengthDetail, strengthMark, strengthWeek, type KbMark } from '@/lib/p
 
 type CrossPill = { letter: string; label: string; kb?: boolean }   // kb: a Strength or Gym session (counts for a kettlebell marker)
 
-export function WeekEditor({ today, sessions, baseSessions, autoSessions, overrides, engineOverrides, engineNotes, actuals, cross, kbDone, syncedThrough = null, onChange, saving, saveError, onRetry }: {
+export function WeekEditor({ today, sessions, baseSessions, autoSessions, overrides, engineOverrides, engineNotes, actuals, cross, kbDone, syncedThrough = null, onChange, saving, saveError, saveMessage, onRetry }: {
   today: string
   sessions: PlanSession[]
   baseSessions: PlanSession[]
@@ -37,6 +37,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
   onChange: (next: Overrides) => void
   saving: boolean
   saveError: boolean
+  saveMessage?: string                 // why the server refused the edit (a retry would be refused again)
   onRetry: () => void
 }) {
   const actualKm: ActualKm = new Map([...actuals].map(([d, a]) => [d, a.km]))
@@ -171,8 +172,8 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
 
       {saveError && !saving && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-soft px-3.5 py-2.5 text-sm text-brand">
-          <span>Änderung konnte nicht gespeichert werden und wurde zurückgenommen.</span>
-          <button onClick={onRetry} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Erneut versuchen</button>
+          <span>{saveMessage ? `${saveMessage} Die Änderung wurde zurückgenommen.` : 'Änderung konnte nicht gespeichert werden und wurde zurückgenommen.'}</span>
+          {!saveMessage && <button onClick={onRetry} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Erneut versuchen</button>}
         </div>
       )}
       <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">

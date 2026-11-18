@@ -7,13 +7,15 @@ import { de } from 'date-fns/locale'
 import { planWeeks, weekDates, type Overrides } from './effective'
 import type { PlanSession } from './types'
 
-const DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const DATE = z.string().regex(DATE_RE)
+export const NOTES_MAX = 1000
 const base = {
   date: DATE,
   type: z.enum(['easy', 'tempo', 'long', 'intervals', 'rest', 'race', 'recovery']),
   km: z.number().min(0).max(60).optional(),
   title: z.string().max(120),
-  notes: z.string().max(1000).optional(),
+  notes: z.string().max(NOTES_MAX).optional(),
   pace: z.string().max(10).optional(),
   key: z.boolean().optional(),
   test: z.string().max(40).optional(),
@@ -58,3 +60,14 @@ export function daysOutsidePlan(next: Overrides, stored: Overrides, today: strin
 const dayText = (d: string) => (isValid(parseISO(d)) ? format(parseISO(d), 'EEE d.M.yyyy', { locale: de }) : d)
 
 export const outsidePlanError = (days: string[]) => `Kein Tag im Plan: ${days.map(dayText).join(', ')}.`
+
+// Why the schema refused a save, for the runner. One invalid day fails the whole save (every save sends all edits), so
+// the message names the day. A note over the limit comes first: the editor builds notes itself (the plan's text plus
+// what was moved, merged or added), so that one can happen without any typing. Nothing is cut on the server.
+export function saveError(issues: z.ZodIssue[]): string {
+  const dayOf = (i?: z.ZodIssue) => i?.path.find((p): p is string => typeof p === 'string' && DATE_RE.test(p))
+  const note = issues.find((i) => i.code === 'too_big' && i.path.at(-1) === 'notes' && dayOf(i))
+  if (note) return `Die Notiz am ${dayText(dayOf(note)!)} ist zu lang (höchstens ${NOTES_MAX} Zeichen).`
+  const day = dayOf(issues[0])
+  return day ? `Die Änderung am ${dayText(day)} ist ungültig.` : 'Die Änderung ist ungültig.'
+}

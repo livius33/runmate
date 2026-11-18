@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { loadOverrides, saveOverrides } from '@/lib/plan/load'
-import { SavedOverrides, daysOutsidePlan, outsidePlanError } from '@/lib/plan/override-schema'
+import { SavedOverrides, daysOutsidePlan, outsidePlanError, saveError } from '@/lib/plan/override-schema'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { withUser } from '@/lib/server/scope'
 import { todayLocal } from '@/lib/dates'
@@ -17,7 +17,7 @@ export const GET = withUser(async () => {
 export const PUT = withUser(async (req: Request) => {
   await ensureLiveBlocks()
   const parsed = Body.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid overrides' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: saveError(parsed.error.issues) }, { status: 400 })
   // Only days the plan covers (or the editor reaches); edits stored before pass unchanged. Nothing is dropped silently.
   const outside = daysOutsidePlan(parsed.data.overrides, await loadOverrides(), todayLocal())
   if (outside.length) return NextResponse.json({ error: outsidePlanError(outside) }, { status: 400 })

@@ -41,6 +41,9 @@ import type { DatedRun } from '@/lib/plan/pace-check'
 import { EMPTY_ENGINE, withoutRebalance, type EngineState } from '@/lib/plan/engine'
 import { recoveryDay, type WellnessNight } from '@/lib/analytics/recovery-data'
 
+// A plan edit the server refused, with its reason (shown in the editor instead of "Erneut versuchen").
+class Refused extends Error {}
+
 export default function PlanPage() {
   const today = useToday()
 
@@ -81,7 +84,10 @@ export default function PlanPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ overrides: next }),
       })
-      if (!r.ok) throw new Error('Speichern fehlgeschlagen')
+      if (r.ok) return
+      // A refused edit (400) comes with its reason; anything else is a failed save that a retry may fix.
+      const data = r.status === 400 ? await r.json().catch(() => null) : null
+      throw typeof data?.error === 'string' ? new Refused(data.error) : new Error('Speichern fehlgeschlagen')
     },
     onMutate: async (next) => {
       await qc.cancelQueries({ queryKey: ['plan-overrides'] })
@@ -220,7 +226,7 @@ export default function PlanPage() {
       <div className="grid gap-5 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-7"><TrainingSchedule today={today} actuals={actuals} cross={cross} kbDone={kbDone} syncedThrough={syncedThrough} sessions={sessions}
           overrides={overrides} baseSessions={baseSessions} autoSessions={autoSessions} engineOverrides={engine.overrides} engineNotes={engineNotes} onChange={(next) => save.mutate(next)} saving={save.isPending}
-          saveError={save.isError} onRetry={() => save.variables && save.mutate(save.variables)} /></div>
+          saveError={save.isError} saveMessage={save.error instanceof Refused ? save.error.message : undefined} onRetry={() => save.variables && save.mutate(save.variables)} /></div>
         <div className="min-w-0 lg:col-span-5">{base
           ? <ReadinessCard title="Grundlage" verdict={baseCard.verdict} lines={baseCard.lines} note={BASE_NOTE} />
           : afterRace
