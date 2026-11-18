@@ -22,7 +22,7 @@ export async function loadEngineState(): Promise<EngineState> {
   return v ? { ...EMPTY_ENGINE, ...v } : EMPTY_ENGINE
 }
 
-async function saveEngineState(state: EngineState) {
+export async function saveEngineState(state: EngineState) {
   await setSettingJson(ENGINE_KEY, state)
 }
 

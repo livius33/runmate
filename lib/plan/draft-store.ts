@@ -41,7 +41,7 @@ const monday = (d: string) => ymd(startOfWeek(parseISO(d), { weekStartsOn: 1 }))
 const getSetting = getSettingJson
 const setSetting = setSettingJson
 const allActivities = () => db.select().from(activities).where(own(activities))
-const loadDrafts = async () => (await getSetting<Stored>(KEY))?.drafts ?? []
+export const loadDrafts = async () => (await getSetting<Stored>(KEY))?.drafts ?? []
 
 // Base blocks (07-17) fill gaps and give way to a new goal block: the next plan can start after the current goal block,
 // or next Monday when today is in a base block.
@@ -55,7 +55,7 @@ const goalBlockEnd = (today: string) => {
 }
 
 // Everything a draft is generated from, read once per request.
-async function context(today: string) {
+export async function context(today: string) {
   const [rows, plan, profile, season, tuneRow, ownRow] = await Promise.all([allActivities(), loadPlan(), loadProfile(), getSetting<unknown>('season_goals'),
     getSetting<{ v: 1; byTemplate: Record<string, Tuning> }>(TUNE_KEY), getSetting<StoredOwn>(OWN_KEY)])
   const tuning = tuneRow?.byTemplate ?? {}
@@ -94,7 +94,7 @@ async function context(today: string) {
   const defaultStart = ymd(addDays(parseISO(monday(goalBlockEnd(today))), 7))
   return { runs, plan, profile, goals, templates, defaultStart, tuning, own }
 }
-type Ctx = Awaited<ReturnType<typeof context>>
+export type Ctx = Awaited<ReturnType<typeof context>>
 type FieldOut = ReturnType<typeof tuneFields>[number] & { template: number | boolean }
 interface TemplateEntry {
   id: string; name: string; summary: string; distances: string[]; tuning: Tuning; keys: ReturnType<typeof templateKeys>; fields: FieldOut[]
@@ -102,7 +102,7 @@ interface TemplateEntry {
 }
 
 // The template a choice is generated from: a book method with "Mein Ansatz", or the own method (07-19).
-function resolveTemplate(ctx: Ctx, templateId: string, tuning?: Tuning): { ok: true; template: Methodology; label: string } | { ok: false; error: string } {
+export function resolveTemplate(ctx: Ctx, templateId: string, tuning?: Tuning): { ok: true; template: Methodology; label: string } | { ok: false; error: string } {
   if (isOwn(templateId)) {
     const b = listOwnBases().valid.find((m) => m.id === templateId)
     if (!b) return { ok: false, error: `Grundlage „${templateId}“ fehlt oder ist ungültig.` }
@@ -191,7 +191,7 @@ export async function goLive(draftId: string, today: string): Promise<{ error: s
   const entries = await readLiveEntries()
   const err = goLiveError(block, [...builtInBlocks(), ...entries.map((e) => e.block)], today)
   if (err) return { error: err }
-  await setSetting(LIVE_BLOCKS_KEY, { v: 1, blocks: [...entries, { block, draftId, liveAt: new Date().toISOString() }] } satisfies StoredLive)
+  await setSetting(LIVE_BLOCKS_KEY, { v: 1, blocks: [...entries, { block, draftId, liveAt: new Date().toISOString(), choice: { templateId: stored.templateId, overrides: stored.overrides } }] } satisfies StoredLive)
   await ensureLiveBlocks(true)
   return { block: { id: block.id, planStart: block.planStart, end: block.end } }
 }
