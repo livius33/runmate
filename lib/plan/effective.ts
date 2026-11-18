@@ -26,10 +26,11 @@ export const dayEdits = (overrides: Overrides): Overrides =>
 // Layers: plan → engine → return caps after a pause → manual edits → paused days (Krank beats everything but anchors).
 // A marker-only entry sets the kettlebell marker on the day as the layers below show it.
 export function effectiveSessions(overrides: Overrides, engine: Overrides = {}, pause?: PauseInput): PlanSession[] {
-  const byDate = new Map(allSessions().map((s) => [s.date, s]))
+  const plan = new Map(allSessions().map((s) => [s.date, s]))
+  const byDate = new Map(plan)
   // A stale engine change never covers a fixed day (a minor race added later, 07-16).
   for (const [date, s] of Object.entries(engine)) if (!byDate.get(date)?.anchor) byDate.set(date, { ...s, date })
-  const layer = pause?.pauses.length ? pauseLayer(byDate, pause) : null
+  const layer = pause?.pauses.length ? pauseLayer(byDate, pause, plan) : null
   if (layer) for (const [date, s] of Object.entries(layer.caps)) byDate.set(date, s)
   for (const [date, s] of Object.entries(overrides)) {
     if (!s.strengthOnly) byDate.set(date, { ...s, date })
