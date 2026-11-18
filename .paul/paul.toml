@@ -1,0 +1,28 @@
+name = "Runmate"
+version = "1.0.0"
+status = "active"
+path = "."
+tags = []
+
+[paul]
+version = "1.4.0"
+
+[milestone]
+name = "v1.1 Shipping-ready"
+version = "1.1.0"
+status = "active"
+phases = 5
+
+[phase]
+number = 8
+name = "Test Sweep & Fixes"
+status = "in_progress"
+plans_completed = 0
+
+[loop]
+position = "APPLY"
+
+[stats]
+total_plans = 0
+total_phases = 0
+last_activity = "2026-11-18T09:00:00Z"

@@ -1,0 +1,8 @@
+# .paul/ledger.toml — Session history for cost/time attribution
+# Append-only.
+
+[[entry]]
+action = "plan"
+phase = 8
+plan = "08-01"
+at = "2026-11-18T09:00:00Z"
