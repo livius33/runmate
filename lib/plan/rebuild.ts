@@ -4,7 +4,7 @@
 import { addDays, differenceInCalendarDays, format, parseISO, startOfWeek } from 'date-fns'
 import { clockText, type SeasonGoal } from '@/lib/season/goals'
 import { WEEKDAYS, type AthleteProfile } from './athlete-profile'
-import type { Overrides } from './effective'
+import { splitPairs, type Overrides } from './effective'
 import { GOAL_DISTANCE, generateDraft, type Draft, type DraftOverrides } from './generator/draft'
 import { freezeDraft } from './generator/freeze'
 import { measureInputs, type MeasuredInputs, type RunRow } from './generator/inputs'
@@ -164,6 +164,20 @@ export function splitEdits(overrides: Overrides, from: string, to: string): { ke
   const removed: Overrides = {}
   for (const [d, s] of Object.entries(overrides)) (d >= from && d <= to ? removed : kept)[d] = s
   return { kept, removed }
+}
+
+// Manual edits leave in whole pairs: with a swap or a move across the cut the day before it goes too — alone it would
+// keep a session whose other half is gone (shown twice, or not at all).
+export function splitManual(overrides: Overrides, from: string, to: string) {
+  return splitPairs(overrides, Object.keys(overrides).filter((d) => d >= from && d <= to))
+}
+
+// What an undo gives back of the manual edits a rebuild took away (`removed`), again in whole pairs. A day between the
+// old cut and `from` stays as rebuilt, and a day before the cut edited since (`kept` = the edits that stay) keeps the
+// newer edit: neither returns, and its other half stays away with it. `old` = the plan those edits were made for.
+export function editsBack(removed: Overrides, kept: Overrides, cut: string, from: string, old: PlanSession[]): Overrides {
+  const gone = Object.keys(removed).filter((d) => (d < cut ? d in kept : d < from))
+  return splitPairs(removed, gone, old).kept
 }
 
 // ── Rebuild ────────────────────────────────────────────────────────────────────────────────────────────────────────

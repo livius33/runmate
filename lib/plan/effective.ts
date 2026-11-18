@@ -222,25 +222,30 @@ function sitsElsewhere(original: PlanSession, date: string, sessions: PlanSessio
 
 // The other half of the swap or move an edited day belongs to: the day its plan session went to, or the day the session
 // it shows came from.
-function pairedDays(overrides: Overrides, date: string): string[] {
-  const here = kindOf(overrides[date]), plan = planDay(date)
+function pairedDays(overrides: Overrides, date: string, planOf = planDay): string[] {
+  const here = kindOf(overrides[date]), plan = planOf(date)
   if (!here) return []
   return Object.keys(overrides).filter((d) => {
     if (!inReach(d, date)) return false
-    const there = kindOf(overrides[d]), planThere = planDay(d)
+    const there = kindOf(overrides[d]), planThere = planOf(d)
     const wentThere = sameKind(there, plan) && !sameKind(planThere, plan) && !sameKind(here, plan)
     const cameFromThere = sameKind(here, planThere) && !sameKind(plan, planThere) && !sameKind(there, planThere)
     return wentThere || cameFromThere
   })
 }
 
-// Days back to their plan ("Original wiederherstellen", "Woche zurücksetzen") — together with the other half of a swap
-// or a move: one day alone would fall back to the plan while the other keeps the session, which then shows twice (or,
-// the other way round, not at all).
-function dropEdits(overrides: Overrides, dates: string[]): Overrides {
-  const drop = new Set(dates.flatMap((d) => [d, ...pairedDays(overrides, d)]))
-  return Object.fromEntries(Object.entries(overrides).filter(([d]) => !drop.has(d)))
+// The edits on `dates` taken out of the map — together with the other half of a swap or a move: one day alone would
+// fall back to the plan while the other keeps the session, which then shows twice (or, the other way round, not at all).
+// `plan` = the plan the edits were made for, where it is no longer the registered one (a rebuild taken back).
+export function splitPairs(overrides: Overrides, dates: string[], plan?: PlanSession[]): { kept: Overrides; removed: Overrides } {
+  const planOf = (d: string) => plan?.find((x) => x.date === d) ?? planDay(d)
+  const drop = new Set(dates.flatMap((d) => [d, ...pairedDays(overrides, d, planOf)]))
+  const part = (out: boolean) => Object.fromEntries(Object.entries(overrides).filter(([d]) => drop.has(d) === out))
+  return { kept: part(false), removed: part(true) }
 }
+
+// Days back to their plan ("Original wiederherstellen", "Woche zurücksetzen").
+const dropEdits = (overrides: Overrides, dates: string[]) => splitPairs(overrides, dates).kept
 
 export const restoreDay = (overrides: Overrides, date: string) => dropEdits(overrides, [date])
 

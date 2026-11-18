@@ -137,6 +137,35 @@ describe('Neuaufbau: Übernehmen und Rückgängig (AC-6)', () => {
   })
 })
 
+// A swap reaches across the cut: Sa 2.1. (Longrun 20 km, before the cut) and Tu 5.1. (Mittellanger Lauf 14 km, after
+// it). Taking only Tuesday's edit away left Saturday with the Tuesday run and the long run nowhere.
+describe('Neuaufbau: ein Tausch über den Schnitt geht und kommt als Ganzes', () => {
+  const SAT = '2027-01-02', TUE = '2027-01-05'
+  const day = (d: string) => block.sessions.find((s) => s.date === d)!
+  const swapped = { [SAT]: { ...day(TUE), date: SAT }, [TUE]: { ...day(SAT), date: TUE } }
+  const stored = () => read<Record<string, { title: string }>>('plan_overrides')
+  beforeEach(() => store.set('plan_overrides', JSON.stringify({ '2026-12-31': edit('2026-12-31'), ...swapped })))
+
+  it('Vorschau zählt beide Tage', async () => {
+    expect((await (await post({ action: 'preview', change: { goalS: 5220 } })).json()).removed).toEqual({ manual: 2, engine: 0 })
+  })
+  it('Übernehmen: auch der Tag vor dem Schnitt ist wieder beim Plan, andere Änderungen davor bleiben', async () => {
+    expect((await post({ action: 'apply', change: { goalS: 5220 } })).status).toBe(200)
+    expect(Object.keys(stored())).toEqual(['2026-12-31'])
+  })
+  it('Rückgängig: beide Tage kommen zurück', async () => {
+    const { entryId } = await (await post({ action: 'apply', change: { goalS: 5220 } })).json()
+    expect((await post({ action: 'undo', id: entryId })).status).toBe(200)
+    expect(stored()).toEqual({ '2026-12-31': edit('2026-12-31'), ...swapped })
+  })
+  it('Rückgängig nach einer neuen Änderung am Tag davor: die bleibt, der halbe Tausch kommt nicht zurück', async () => {
+    const { entryId } = await (await post({ action: 'apply', change: { goalS: 5220 } })).json()
+    store.set('plan_overrides', JSON.stringify({ ...stored(), [SAT]: edit(SAT) }))
+    await post({ action: 'undo', id: entryId })
+    expect(stored()).toEqual({ '2026-12-31': edit('2026-12-31'), [SAT]: edit(SAT) })
+  })
+})
+
 describe('Neuaufbau: Free und Plus (AC-7)', () => {
   it('ohne Plus: Stand und Vorschau gehen, Übernehmen antwortet 402 und schreibt nichts', async () => {
     process.env.BILLING_ENABLED = '1'

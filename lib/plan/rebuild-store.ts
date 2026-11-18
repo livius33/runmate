@@ -18,7 +18,7 @@ import { loadPauses } from './pause-store'
 import { saveProfile } from './workshop-store'
 import type { AthleteProfile } from './athlete-profile'
 import {
-  cutOf, dataCheck, entryTitle, rebuild, rebuildBase, splitEdits, tooLate, undoBlock, undoable,
+  cutOf, dataCheck, editsBack, entryTitle, rebuild, rebuildBase, splitEdits, splitManual, tooLate, undoBlock, undoable,
   type RebuildChange, type RebuildEntry, type RebuildInput, type Rebuilt,
 } from './rebuild'
 
@@ -95,10 +95,11 @@ function prepare(l: Loaded, req: RebuildRequest, today: string): Fail | { entry:
   return { entry, input, goal, templateId, oldTemplateId: choice.templateId, ownGate: isOwn(templateId) && templateId !== choice.templateId && !l.e.features.ownMethod }
 }
 
-// Engine overrides and manual edits in [from, to] leave with the plan they were made for. Engine changes that touch
-// those days are marked as taken back; nothing is vetoed, so the engine looks at the new plan afresh.
+// Engine overrides and manual edits in [from, to] leave with the plan they were made for — a swap or a move that
+// reaches across `from` as a whole. Engine changes that touch those days are marked as taken back; nothing is vetoed,
+// so the engine looks at the new plan afresh.
 function stripEdits(manual: Overrides, engine: EngineState, from: string, to: string) {
-  const m = splitEdits(manual, from, to)
+  const m = splitManual(manual, from, to)
   const g = splitEdits(engine.overrides, from, to)
   const ids = engine.log.filter((c) => c.status === 'active' && Object.keys(c.after).some((d) => d >= from && d <= to)).map((c) => c.id)
   const state: EngineState = { ...engine, overrides: g.kept, log: engine.log.map((c) => (ids.includes(c.id) ? { ...c, status: 'undone' as const } : c)) }
@@ -214,7 +215,8 @@ export async function undoRebuild(id: string, today: string): Promise<Fail | { o
   const clash = [...builtInBlocks(), ...entries.map((x) => x.block)].find((b) => b.id !== u.block.id && !b.base && u.block.planStart <= b.end && b.planStart <= u.block.end)
   if (clash) return { error: `Der alte Plan würde sich mit „${clash.race.name}“ überschneiden: das lässt sich nicht mehr zurücknehmen.` }
 
-  // Edits made on the rebuilt rest leave with it; the ones the rebuild took away return from `u.from`.
+  // Edits made on the rebuilt rest leave with it; the ones the rebuild took away return from `u.from` (manual edits in
+  // whole pairs, editsBack).
   const to = later(entry.block.end, u.block.end)
   const edits = stripEdits(manual, engine, u.from, to)
   const back = (o: Overrides) => Object.fromEntries(Object.entries(o).filter(([d]) => d >= u.from))
@@ -222,7 +224,7 @@ export async function undoRebuild(id: string, today: string): Promise<Fail | { o
   const ids = item.undo.engineLog.filter((x) => engine.log.some((c) => c.id === x && Object.keys(c.after).some((d) => d >= u.from)))
   await setSettingJson(LIVE_BLOCKS_KEY, { v: 1, blocks: entries.map((x) => (x === entry
     ? { ...x, block: u.block, choice: item.undo!.templateId ? { templateId: item.undo!.templateId, overrides: item.undo!.carried } : undefined } : x)) } satisfies StoredLive)
-  await saveOverrides({ ...edits.manual.kept, ...back(item.undo.manual) })
+  await saveOverrides({ ...edits.manual.kept, ...editsBack(item.undo.manual, edits.manual.kept, item.cut, u.from, item.undo.block.sessions) })
   await saveEngineState({ ...edits.state, overrides: { ...edits.state.overrides, ...engineBack }, log: edits.state.log.map((c) => (ids.includes(c.id) ? { ...c, status: 'active' as const } : c)) })
   const g = item.undo.goal
   if (g) await setSettingJson(SEASON_KEY, { v: 2, goals: storedGoals(season).map((x) => (x.id === entry.block.goalId ? { ...x, date: g.date, goalS: g.goalS } : x)) } satisfies StoredSeason)
