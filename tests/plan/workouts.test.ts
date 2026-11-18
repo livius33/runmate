@@ -141,3 +141,15 @@ describe('Renntempo im Longrun je Vorlage (07-04)', () => {
     expect(marathon('pfitzinger-marathon').sessions.some((s) => s.type === 'long' && s.pace === '4:23' && !s.test)).toBe(true)
   })
 })
+
+describe('Titel der Schlüsseleinheiten', () => {
+  it('eine gefüllte Einheit heißt nach ihrem Inhalt, nicht „Qualität“', () => {
+    const { w } = plan(hmSk, hmIn)
+    const keys = w.sessions.filter((s) => s.key && s.type === 'tempo')
+    expect(keys.length).toBeGreaterThan(10)
+    expect(keys.filter((s) => s.title === 'Qualität')).toEqual([])
+    expect(keys.find((s) => s.notes?.startsWith('Mittellanger Lauf'))?.title).toBe('Mittellanger Lauf')
+    expect(keys.find((s) => s.notes?.includes('VO2max'))?.title).toBe('Intervalle')
+    expect(keys.find((s) => s.notes?.includes('Schwelle:'))?.title).toMatch(/Schwellenlauf|Tempolauf/)
+  })
+})

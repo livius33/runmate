@@ -35,6 +35,11 @@ export const WORKOUT_RULES = {
 
 const W = WORKOUT_RULES
 const SLOT_KINDS: WorkoutKind[] = ['threshold', 'tempo', 'marathon_pace', 'half_marathon_pace', 'progression', 'intervals_vo2', 'hills', 'medium_long']
+// What a filled key slot is called on cards and in the calendar; a slot without a workout keeps "Qualität".
+const KIND_TITLE: Partial<Record<WorkoutKind, string>> = {
+  threshold: 'Schwellenlauf', tempo: 'Tempolauf', marathon_pace: 'Marathontempo', half_marathon_pace: 'Halbmarathontempo',
+  progression: 'Steigerungslauf', intervals_vo2: 'Intervalle', hills: 'Bergläufe', medium_long: 'Mittellanger Lauf',
+}
 const Z1 = () => hrZones()[0]
 const Z2 = () => hrZones()[1]
 const Z4 = () => hrZones()[3]
@@ -156,7 +161,7 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
       if (s) {
         let { reps, km } = W.reminder[input.distance]
         while (reps > 1 && (s.km ?? 0) - reps * km - (reps - 1) * STEP < W.warmCoolMinKm) reps--
-        if ((s.km ?? 0) - reps * km >= W.warmCoolMinKm) structured(s, reps, km, STEP, paces.racePaceS, 'Renntempo-Erinnerung, locker bleiben.')
+        if ((s.km ?? 0) - reps * km >= W.warmCoolMinKm) { structured(s, reps, km, STEP, paces.racePaceS, 'Renntempo-Erinnerung, locker bleiben.'); s.title = 'Renntempo kurz' }
         else relaxed(s, 'Rennwoche')
       }
       continue
@@ -210,6 +215,7 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
 
     for (const { s, e, q: q0 } of plan) {
       if (!e) { relaxed(s, s.date >= lastHardFrom ? 'Frische vor dem Rennen' : 'keine passende Einheit in der Vorlage'); continue }
+      s.title = KIND_TITLE[e.kind] ?? s.title
       if (e.kind === 'hills') { s.notes = `${num(s.km ?? 0)} km locker, darin ${Math.round(q0)} × 45 s zügig bergauf, locker zurück.`; delete s.pace; continue }
       if (e.kind === 'medium_long') { s.notes = `Mittellanger Lauf, ruhig: Puls ≤ ${Z2().max}.`; delete s.pace; continue }
       const q = floorKm(q0 * f)
