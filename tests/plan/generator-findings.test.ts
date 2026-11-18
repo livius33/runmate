@@ -5,6 +5,8 @@ import { generateDraft, type Draft, type DraftChoice } from '@/lib/plan/generato
 import { profileMaxKm, type AthleteProfile } from '@/lib/plan/athlete-profile'
 import type { GoalKind } from '@/lib/season/goals'
 import type { MeasuredInputs } from '@/lib/plan/generator/inputs'
+import { parseStructure } from '@/lib/plan/structure'
+import { qualityParts } from '@/lib/plan/methodology/describe'
 
 const template = (id: string) => [...listMethodologies().valid, ...listOwnBases().valid].find((m) => m.id === id)!.params
 const PROFILE: AthleteProfile = {
@@ -49,5 +51,17 @@ describe('Befunde Generator-Raster', () => {
       expect(runs.length).toBeGreaterThan(0)
       expect(runs.filter((s) => (s.km ?? 0) > (profileMaxKm(profile, s.date) ?? Infinity)).map((s) => `${s.date}: ${s.km} km`)).toEqual([])
     }
+  })
+
+  // G-03: the structure parser read one-digit minutes only, so a session at 10:00/km or slower (profile threshold up
+  // to 10:00, a 3:31 half) had no readable structure and counted no quality km.
+  it('G-03 Aufbau mit Tempo ab 10:00/km bleibt lesbar', () => {
+    expect(parseStructure('2,5 ein → 1 km @ 10:00 → 1,5 aus. Schwelle: Puls 147–162.')?.pace).toBe('10:00')
+    expect(qualityParts('2 ein → 2 × 3 km @ 10:00 (1 km Trab) → 1 aus.')).toEqual([{ km: 6, paceS: 600 }])
+    expect(qualityParts('2 ein → 4 km @ 10:05 → 1 aus.')).toEqual([{ km: 4, paceS: 605 }])
+    const d = draft('norwegian-threshold-half', 'half', '2027-03-28', '2026-12-07', 12600, { thresholdPaceS: 600 })
+    const built = d.workouts.sessions.filter((s) => (s.notes ?? '').includes(' km @ '))
+    expect(built.length).toBeGreaterThan(0)
+    expect(built.filter((s) => !parseStructure(s.notes)).map((s) => s.date + ': ' + s.notes)).toEqual([])
   })
 })
