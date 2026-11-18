@@ -9,14 +9,14 @@ import { checkDays } from './days-check'
 import { checkWorkouts } from './workouts-check'
 
 const template = (id: string) => listMethodologies().valid.find((m) => m.id === id)!.params
-const LIVIUS: AthleteProfile = {
+const RUNNER: AthleteProfile = {
   v: 1, age: 40, weightKg: 70, heightCm: null, experience: 'advanced', weeklyKm: 64,
   availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, qualityDays: [2, 4], kbDays: [], restDay: 5,
   maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: null, fiveKS: null, savedAt: null,
 }
 const hm = EXAMPLE_GOALS.find((g) => g.id === 'hm-2027')!
 const choice: DraftChoice = {
-  goal: hm, template: template('pfitzinger-half'), start: '2026-11-30', profile: LIVIUS,
+  goal: hm, template: template('pfitzinger-half'), start: '2026-11-30', profile: RUNNER,
   measured: { currentKm: 50, currentKmSource: 'recoveryBlock', provenKm: 101, longest30Km: 16, longest12mKm: 42.2, recentRace: null },
 }
 
@@ -24,7 +24,7 @@ describe('Entwurf in einem Aufruf (AC-2)', () => {
   it('HM-Ziel der Saison: alle drei Prüfungen bestehen, Warnungen je Schritt', () => {
     const d = generateDraft(choice) as Draft
     expect(d.ok).toBe(true)
-    const base = { template: choice.template, distance: d.distance, raceDate: hm.date, raceName: hm.name, profile: LIVIUS, goalS: hm.goalS!, recentRace: null }
+    const base = { template: choice.template, distance: d.distance, raceDate: hm.date, raceName: hm.name, profile: RUNNER, goalS: hm.goalS!, recentRace: null }
     expect(checkSkeleton(d.skeleton, { ...base, start: choice.start, currentKm: 50, provenKm: 101 })).toEqual([])
     const daysIn = { ...base, racePaceS: d.paces.racePaceS, longest30Km: 16, longest12mKm: 42.2 }
     expect(checkDays(d.days, d.skeleton, daysIn)).toEqual([])
@@ -42,7 +42,7 @@ describe('Entwurf in einem Aufruf (AC-2)', () => {
   it('Fehler: Backyard ohne Vorlage, zu kurz, zu wenige Lauftage, Zielzeit fehlt', () => {
     expect(generateDraft({ ...choice, goal: EXAMPLE_GOALS.find((g) => g.kind === 'backyard')! })).toEqual({ ok: false, error: 'Für Backyard Ultra gibt es noch keine Vorlage.' })
     expect(generateDraft({ ...choice, start: '2027-02-08' })).toMatchObject({ ok: false, error: expect.stringContaining('Mindestens') })
-    expect(generateDraft({ ...choice, profile: { ...LIVIUS, availableDays: [6] } })).toMatchObject({ ok: false, error: expect.stringContaining('Zu wenige Lauftage') })
+    expect(generateDraft({ ...choice, profile: { ...RUNNER, availableDays: [6] } })).toMatchObject({ ok: false, error: expect.stringContaining('Zu wenige Lauftage') })
     expect(generateDraft({ ...choice, goal: { ...hm, goalS: null } })).toMatchObject({ ok: false, error: expect.stringContaining('Zielzeit fehlt') })
   })
 })

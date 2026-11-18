@@ -21,14 +21,14 @@ import { EMPTY_ENGINE, runEngine } from '@/lib/plan/engine'
 
 const RUNS = Number(process.env.FC_RUNS ?? 200)
 const seed = process.env.FC_SEED ? Number(process.env.FC_SEED) : undefined
-const LIVIUS: AthleteProfile = {
+const RUNNER: AthleteProfile = {
   v: 1, age: 40, weightKg: 70, heightCm: null, experience: 'advanced', weeklyKm: 64,
   availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, qualityDays: [2, 4], kbDays: [], restDay: 5,
   maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: null, fiveKS: null, savedAt: null,
 }
 const template = listMethodologies().valid.find((m) => m.id === 'pfitzinger-half')!.params
 const hm = EXAMPLE_GOALS.find((g) => g.id === 'hm-2027')!
-const draft = generateDraft({ goal: hm, template, start: '2026-11-30', profile: LIVIUS,
+const draft = generateDraft({ goal: hm, template, start: '2026-11-30', profile: RUNNER,
   measured: { currentKm: 50, currentKmSource: 'recoveryBlock', provenKm: 95.2, longest30Km: 16, longest12mKm: 42.2, recentRace: null } }) as Draft
 const block = freezeDraft(draft, hm, 'Pfitzinger – Halbmarathon', template)
 
@@ -107,7 +107,7 @@ describe('Prüfungen des Generators (AC-3)', () => {
     const applied = applyEvents(block, goals)
     const raceWeekEnd = draft.days.weeks[draft.days.weeks.length - 1].end            // recovery weeks after the race: own tests (07-22)
     const out = { ...applied, sessions: applied.sessions.filter((s) => s.date <= raceWeekEnd), weeks: applied.weeks.filter((w) => w.end <= raceWeekEnd) }
-    const base = { template, distance: 'half' as const, raceDate: hm.date, raceName: hm.name, profile: LIVIUS, goalS: 5100, recentRace: null }
+    const base = { template, distance: 'half' as const, raceDate: hm.date, raceName: hm.name, profile: RUNNER, goalS: 5100, recentRace: null }
     const days = checkDays({ ...draft.days, sessions: out.sessions }, draft.skeleton, { ...base, racePaceS: draft.paces.racePaceS, longest30Km: 16, longest12mKm: 42.2 })
     const work = checkWorkouts({ ...draft.workouts, sessions: out.sessions }, draft.days, draft.skeleton, base)
     // Expected: changed days (work), lower weeks (days), the long run returning to plan after a shortened race week.

@@ -131,7 +131,7 @@ curl, tests). No blob storage needed.
 
 ## Boundaries
 
-- No push, no remote; `/Users/liviusdegraaf/dashboard` untouched (its `node_modules` too).
+- No push, no remote; the personal dashboard checkout stays untouched (its `node_modules` too).
 - No implementation of the official Garmin API or Strava — interface fit and a stub only.
 - No change to plan generation, the engine or `run-metrics.ts` (no `METRICS_VERSION` bump needed).
 - No personal data in fixtures: all FIT/GPX/TCX fixtures are generated synthetically in the tests.

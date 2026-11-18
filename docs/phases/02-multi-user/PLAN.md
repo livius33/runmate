@@ -77,4 +77,4 @@ reads `currentScope()` instead, so the ~40 call sites keep their synchronous sig
 - No `ActivitySource` adapter (Phase 3); Garmin stays the only source, just per user.
 - No i18n extraction (locale is stored and defaulted only); no billing, no orgs.
 - Plan logic stays pure; Porto output unchanged; no new npm packages.
-- Never push, never add a remote; `/Users/liviusdegraaf/dashboard` untouched.
+- Never push, never add a remote; the personal dashboard checkout stays untouched.

@@ -22,7 +22,7 @@ import { portoTemplate } from '@/examples/porto-2026/template'
 
 const RUNS = Number(process.env.FC_RUNS ?? 100)
 const seed = process.env.FC_SEED ? Number(process.env.FC_SEED) : undefined
-const LIVIUS: AthleteProfile = {
+const RUNNER: AthleteProfile = {
   v: 1, age: 40, weightKg: 70, heightCm: null, experience: 'advanced', weeklyKm: 64,
   availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, qualityDays: [2, 4], kbDays: [], restDay: 5,
   maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: null, fiveKS: null, savedAt: null,
@@ -31,7 +31,7 @@ const hm = EXAMPLE_GOALS.find((g) => g.id === 'hm-2027')!
 const templates = listMethodologies().valid
 const blockFrom = (id: string): TrainingBlock => {
   const t = templates.find((m) => m.id === id)!
-  const draft = generateDraft({ goal: hm, template: t.params, start: '2026-11-30', profile: LIVIUS,
+  const draft = generateDraft({ goal: hm, template: t.params, start: '2026-11-30', profile: RUNNER,
     measured: { currentKm: 50, currentKmSource: 'recoveryBlock', provenKm: 95.2, longest30Km: 16, longest12mKm: 42.2, recentRace: null } }) as Draft
   return freezeDraft(draft, hm, t.params.name, t.params)
 }
@@ -165,7 +165,7 @@ describe('Engine: Taper-Schutz und Erholungswoche nach Vorlage (AC-4)', () => {
     const t = templates.find((m) => m.id === 'pfitzinger-half')!.params
     const tuned = tuneTemplate(t, { 'adaptation.triggers.fatigue_tsb': 'recovery_week_insertion' })
     if (!tuned.ok) throw new Error(tuned.errors.join())
-    const draft = generateDraft({ goal: hm, template: tuned.template, start: '2026-11-30', profile: LIVIUS,
+    const draft = generateDraft({ goal: hm, template: tuned.template, start: '2026-11-30', profile: RUNNER,
       measured: { currentKm: 50, currentKmSource: 'recoveryBlock', provenKm: 95.2, longest30Km: 16, longest12mKm: 42.2, recentRace: null } }) as Draft
     const b = freezeDraft(draft, hm, t.name, tuned.template)
     expect(b.engine!.recoveryVolume).toBe(t.volume.recovery_week.volume)

@@ -9,14 +9,14 @@ import type { AthleteProfile } from '@/lib/plan/athlete-profile'
 import { checkDays } from './days-check'
 import { checkWorkouts } from './workouts-check'
 
-const LIVIUS: AthleteProfile = {
+const RUNNER: AthleteProfile = {
   v: 1, age: 40, weightKg: 70, heightCm: null, experience: 'advanced', weeklyKm: 64,
   availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, qualityDays: [2, 4], kbDays: [], restDay: 5,
   maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: null, fiveKS: null, savedAt: null,
 }
 const template = listMethodologies().valid.find((m) => m.id === 'pfitzinger-half')!.params
 const hm = EXAMPLE_GOALS.find((g) => g.id === 'hm-2027')!
-const draft = generateDraft({ goal: hm, template, start: '2026-11-30', profile: LIVIUS,
+const draft = generateDraft({ goal: hm, template, start: '2026-11-30', profile: RUNNER,
   measured: { currentKm: 50, currentKmSource: 'recoveryBlock', provenKm: 95.2, longest30Km: 16, longest12mKm: 42.2, recentRace: null } }) as Draft
 const block = freezeDraft(draft, hm, 'Pfitzinger – Halbmarathon', template)
 
@@ -29,7 +29,7 @@ describe('Entwurf einfrieren (AC-2)', () => {
     expect(block.weeks.slice(-2).every((w) => w.recovery)).toBe(true)
   })
   it('Tage und Einheiten des Blocks bestehen weiter alle Prüfungen', () => {
-    const base = { template, distance: 'half' as const, raceDate: hm.date, raceName: hm.name, profile: LIVIUS, goalS: 5100, recentRace: null }
+    const base = { template, distance: 'half' as const, raceDate: hm.date, raceName: hm.name, profile: RUNNER, goalS: 5100, recentRace: null }
     const toRace = block.sessions.filter((s) => s.date <= draft.days.weeks[draft.days.weeks.length - 1].end)   // recovery weeks: own tests
     const days = { ...draft.days, sessions: toRace }
     expect(checkDays(days, draft.skeleton, { ...base, racePaceS: draft.paces.racePaceS, longest30Km: 16, longest12mKm: 42.2 })).toEqual([])

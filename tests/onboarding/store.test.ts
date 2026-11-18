@@ -3,6 +3,7 @@
 // block from next Monday, and the dashboard layout's redirect. DB = the pg-proxy fake with a small settings store.
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { activities, userProfile } from '@/lib/db/schema'
+import type { AthleteProfile } from '@/lib/plan/athlete-profile'
 import { baseBlocks } from '@/lib/plan/base-block'
 import { NO_BLOCK } from '@/lib/plan/blocks'
 import { useFakeDb, rowOf, type Query } from '../scope/fake-db'
@@ -134,5 +135,28 @@ describe('Grundlage ohne Ziel (AC-5)', () => {
     // A goal block that starts on or before the base start: the goal-less start does nothing.
     expect(baseBlocks({ blocks: [{ ...goal, planStart: '2026-11-02' }], runs: [], today: '2026-11-04', profile, settings: { v: 1, paused: false, capKm: null, start: '2026-11-09' } })
       .some((b) => b.planStart === '2026-11-09')).toBe(false)
+  })
+})
+
+// The weight is asked once, in the training profile; the runner profile (carb amounts) takes it over.
+describe('Gewicht aus dem Trainingsprofil', () => {
+  const ATHLETE: AthleteProfile = {
+    v: 1, age: 34, weightKg: 68, heightCm: 178, experience: 'advanced', weeklyKm: 42,
+    availableDays: [2, 3, 4, 6, 7], longRunDay: 7, qualityDays: [2, 4], kbDays: [3], restDay: null,
+    maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: 265, fiveKS: null, savedAt: null,
+  }
+  const profileWrites = () => fake.log.filter((q) => q.sql.startsWith('insert into "user_profile"'))
+
+  it('ohne Läuferprofil: das Gewicht wird dort angelegt', async () => {
+    const { saveProfile } = await import('@/lib/plan/workshop-store')
+    await asUser(() => saveProfile(ATHLETE))
+    expect(profileWrites()).toHaveLength(1)
+    expect(profileWrites()[0].params).toContain(68)
+  })
+
+  it('ohne Gewicht im Trainingsprofil: das Läuferprofil bleibt unberührt', async () => {
+    const { saveProfile } = await import('@/lib/plan/workshop-store')
+    await asUser(() => saveProfile({ ...ATHLETE, weightKg: null }))
+    expect(profileWrites()).toEqual([])
   })
 })
