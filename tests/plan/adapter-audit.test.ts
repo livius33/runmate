@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { EMPTY_ENGINE, runEngine } from '@/lib/plan/engine'
 import { effectiveSessions } from '@/lib/plan/effective'
 import { allSessions } from '@/lib/plan/blocks'
+import { makeRun } from './arbitraries'
 
 const FRESH = { tsb: 0, acwr: 1 }
 const kmOf = (sessions: { date: string; km?: number }[], d: string) => sessions.find((s) => s.date === d)?.km ?? 0
@@ -24,5 +25,23 @@ describe('Audit Plan-Engine', () => {
     for (const s of allSessions().filter((x) => x.date >= '2026-09-28' && x.date <= '2026-10-04')) {
       expect(kmOf(after, s.date) - kmOf(softened, s.date), s.date).toBeLessThanOrEqual(5)
     }
+  })
+
+  // A-02: the self-correction compared all additions of the week (also those on days already past) with a gap
+  // counted without them, while the rule counts the gap with them. Monday 6 km short → Tuesday: +3 km Wed, +3 km Thu.
+  // Wednesday 2 km short → Thursday: +1.5 km Thu. The next engine run the same day took that back ("Lauf
+  // nachträglich synchronisiert", no run was synced), and the day after the rule added it again.
+  it('A-02 ein zweiter Ausgleich in derselben Woche übersteht den nächsten Engine-Lauf', () => {
+    const mon = makeRun('2026-10-05', 7, 340, 130, 1), tue = makeRun('2026-10-06', 17, 255, 160, 2), wed = makeRun('2026-10-07', 15, 340, 130, 3)
+    const first = runEngine({ today: '2026-10-06', at: 'A', manual: {}, state: EMPTY_ENGINE, runs: [mon], fitness: FRESH, syncedThrough: '2026-10-05' })
+    expect(first.added.filter((c) => c.rule === 'rebalance').map((c) => [c.addedKm, Object.keys(c.after)])).toEqual([[6, ['2026-10-07', '2026-10-08']]])
+
+    const input = { today: '2026-10-08', manual: {}, runs: [mon, tue, wed], fitness: FRESH, syncedThrough: '2026-10-07' }
+    const second = runEngine({ ...input, at: 'B', state: first.state })
+    expect(second.added.filter((c) => c.rule === 'rebalance' && c.status === 'active').map((c) => Object.keys(c.after))).toEqual([['2026-10-08']])
+
+    const again = runEngine({ ...input, at: 'C', state: second.state })
+    expect(again.added.map((c) => c.reason)).toEqual([])
+    expect(again.state.overrides).toEqual(second.state.overrides)
   })
 })

@@ -373,7 +373,10 @@ function correctRebalance(input: EngineInput): { state: EngineState; added: Engi
       const plannedOn = (d: string) => { const s = base.find((x) => x.date === d); return s && s.type !== 'rest' && s.type !== 'race' ? s.km ?? 0 : 0 }
       const kmOn = (d: string) => runs.filter((r) => r.date === d).reduce((t, r) => t + r.km, 0)
       const past = weekDates(week).filter((d) => d < today && d >= firstPlanStart() && isSynced(d, syncedThrough))
-      const missing = Math.max(0, past.reduce((t, d) => t + plannedOn(d) - kmOn(d), 0))
+      // The gap as the rule counts it: additions on days already past are part of what was planned there.
+      const withAdditions = effectiveSessions(manual, state.overrides, pz({ today, pauses }))
+      const plannedWith = (d: string) => { const s = withAdditions.find((x) => x.date === d); return s && s.type !== 'rest' && s.type !== 'race' ? s.km ?? 0 : 0 }
+      const missing = Math.max(0, past.reduce((t, d) => t + plannedWith(d) - kmOn(d), 0))
       // Only additions on days still ahead are taken back; past days stay as they were planned.
       const revertible = () => active().filter((c) => Object.keys(c.after).every((d) => d >= today))
       while (revertible().length) {
