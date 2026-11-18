@@ -330,7 +330,7 @@ export function setDayKm(overrides: Overrides, date: string, km: number, session
   const notes = effect ? effect.notes : session?.notes
   const next: PlanSession = km === 0 ? restDay(date, 'auf 0 km gesetzt')
     : isRun(session) ? { ...session, date, km, notes }
-    : { date, type: 'easy', km, title: 'Locker', notes: 'Locker, Zone 2' }
+    : withStrength({ date, type: 'easy', km, title: 'Locker', notes: 'Locker, Zone 2' }, session?.strength)   // the free day's kettlebell marker stays
   const original = allSessions().find((s) => s.date === date)
   const out = { ...overrides }
   if (original && sameSession(next, original) && showsWithout(next, date, auto)) delete out[date]
