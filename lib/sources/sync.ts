@@ -77,6 +77,8 @@ export async function syncSource(src: ActivitySource, { days = 28, enrichLimit =
     const { items } = await src.listActivities({ since: new Date(Date.now() - days * 86_400_000) })
     for (const a of items) {
       const u = await upsertSummary(src.meta.id, a)
+      // Impossible values (ingest.ts PLAUSIBLE): not stored, counted and logged like a failed enrichment.
+      if (u.result === 'rejected') { r.failed++; r.log.push(`implausible, skipped: ${a.sourceActivityId} (${u.reason.check})`); continue }
       r[u.result === 'inserted' ? 'inserted' : u.result === 'duplicate' ? 'duplicates' : 'updated']++
     }
     r.log.push(`${src.meta.id}: ${r.inserted} new, ${r.updated} updated, ${r.duplicates} duplicates`)
@@ -138,12 +140,13 @@ export async function runSync(opts: { days?: number; enrichLimit?: number } = {}
 export async function syncHistoryPage(src: ActivitySource, page: number, pageSize = 50) {
   if (!src.listActivities || !src.meta.capabilities.history) throw new SourceError('invalid', 'Diese Quelle hat keine Historie zum Nachladen.')
   const { items, hasMore } = await src.listActivities({ page, pageSize })
-  let inserted = 0, updated = 0, duplicates = 0
+  let inserted = 0, updated = 0, duplicates = 0, rejected = 0
   for (const a of items) {
     const u = await upsertSummary(src.meta.id, a)
     if (u.result === 'inserted') inserted++
     else if (u.result === 'duplicate') duplicates++
+    else if (u.result === 'rejected') rejected++          // impossible values (ingest.ts PLAUSIBLE): not stored
     else updated++
   }
-  return { inserted, updated, duplicates, hasMore }
+  return { inserted, updated, duplicates, rejected, hasMore }
 }

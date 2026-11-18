@@ -244,3 +244,73 @@ describe('Reichhaltigkeit (rein)', () => {
     expect(isRicher(r(true, null, true), r(true, 8, false))).toBe(true)
   })
 })
+
+// 08-02 follow-up: a GPS glitch once became a stored run of 17,793 km. Impossible activities stop at the ingest, for
+// every source; real ones (ultras, multi-day races, sprints) never do.
+describe('Plausibilität beim Speichern', () => {
+  const summary = { sourceActivityId: 'p', startUtc: '2026-05-10T06:00:00Z', startLocal: '2026-05-10T08:00:00', sport: 'running', name: null, distanceM: 10000, movingS: 3000, elapsedS: 3100, elevationGainM: null, avgSpeedMs: null, maxSpeedMs: null, avgHr: null, maxHr: null, avgCadenceSpm: null, calories: null, startLat: null, startLng: null }
+  // One position on the other side of the world in the middle of a 5 km run.
+  const glitch = () => {
+    const lines = gpxFile().split('\n')
+    const i = lines.findIndex((l, n) => n > 700 && l.startsWith('<trkpt'))
+    lines[i] = lines[i].replace(/lat="[^"]+" lon="[^"]+"/, 'lat="-42.0000000" lon="-172.0000000"')
+    return strToU8(lines.join('\n'))
+  }
+
+  it('echte Aktivitäten bleiben: Ultra, Mehrtageslauf, Sprint, Laufband, Kraft, Rad', async () => {
+    const { implausible } = await import('@/lib/sources/ingest')
+    const ok = (o: Partial<typeof summary>) => expect(implausible({ ...summary, ...o }), JSON.stringify(o)).toBeNull()
+    ok({})
+    ok({ sport: 'trail_running', distanceM: 160_934, movingS: 100_000, elapsedS: 30 * 3600 })      // 100 miles in 30 h
+    ok({ distanceM: 1_045_000, movingS: 400_000, elapsedS: 6 * 86_400 })                            // a six-day race
+    ok({ sport: 'track_running', distanceM: 100, movingS: 10, elapsedS: 10 })                       // a 100 m sprint
+    ok({ sport: 'treadmill_running', distanceM: 0 })                                                // no foot pod
+    ok({ sport: 'strength_training', distanceM: 0, movingS: 2400, elapsedS: 2400 })
+    ok({ sport: 'cycling', distanceM: 300_000, movingS: 9 * 3600, elapsedS: 10 * 3600 })
+    ok({ distanceM: 21_097, movingS: 60, elapsedS: 5400 })                                          // an odd moving time alone never rejects
+  })
+
+  it('unmögliche Werte: Distanz, Tempo, Dauer', async () => {
+    const { implausible } = await import('@/lib/sources/ingest')
+    const no = (o: Partial<typeof summary>) => implausible({ ...summary, ...o })?.check
+    expect(no({ distanceM: 17_793_000, movingS: 3000, elapsedS: 3100 })).toBe('speed')
+    expect(no({ distanceM: 17_793_000, movingS: 20 * 86_400, elapsedS: 20 * 86_400 })).toBe('distance')
+    expect(no({ distanceM: 30_000, movingS: 1800, elapsedS: 1800 })).toBe('speed')                  // 60 km/h on foot
+    expect(no({ distanceM: 5000, movingS: 0, elapsedS: 0 })).toBe('duration')
+    expect(no({ distanceM: 5000, movingS: -1500, elapsedS: -1500 })).toBe('values')
+    expect(no({ distanceM: -5000 })).toBe('values')
+    expect(no({ distanceM: NaN })).toBe('values')
+    expect(no({ distanceM: 0, movingS: 40 * 86_400, elapsedS: 40 * 86_400 })).toBe('duration')
+    expect(no({ sport: 'cycling', distanceM: 17_793_000, movingS: 3600, elapsedS: 3600 })).toBe('speed')
+  })
+
+  it('Datei mit GPS-Sprung: nicht gespeichert, im Bericht mit Dateiname und Grund', async () => {
+    const tables: Record<string, Act[]> = {}
+    fake = fakeActivities(tables)
+    const r = await asUser('user-a', () => importFiles([{ name: 'sprung.gpx', bytes: glitch() }, { name: 'run.fit', bytes: fitFile({ ...RUN, start: new Date('2026-05-11T06:00:00Z') }) }]))
+    expect(r).toMatchObject({ files: 2, inserted: 1, duplicates: 0 })
+    expect(r.errors).toEqual([{ name: 'sprung.gpx', message: expect.stringMatching(/^sprung\.gpx: Aktivität vom 10\.05\.2026 nicht importiert – [\d.,]+ km in 0:25 h sind nicht möglich \(über 45 km\/h im Schnitt\)\.$/) }])
+    expect(tables['user-a'].map((a) => a.date)).toEqual(['2026-05-11'])
+    expect(fake.log.filter((q) => /^insert into "activity_streams"/.test(q.sql))).toHaveLength(1)
+  })
+
+  it('Sync einer Quelle: übersprungen und protokolliert, der Rest läuft weiter', async () => {
+    const tables: Record<string, Act[]> = {}
+    fake = fakeActivities(tables)
+    const { syncSource, syncHistoryPage } = await import('@/lib/sources/sync')
+    const items = [{ ...summary, sourceActivityId: 'bad', distanceM: 17_793_000 }, { ...summary, sourceActivityId: 'good' }]
+    const src = {
+      meta: { id: 'garmin', label: 'x', description: '', auth: 'credentials' as const, available: true, capabilities: { activities: true, detailStreams: false, dailyWellness: false, mode: 'pull' as const, history: true, runs: true } },
+      status: async () => ({ connected: true, lastSyncAt: null, error: null }),
+      disconnect: async () => {},
+      listActivities: async () => ({ items, hasMore: false }),
+    }
+    const r = await asUser('user-a', () => syncSource(src))
+    expect(r).toMatchObject({ inserted: 1, updated: 0, duplicates: 0, failed: 1 })
+    expect(r.log).toContain('implausible, skipped: bad (speed)')
+    expect(tables['user-a'].map((a) => a.sourceActivityId)).toEqual(['good'])
+    const page = await asUser('user-a', () => syncHistoryPage(src, 0))
+    expect(page).toMatchObject({ inserted: 0, updated: 1, duplicates: 0, rejected: 1 })
+    expect(tables['user-a']).toHaveLength(1)
+  })
+})

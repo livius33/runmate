@@ -8,7 +8,7 @@ import { intakeBlocked } from '@/lib/legal/intake'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-// One page (50) of a source's full history: { page } → { inserted, updated, duplicates, hasMore }.
+// One page (50) of a source's full history: { page } → { inserted, updated, duplicates, rejected, hasMore }.
 export const POST = withUser(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
   const blocked = await intakeBlocked()
   if (blocked) return blocked

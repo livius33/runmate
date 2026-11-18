@@ -65,6 +65,14 @@ describe('Kurzbefehl-Route je Nutzer', () => {
     expect(ins[0].params).toContain('apple-health')
   })
 
+  it('Lauf mit unmöglichen Werten (400 km in einer Minute): nicht gespeichert, in der Antwort gezählt', async () => {
+    fake.log.length = 0
+    const body = { date: '2026-05-10', steps: 8000, workouts: [{ ...RUNNING, minutes: 1, distanceKm: 400 }, { ...RUNNING, start: '2026-05-10T19:00:00+02:00' }] }
+    const res = await POST(new Request('http://localhost/api/health/x', { method: 'POST', body: JSON.stringify(body) }), { params: Promise.resolve({ token: 'B'.repeat(32) }) })
+    expect(await res.json()).toMatchObject({ ok: true, runs: 1, duplicateRuns: 0, rejectedRuns: 1 })
+    expect(fake.log.filter((q) => q.sql.startsWith('insert into "activities"'))).toHaveLength(1)
+  })
+
   it('unbekanntes Token: 404', async () => {
     expect((await post('C'.repeat(32))).status).toBe(404)
   })

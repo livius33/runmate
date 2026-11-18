@@ -1,5 +1,5 @@
-// The only writer of activities that come from a source (lib/sources/types.ts): normalised summary → row, the same
-// source id → update, the same activity from another source → replaced when the new record is richer, else skipped,
+// The only writer of activities that come from a source (lib/sources/types.ts): normalised summary → row (impossible
+// values are rejected: PLAUSIBLE), the same source id → update, the same activity from another source → replaced when the new record is richer, else skipped,
 // details → streams + laps + run metrics.
 import { randomUUID } from 'crypto'
 import { and, eq, gte, isNull, lte, or, sql } from 'drizzle-orm'
@@ -53,7 +53,49 @@ export function toActivityRow(source: SourceId, a: ActivitySummary) {
 }
 export type ActivityRow = ReturnType<typeof toActivityRow>
 
-export type UpsertResult = { result: 'inserted' | 'updated' | 'replaced' | 'duplicate'; id: string }
+// What no real activity exceeds. A record beyond these is a recording error (a GPS jump once became a stored run of
+// 17,793 km) and is not stored: it would feed load and plan. Each bound is a record with room to spare, so none of
+// them can cost a real activity.
+export const PLAUSIBLE = {
+  // One recording. The longest races on a running clock last six to ten days; no watch records for more than a
+  // few weeks on one charge.
+  maxDurationS: 31 * 86_400,
+  // On foot: 3100 miles (4,989 km) is the longest certified race there is, and it takes 40 days and more.
+  maxRunDistanceM: 5_000_000,
+  // Any other sport: twice the Race Across America (4,800 km), the longest ride done in one go.
+  maxDistanceM: 10_000_000,
+  // Average speed on foot: the fastest a human has been timed is 12.4 m/s (the peak of the 9.58 s 100 m world
+  // record, whose average is 10.4 m/s). No run of any length averages more than that peak.
+  maxRunSpeedMs: 12.5,
+  // Average speed in any other sport: above every cycling record, motor-paced ones included (296 km/h = 82 m/s).
+  maxSpeedMs: 100,
+} as const
+
+export interface Implausible { check: 'values' | 'duration' | 'distance' | 'speed'; message: string }   // message: German, for the user
+
+const deKm = (m: number) => `${(Math.round(m / 100) / 10).toLocaleString('de-DE')} km`
+const deHours = (s: number) => `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')} h`
+
+// Why this activity cannot have happened, or null. Speed is judged over the longer of moving and elapsed time, so an
+// odd moving time alone (auto-pause, a source that counts it differently) never rejects a real activity. An activity
+// without distance (strength, a treadmill without a foot pod) only needs a possible duration.
+export function implausible(a: Pick<ActivitySummary, 'sport' | 'distanceM' | 'movingS' | 'elapsedS'>): Implausible | null {
+  const distanceM = a.distanceM ?? 0, movingS = a.movingS ?? 0, elapsedS = a.elapsedS ?? 0
+  if (![distanceM, movingS, elapsedS].every((v) => Number.isFinite(v) && v >= 0)) return { check: 'values', message: 'Distanz oder Dauer ist negativ oder keine Zahl' }
+  const run = RUN_ACTIVITY_TYPES.includes(typeForDb(a.sport).type)
+  const longestS = Math.max(movingS, elapsedS)
+  if (distanceM > 0 && longestS === 0) return { check: 'duration', message: `${deKm(distanceM)} ohne Dauer sind nicht möglich` }
+  if (longestS > PLAUSIBLE.maxDurationS) return { check: 'duration', message: `eine Dauer über ${PLAUSIBLE.maxDurationS / 86_400} Tage ist nicht möglich` }
+  const maxDistanceM = run ? PLAUSIBLE.maxRunDistanceM : PLAUSIBLE.maxDistanceM
+  const maxSpeedMs = run ? PLAUSIBLE.maxRunSpeedMs : PLAUSIBLE.maxSpeedMs
+  if (distanceM > 0 && distanceM / longestS > maxSpeedMs) return { check: 'speed', message: `${deKm(distanceM)} in ${deHours(longestS)} sind nicht möglich (über ${Math.round(maxSpeedMs * 3.6)} km/h im Schnitt)` }
+  if (distanceM > maxDistanceM) return { check: 'distance', message: `${deKm(distanceM)} sind nicht möglich (über ${(maxDistanceM / 1000).toLocaleString('de-DE')} km)` }
+  return null
+}
+
+export type UpsertResult =
+  | { result: 'inserted' | 'updated' | 'replaced' | 'duplicate'; id: string }
+  | { result: 'rejected'; id: null; reason: Implausible }      // impossible values (PLAUSIBLE): nothing stored
 
 // An activity from another source (or another id of the same source) that is the same one: ±2 min, ±3 %.
 export async function findDuplicate(row: Pick<ActivityRow, 'startedAt' | 'date' | 'startTime' | 'distanceM'>): Promise<string | null> {
@@ -71,7 +113,10 @@ export async function findDuplicate(row: Pick<ActivityRow, 'startedAt' | 'date' 
 // Same (source, source id) as before → refresh the summary fields (detail data already loaded stays), or with
 // `existing: 'skip'` (a file imported again) leave it and report a duplicate. The same activity from another source
 // → replace it when this record is richer (`detail`: what the caller will store next), else report a duplicate.
+// Every source passes through here, so this is where an impossible activity stops (`rejected`, nothing written).
 export async function upsertSummary(source: SourceId, summary: ActivitySummary, opts: { existing?: 'update' | 'skip'; detail?: ActivityDetail } = {}): Promise<UpsertResult> {
+  const reason = implausible(summary)
+  if (reason) return { result: 'rejected', id: null, reason }
   const row = toActivityRow(source, summary)
   const [existing] = await db
     .select({ id: activities.id })
