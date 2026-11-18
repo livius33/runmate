@@ -73,6 +73,20 @@ describe('Kurzbefehl-Route je Nutzer', () => {
     expect(fake.log.filter((q) => q.sql.startsWith('insert into "activities"'))).toHaveLength(1)
   })
 
+  // 08-02 follow-up: the route stored whatever day the Shortcut named.
+  it.each([
+    ['2026-02-31', /Tag gibt es nicht/],
+    ['31.02.2026', /Tag gibt es nicht/],
+    ['0001-01-01', /frühestens/],
+    ['2999-01-01', /Zukunft/],
+  ])('Datum %s: 400 auf Deutsch, nichts gespeichert', async (date, message) => {
+    fake.log.length = 0
+    const res = await POST(new Request('http://localhost/api/health/x', { method: 'POST', body: JSON.stringify({ date, steps: 8000, workouts: [STRENGTH] }) }), { params: Promise.resolve({ token: 'B'.repeat(32) }) })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(message)
+    expect(fake.log.filter((q) => /^(insert|update|delete)/.test(q.sql))).toEqual([])
+  })
+
   it('unbekanntes Token: 404', async () => {
     expect((await post('C'.repeat(32))).status).toBe(404)
   })

@@ -26,6 +26,28 @@ describe('Apple Health: ganze Zahlen aus Text', () => {
     expect(w[0]).toMatchObject({ kcal: 99, avgHr: 101 })
   })
 
+  // 08-02 follow-up: '2026-02-31', the year 1 and a day far ahead were stored as sent.
+  it('Datum: ein echter Kalendertag im erlaubten Zeitraum', () => {
+    const err = (date: unknown) => { const r = parseHealth({ date, steps: 8000 }, '2026-05-09', { latest: '2026-05-11' }); return r.ok ? null : r.error }
+    expect(err('2026-02-31')).toBe('date: diesen Tag gibt es nicht')
+    expect(err('31.02.2026')).toBe('date: diesen Tag gibt es nicht')
+    expect(err('0001-01-01')).toBe('date: frühestens 01.01.2000')
+    expect(err('2026-05-12')).toBe('date: liegt in der Zukunft')
+    expect(err('2999-01-01T08:00:00Z')).toBe('date: liegt in der Zukunft')
+    expect(err('morgen')).toBe('date: als JJJJ-MM-TT oder TT.MM.JJJJ')
+    for (const ok of ['2026-05-11', '10.05.2026', '10.05.26', '2024-02-29', '2000-01-01', '', undefined]) expect(err(ok), String(ok)).toBeNull()
+  })
+
+  it('Workouts mit unmöglichem Startdatum werden übersprungen, die anderen bleiben', () => {
+    const w = (start: string) => ({ type: 'Yoga', start, minutes: 30 })
+    const r = parseHealth({ date: '2026-05-10', workouts: [w('2026-05-10T08:00:00+02:00'), w('2026-02-31T08:00:00+02:00'), w('0001-01-01T08:00:00Z'), w('2999-01-01 08:00'), w('heute früh')] }, '2026-05-09', { latest: '2026-05-11' })
+    if (!r.ok) throw new Error(r.error)
+    expect(r.workouts!.map((x) => [x.date, x.start])).toEqual([['2026-05-10', '2026-05-10T08:00:00+02:00'], ['2026-05-10', 'heute früh']])
+    expect(r.skipped).toBe(3)
+    const runs = parseHealth({ date: '2026-05-10', workouts: [{ type: 'Outdoor Run', start: '2026-02-31T07:00:00+02:00', minutes: 50, distanceKm: 10 }] }, '2026-05-09', { keepRuns: true, latest: '2026-05-11' })
+    expect(runs).toMatchObject({ ok: false })                     // nothing left: the run would have carried the impossible day
+  })
+
   it('Text ohne Zahl ist kein Wert (nicht 0)', () => {
     expect(day({ steps: 'keine Daten', restingHr: 50 }).day.steps).toBeNull()
   })

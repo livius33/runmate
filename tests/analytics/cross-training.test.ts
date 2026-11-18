@@ -109,6 +109,14 @@ describe('manual entry validation', () => {
     expect(err({ date: '2026-11-21', sport: 'Ride', minutes: 30, rpe: 6 })).toMatch(/Zukunft/)
     expect(err({ date: '19.11.2026', sport: 'Ride', minutes: 30, rpe: 6 })).toMatch(/Datum/)
   })
+  it('refuses a day that does not exist and one before any training data', () => {
+    const err = (date: string) => { const r = parseCrossEntry({ date, sport: 'Ride', minutes: 30 }, today); return r.ok ? null : r.error }
+    expect(err('2026-02-31')).toBe('Datum: diesen Tag gibt es nicht')
+    expect(err('2026-00-10')).toBe('Datum: diesen Tag gibt es nicht')
+    expect(err('0001-01-01')).toBe('Datum: frühestens 01.01.2000')
+    expect(err('2024-02-29')).toBeNull()
+    expect(err(today)).toBeNull()
+  })
   it('RPE is optional (default applies in the load model)', () => {
     const r = parseCrossEntry({ date: '2026-11-19', sport: 'Swim', minutes: 45 }, today)
     expect(r.ok && r.entry.rpe).toBeNull()

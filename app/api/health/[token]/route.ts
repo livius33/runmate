@@ -23,9 +23,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     const blocked = await intakeBlocked()
     if (blocked) return blocked
     const body = await req.json().catch(() => null)
-    const yesterday = format(addDays(parseISO(todayLocal()), -1), 'yyyy-MM-dd')
+    const day = (n: number) => format(addDays(parseISO(todayLocal()), n), 'yyyy-MM-dd')
+    // No date sent: yesterday. A date sent: a real day, at most tomorrow (the phone may be a day ahead of the
+    // profile's time zone), else 400.
+    const yesterday = day(-1), tomorrow = day(1)
     const keepRuns = !(await hasOtherRunSource('apple-health'))
-    const r = parseHealth(body, yesterday, { keepRuns })
+    const r = parseHealth(body, yesterday, { keepRuns, latest: tomorrow })
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: 400 })
     const values = await saveHealth(r.day, r.workouts)
     let runs = 0, duplicateRuns = 0, rejectedRuns = 0
