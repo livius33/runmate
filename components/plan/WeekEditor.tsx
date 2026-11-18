@@ -80,7 +80,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
         <DayPanel
           key={selected}
           day={summary.days.find((d) => d.date === selected)!}
-          engineNote={overrides[selected] ? undefined : engineNotes.get(selected)}
+          engineNote={overrides[selected] && !overrides[selected].strengthOnly ? undefined : engineNotes.get(selected)}
           today={today} sessions={baseSessions} actualKm={actualKm} actual={actuals.get(selected)}
           saving={saving}
           onMove={(to, mode) => {
@@ -97,7 +97,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
             change({ ...overrides, [selected]: s.strength || !kb || s.type === 'rest' ? s : { ...s, strength: kb } })
           }}
           kb={kbOf(summary.days.find((d) => d.date === selected)!)}
-          onKb={() => change(toggleStrength(overrides, selected, baseSessions))}
+          onKb={() => change(toggleStrength(overrides, selected, baseSessions, autoSessions))}
           onRestore={() => change(restoreDay(overrides, selected))}
         />
   ) : null

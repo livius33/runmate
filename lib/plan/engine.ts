@@ -9,7 +9,7 @@ import { type PlanSession } from './types'
 import { fmtClock, fmtKm, fmtPace, paceToS, qualityKm } from './format'
 import { athlete } from '@/lib/athlete'
 import { allWeeks, blockFor, blockPaces, firstPlanStart, isEasyWeek, raceOf, recoveryWeekday, weekOf } from './blocks'
-import { canTakeExtra, dayLabel, effectiveSessions, isHard, join, maxKm, restDay, weekDates, type Overrides } from './effective'
+import { canTakeExtra, dayEdits, dayLabel, effectiveSessions, isHard, join, maxKm, restDay, weekDates, type Overrides } from './effective'
 import { blockAttempted, matchSessionRuns, qualityBlock, type DatedRun } from './pace-check'
 import { DEFAULT_RULES, STRATEGY_LABEL, acwrStreak, acwrWhy, inRedZone, recoveryRed, recoveryRedWhy, rulesFor, taperDaysOf, type EngineRules, type RedZoneFitness } from './rules'
 import { inPauseWindow, type Pause, type PauseInput } from './pause'
@@ -79,6 +79,9 @@ const MIN_BLOCK_KM = 10
 const day = (d: string, n: number) => format(addDays(parseISO(d), n), 'yyyy-MM-dd')
 
 export function runEngine(input: EngineInput): { state: EngineState; added: EngineChange[] } {
+  // A kettlebell marker set by hand is no edit of the session: such a day stays open to the rules (strength.ts: the
+  // engine never reads markers).
+  input = { ...input, manual: dayEdits(input.manual) }
   // First take back additions that no longer hold (a "missed" run was synced later, or the day
   // was edited by hand), then run the rules in order, each on the state the previous one left.
   const corrected = correctRebalance(input)

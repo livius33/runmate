@@ -20,6 +20,7 @@ const base = {
     maxMin: z.number().int().min(5).max(120),
     optional: z.boolean().optional(),
   }).optional(),
+  strengthOnly: z.boolean().optional(),
 }
 // `was`: the pace session behind a Zone 2 day, one level deep (a kept session keeps no further one).
 export const SavedSession = z.object({ ...base, was: z.object(base).optional() })

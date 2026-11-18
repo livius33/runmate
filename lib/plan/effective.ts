@@ -18,14 +18,23 @@ export type ActualKm = Map<string, number>
 
 const r1 = (n: number) => Math.round(n * 10) / 10
 
+// Manual edits of the session itself. An entry that only sets the kettlebell marker (`strengthOnly`) is none: the day
+// keeps following the plan and the engine, and the engine may still change it.
+export const dayEdits = (overrides: Overrides): Overrides =>
+  Object.fromEntries(Object.entries(overrides).filter(([, s]) => !s.strengthOnly))
+
 // Layers: plan → engine → return caps after a pause → manual edits → paused days (Krank beats everything but anchors).
+// A marker-only entry sets the kettlebell marker on the day as the layers below show it.
 export function effectiveSessions(overrides: Overrides, engine: Overrides = {}, pause?: PauseInput): PlanSession[] {
   const byDate = new Map(allSessions().map((s) => [s.date, s]))
   // A stale engine change never covers a fixed day (a minor race added later, 07-16).
   for (const [date, s] of Object.entries(engine)) if (!byDate.get(date)?.anchor) byDate.set(date, { ...s, date })
   const layer = pause?.pauses.length ? pauseLayer(byDate, pause) : null
   if (layer) for (const [date, s] of Object.entries(layer.caps)) byDate.set(date, s)
-  for (const [date, s] of Object.entries(overrides)) byDate.set(date, { ...s, date })
+  for (const [date, s] of Object.entries(overrides)) {
+    if (!s.strengthOnly) byDate.set(date, { ...s, date })
+    else if (byDate.has(date)) byDate.set(date, withStrength(byDate.get(date)!, s.strength))
+  }
   if (layer) for (const [date, s] of Object.entries(layer.paused)) byDate.set(date, s)
   // One rule for every layer: the workout text always matches the day's km.
   return [...byDate.values()].map(fitSession).sort((a, b) => a.date.localeCompare(b.date))
@@ -200,7 +209,7 @@ function showsWithout(next: PlanSession, date: string, auto?: PlanSession[]) {
 
 // The same session wherever it sits and whatever its km (a session switched to Zone 2 is still that session).
 const sameKind = (a?: PlanSession, b?: PlanSession) => isRun(a) && isRun(b) && a.type === b.type && a.title === b.title && (a.pace ?? '') === (b.pace ?? '')
-const kindOf = (s?: PlanSession) => s?.was ?? s
+const kindOf = (s?: PlanSession) => (s?.strengthOnly ? undefined : s?.was ?? s)   // a marker-only entry moves no session
 const planDay = (date: string) => allSessions().find((x) => x.date === date)
 const inReach = (a: string, b: string) => a !== b && Math.abs(differenceInCalendarDays(parseISO(a), parseISO(b))) < 14   // a move reaches two weeks
 
@@ -274,18 +283,27 @@ export function setPace(overrides: Overrides, date: string, sessions: PlanSessio
   return out
 }
 
-// Kettlebell on/off for one day, as a manual edit of that day; back to the plan → the edit is dropped.
-// Never on race day or a paused day. A marker added by hand is a regular one (30–40 Min.).
+// Kettlebell on/off for one day. Never on race day or a paused day. A marker added by hand is a regular one (30–40 Min.).
+// On a day whose session was edited by hand the marker is part of that edit; back at the plan → the edit is dropped.
+// Otherwise only the marker is stored (`strengthOnly`; the session in the entry is the day as shown at that moment and
+// is not read): the day keeps following the plan and the engine. Back at what the day shows without it (`auto` = the
+// plan as shown without manual edits) → the entry is dropped.
 export const strengthEditable = (s: PlanSession | undefined, date: string) =>
   !!s && s.type !== 'race' && !s.paused && date >= firstPlanStart()
-export function toggleStrength(overrides: Overrides, date: string, sessions: PlanSession[]): Overrides {
+export function toggleStrength(overrides: Overrides, date: string, sessions: PlanSession[], auto?: PlanSession[]): Overrides {
   const s = sessions.find((x) => x.date === date)
   if (!s || !strengthEditable(s, date)) return overrides
   const next = withStrength(s, s.strength ? null : KB.regular)
   const original = allSessions().find((x) => x.date === date)
   const out = { ...overrides }
-  if (original && sameSession(next, original) && !next.was) delete out[date]
-  else out[date] = next
+  if (overrides[date] && !overrides[date].strengthOnly) {
+    if (original && sameSession(next, original) && !next.was && showsWithout(next, date, auto)) delete out[date]
+    else out[date] = next
+    return out
+  }
+  const under = (auto?.find((x) => x.date === date) ?? original)?.strength
+  if (JSON.stringify(next.strength ?? null) === JSON.stringify(under ?? null)) delete out[date]
+  else out[date] = { ...next, strengthOnly: true }
   return out
 }
 
@@ -435,7 +453,7 @@ export function weekBreakdown(week: PlanWeek, today: string, manual: Overrides, 
   const reasons = new Set<string>()
   for (const d of dates) {
     planKm += km(base, d)
-    if (manual[d]) manualKm += km(eff, d) - km(base, d)
+    if (manual[d] && !manual[d].strengthOnly) manualKm += km(eff, d) - km(base, d)
     else {
       engineKm += km(withEngine, d) - km(base, d)
       if (engine[d] && engineReasons.has(d)) reasons.add(engineReasons.get(d)!)
