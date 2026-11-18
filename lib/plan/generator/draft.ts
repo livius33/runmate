@@ -2,7 +2,7 @@
 // plan start, the athlete profile and the measured inputs (with the runner's overrides). Every step's warnings are kept in
 // order; any step's German error stops the draft. Pure.
 import type { Distance, Methodology } from '../methodology/schema'
-import type { AthleteProfile } from '../athlete-profile'
+import { profileMaxKm, type AthleteProfile } from '../athlete-profile'
 import { KIND_LABEL, type GoalKind, type SeasonGoal } from '@/lib/season/goals'
 import { buildSkeleton, type Skeleton } from './skeleton'
 import { buildDays, type DaysPlan } from './days'
@@ -70,7 +70,7 @@ export function generateDraft(c: DraftChoice): DraftResult {
     ...days.warnings.map((text) => ({ step: 'Tage' as const, text })),
     ...workouts.warnings.map((text) => ({ step: 'Einheiten' as const, text })),
   ]
-  const recovery = recoveryOf({ distance, days, workouts, paces, raceDate: c.goal.date })
+  const recovery = recoveryOf({ distance, days, workouts, paces, raceDate: c.goal.date, profile: c.profile })
   // Kettlebell markers after the workouts: the tests (Generalprobe) are placed there and keep 2 days free.
   const kb = markDraft({ weeks: days.weeks, sessions: workouts.sessions, recovery, raceDate: c.goal.date }, kbDaysOf(c.profile))
   return { ok: true, distance, inputs, paces, skeleton, days, workouts: { ...workouts, sessions: kb.sessions }, recovery: kb.recovery, warnings }
@@ -88,7 +88,7 @@ function markDraft(d: { weeks: PlanWeek[]; sessions: PlanSession[]; recovery: { 
 }
 
 // Recovery weeks after the race from the generated plan (07-22).
-export function recoveryOf(d: Pick<Draft, 'distance' | 'days' | 'workouts' | 'paces'> & { raceDate: string }) {
+export function recoveryOf(d: Pick<Draft, 'distance' | 'days' | 'workouts' | 'paces'> & { raceDate: string; profile?: AthleteProfile | null }) {
   return recoveryAfterRace({ raceDate: d.raceDate, distance: d.distance, weeks: d.days.weeks, sessions: d.workouts.sessions,
-    easyPaceS: d.paces.paces.easy, thresholdPaceS: d.paces.paces.threshold })
+    easyPaceS: d.paces.paces.easy, thresholdPaceS: d.paces.paces.threshold, maxKm: (date) => profileMaxKm(d.profile ?? null, date) })
 }

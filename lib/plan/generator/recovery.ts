@@ -29,6 +29,7 @@ export interface RecoveryInput {
   sessions: PlanSession[]      // the block's sessions up to race week
   easyPaceS: number
   thresholdPaceS: number
+  maxKm?: (date: string) => number | null   // the profile's day limit (null = none)
 }
 
 export function recoveryAfterRace(i: RecoveryInput): { weeks: PlanWeek[]; sessions: PlanSession[] } {
@@ -61,21 +62,22 @@ export function recoveryAfterRace(i: RecoveryInput): { weeks: PlanWeek[]; sessio
     for (let wd = 1; wd <= 7; wd++) {
       const date = day(start, wd - 1)
       let s: PlanSession = { date, type: 'rest', title: 'Ruhetag', notes: 'Erholung nach dem Rennen.' }
+      const top = half(i.maxKm?.(date) ?? Infinity)   // no run above the profile's day limit
+      const q = half((POST_RACE.thresholdMin * 60) / i.thresholdPaceS)
+      const warm = Math.max(1.5, half((each - q) / 2))
       if (date === day(i.raceDate, 1)) {
         // The day after the race: rest.
       } else if (long && wd === longDay && long >= POST_RACE.minRunKm) {
-        s = { date, type: 'long', km: long, title: 'Lockerer Longrun', notes: 'Erholung nach dem Rennen: ruhig, Zone 2.' }
+        s = { date, type: 'long', km: Math.min(long, top), title: 'Lockerer Longrun', notes: 'Erholung nach dem Rennen: ruhig, Zone 2.' }
       } else if (easyDays.includes(wd) && each >= POST_RACE.minRunKm) {
-        if (wd === tempoDay) {
-          const q = half((POST_RACE.thresholdMin * 60) / i.thresholdPaceS)
-          const warm = Math.max(1.5, half((each - q) / 2))
+        if (wd === tempoDay && warm * 2 + q <= top) {
           const pace = fmtPace(i.thresholdPaceS)
           s = { date, type: 'tempo', km: r1(warm * 2 + q), title: 'Kurze Schwelle', pace,
             notes: formatNotes({ prefix: '', warmKm: warm, warmWord: 'ein', reps: 1, repKm: q, pace, recKm: 0, recWord: 'Trab', coolKm: warm, coolWord: 'aus',
               suffix: '. Erste Schwelle nach dem Rennen, kontrolliert.' }) }
         } else {
           const strides = wd === stridesDay
-          s = { date, type: 'easy', km: each, title: strides ? 'Locker mit Steigerungen' : 'Lockerer Lauf',
+          s = { date, type: 'easy', km: Math.min(each, top), title: strides ? 'Locker mit Steigerungen' : 'Lockerer Lauf',
             notes: strides ? 'Erholung nach dem Rennen: locker, 4 × 20 s Steigerungen.' : `Erholung nach dem Rennen: locker, Zone 2${k === 0 ? `, höchstens ${POST_RACE.week1MaxMin} Minuten` : ''}.` }
         }
       }
