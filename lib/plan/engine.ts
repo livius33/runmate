@@ -433,8 +433,10 @@ function rebalance({ today, at, manual, state, runs, fitness, syncedThrough, pau
   const open = Math.round((missing - already) * 2) / 2
   if (open < MIN_REBALANCE_KM) return []
 
-  // No extra km the day before a test or event.
-  const candidates = dates.filter((d) => d >= today && !manual[d] && kmOn(d) === 0 && canTakeExtra(at_(d), d) && !at_(day(d, 1))?.test && !at_(day(d, 1))?.anchor)
+  // No extra km the day before a test or event, and none on a day the fatigue guard softened: it reads as an easy
+  // day, but its cap (maxKm) is still the one of the hard session it replaced.
+  const softened = new Set(state.log.filter((c) => c.rule === 'fatigue' && c.status === 'active').flatMap((c) => Object.keys(c.after)))
+  const candidates = dates.filter((d) => d >= today && !manual[d] && !softened.has(d) && kmOn(d) === 0 && canTakeExtra(at_(d), d) && !at_(day(d, 1))?.test && !at_(day(d, 1))?.anchor)
   const add = new Map<string, number>()
   let left = open
   while (left >= 0.5) {
