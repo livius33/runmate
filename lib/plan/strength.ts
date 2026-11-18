@@ -89,8 +89,9 @@ export function strengthWeek(dates: string[], sessions: PlanSession[], done: Set
   return { planned: marked.filter((s) => !s.strength!.optional || isDone(s)).length, done: marked.filter(isDone).length }
 }
 
-// Last day a sync fully covers: the day before the latest successful sync, as the runner's date (as engine-store's
-// loadSyncedThrough). `localDate` maps an instant to that date (todayLocal).
+// Last day a sync fully covers: the day before the latest successful sync, as the runner's date (the sync part of
+// engine-store's loadSyncedThrough; a run says nothing about a kettlebell session). `localDate` maps an instant to that
+// date (todayLocal).
 export function syncedThroughOf(last: { at: string; error?: unknown } | null | undefined, localDate: (d: Date) => string): string | null {
   if (!last?.at || last.error || Number.isNaN(Date.parse(last.at))) return null
   return plus(localDate(new Date(last.at)), -1)

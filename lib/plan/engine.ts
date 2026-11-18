@@ -47,8 +47,8 @@ export interface EngineInput {
   state: EngineState
   runs: DatedRun[]
   fitness?: Fitness
-  // Last day fully covered by a successful sync. Later past days are not "missed" yet — their
-  // runs may just not be synced. Undefined = no restriction (tests).
+  // Last day the stored data covers: a successful sync or the newest run (engine-store.ts loadSyncedThrough). Later
+  // past days are not "missed" yet — their runs may just not be synced. Undefined = no restriction (tests).
   syncedThrough?: string | null
   // Krank/Pause periods (07-08): paused days are rest in every layer; the pause and the two return weeks are left alone
   // by missed-key and rebalance (missed km are not made up).

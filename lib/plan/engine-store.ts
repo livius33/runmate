@@ -31,8 +31,9 @@ import { ensureLiveBlocks } from './live-blocks'
 import { pullSources } from '@/lib/sources/registry'
 import { loadLastSync } from '@/lib/sources/sync'
 
-// Runs of the plan window plus today's form (TSB) and load ratio (ACWR), from the shared model.
-async function loadRunsAndFitness(): Promise<{ runs: DatedRun[]; fitness: Fitness }> {
+// Runs of the plan window plus today's form (TSB) and load ratio (ACWR), from the shared model; and the date of the
+// newest stored run of any time (loadSyncedThrough).
+async function loadRunsAndFitness(): Promise<{ runs: DatedRun[]; fitness: Fitness; newestRun: string | null }> {
   const rows = await db.select().from(activities).where(own(activities))
   const now = localDate()        // the runner's day, like the fitness and stats routes (07-20)
   const series = fitnessSeries(rows, now)
@@ -51,15 +52,22 @@ async function loadRunsAndFitness(): Promise<{ runs: DatedRun[]; fitness: Fitnes
       splitHrs: full.map((s) => s.hr),
     }
   })
-  return { runs, fitness }
+  const newestRun = runRows.reduce<string | null>((m, r) => (m == null || r.date > m ? r.date : m), null)
+  return { runs, fitness, newestRun }
 }
 
-// Last day fully covered by the latest successful sync: the day before the sync (the runner's date). The sync saves
-// its result per source; a source whose last sync failed covers nothing. No sync record → null (nothing counts as missed).
-export async function loadSyncedThrough(): Promise<string | null> {
+// Last day the stored data fully covers: the later of two days, null when there is neither (nothing counts as missed).
+// (a) The day before the latest successful sync of a pull source (the runner's date). The sync saves its result per
+//     source; a source whose last sync failed covers nothing.
+// (b) The date of the newest stored run (`newestRun`, the runner's date like every run the engine sees). Runs from a
+//     file import or the Apple Health Shortcut leave no sync record: a run on day D shows that the runner's data
+//     reached us up to D, so earlier days without a run were really missed. An import of old history ends at its last
+//     run and says nothing about the weeks after it.
+export async function loadSyncedThrough(newestRun: string | null): Promise<string | null> {
   const syncs = await Promise.all(pullSources().map((src) => loadLastSync(src.meta.id)))
   const at = syncs.flatMap((s) => (s && !s.error && typeof s.at === 'string' && !Number.isNaN(Date.parse(s.at)) ? [s.at] : [])).sort().at(-1)
-  return at ? format(addDays(parseISO(todayLocal(new Date(at))), -1), 'yyyy-MM-dd') : null
+  const synced = at ? format(addDays(parseISO(todayLocal(new Date(at))), -1), 'yyyy-MM-dd') : null
+  return synced && newestRun ? (synced > newestRun ? synced : newestRun) : synced ?? newestRun
 }
 
 // The engine's state plus, without Plus (lib/billing/entitlements.ts autoAdapt), the changes it would make now.
@@ -73,8 +81,10 @@ export async function loadRecoveryForPlan(today: string) {
 
 async function runNow(today: string) {
   await ensureLiveBlocks()
+  // The coverage needs the newest run: it follows the runs instead of asking the database for them a second time.
+  const data = loadRunsAndFitness()
   const [manual, state, { runs, fitness: load }, syncedThrough, pauses, recovery] = await Promise.all([
-    loadOverrides(), loadEngineState(), loadRunsAndFitness(), loadSyncedThrough(), loadPauses(), loadRecoveryForPlan(today)])
+    loadOverrides(), loadEngineState(), data, data.then((d) => loadSyncedThrough(d.newestRun)), loadPauses(), loadRecoveryForPlan(today)])
   // This morning's night flags join the fitness; without wellness data (or without Plus) nothing changes.
   const fitness: Fitness = recovery ? { ...load, recovery } : load
   const input: EngineInput = { today, at: new Date().toISOString(), manual, state, runs, fitness, syncedThrough, pauses }
