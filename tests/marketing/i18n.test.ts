@@ -40,10 +40,22 @@ describe('Wörterbücher de/en', () => {
     }
   })
 
-  it('Preise wie beschlossen: Basic 6 €/59 €, Plus 10 €/99 €, Selbst hosten 0 €, 30 Tage ohne Karte', () => {
-    expect([de.pricing.basic.month, de.pricing.basic.year, de.pricing.plus.month, de.pricing.plus.year, de.pricing.selfHost.price]).toEqual(['6 €', '59 €', '10 €', '99 €', '0 €'])
-    expect([en.pricing.basic.month, en.pricing.basic.year, en.pricing.plus.month, en.pricing.plus.year, en.pricing.selfHost.price]).toEqual(['€6', '€59', '€10', '€99', '€0'])
+  // Phase 9, AC-6
+  it('Preise wie beschlossen: Kostenlos 0 €, Plus 9 €/79 €, Selbst hosten 0 €, 30 Tage Plus ohne Karte, danach kostenlos', () => {
+    expect([de.pricing.free.price, de.pricing.plus.month, de.pricing.plus.year, de.pricing.selfHost.price]).toEqual(['0 €', '9 €', '79 €', '0 €'])
+    expect([en.pricing.free.price, en.pricing.plus.month, en.pricing.plus.year, en.pricing.selfHost.price]).toEqual(['€0', '€9', '€79', '€0'])
+    expect([de.pricing.free.name, en.pricing.free.name]).toEqual(['Kostenlos', 'Free'])
     expect(de.pricing.trial).toContain('30 Tage')
     expect(de.pricing.trial).toContain('ohne Karte')
+    expect(de.pricing.trial).toContain('kostenlos weiter')
+    expect(en.pricing.trial).toContain('for free')
+  })
+
+  it('kein früherer Tarif oder Preis mehr in den Texten', () => {
+    for (const dict of [de, en]) {
+      const all = leaves(dict).map(([, v]) => String(v)).join(' ')
+      expect(all).not.toMatch(/\bBasic\b/)
+      expect(all).not.toMatch(/(^|[^\d])(6|59|10|99)\s€|€(6|59|10|99)(?!\d)/)
+    }
   })
 })

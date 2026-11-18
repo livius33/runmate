@@ -39,11 +39,12 @@ describe('Landing page', () => {
     expect(src('app/(marketing)/en/page.tsx')).toContain('lang="en"')
   })
 
-  it('JSON-LD SoftwareApplication mit drei Angeboten in EUR', () => {
+  it('JSON-LD SoftwareApplication: Selbst hosten, Free und Plus (Monat, Jahr) in EUR', () => {
     const json = render().match(/<script type="application\/ld\+json">(.*?)<\/script>/)![1]
     const data = JSON.parse(json)
     expect(data['@type']).toBe('SoftwareApplication')
-    expect(data.offers.map((o: { price: string; priceCurrency: string }) => `${o.price} ${o.priceCurrency}`)).toEqual(['0 EUR', '6 EUR', '10 EUR'])
+    expect(data.offers.map((o: { price: string; priceCurrency: string }) => `${o.price} ${o.priceCurrency}`)).toEqual(['0 EUR', '0 EUR', '9 EUR', '79 EUR'])
+    expect(data.offers.map((o: { name: string }) => o.name).slice(1)).toEqual(['Runmate Free', 'Runmate Plus', 'Runmate Plus'])
   })
 
   it('ohne Abrechnung: Warteliste als Formular; mit BILLING_ENABLED: Link zur Anmeldung, kein Formular', () => {

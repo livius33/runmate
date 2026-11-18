@@ -63,11 +63,17 @@ async function loadSyncedThrough(): Promise<string | null> {
 // The engine's state plus, without Plus (lib/billing/entitlements.ts autoAdapt), the changes it would make now.
 export interface EngineResult extends EngineState { suggestions?: EngineChange[] }
 
+// This morning's night flags for the plan (engine and Werkstatt): only with recoveryInPlan (Plus, trial, self-host;
+// lib/billing/entitlements.ts). The recovery card and the Heute hint read the nights themselves and stay free.
+export async function loadRecoveryForPlan(today: string) {
+  return (await hasFeature('recoveryInPlan')) ? loadRecoveryToday(today) : undefined
+}
+
 async function runNow(today: string) {
   await ensureLiveBlocks()
   const [manual, state, { runs, fitness: load }, syncedThrough, pauses, recovery] = await Promise.all([
-    loadOverrides(), loadEngineState(), loadRunsAndFitness(), loadSyncedThrough(), loadPauses(), loadRecoveryToday(today)])
-  // This morning's night flags join the fitness; without wellness data nothing changes.
+    loadOverrides(), loadEngineState(), loadRunsAndFitness(), loadSyncedThrough(), loadPauses(), loadRecoveryForPlan(today)])
+  // This morning's night flags join the fitness; without wellness data (or without Plus) nothing changes.
   const fitness: Fitness = recovery ? { ...load, recovery } : load
   return { state, r: runEngine({ today, at: new Date().toISOString(), manual, state, runs, fitness, syncedThrough, pauses }) }
 }

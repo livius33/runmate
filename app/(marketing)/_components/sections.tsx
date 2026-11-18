@@ -111,13 +111,17 @@ export function Pricing({ t }: { t: Dict }) {
           {repo && <a href={`${repo}#readme`} data-track="github_click" className="mt-6 inline-flex text-sm font-medium text-brand underline-offset-4 hover:underline">{p.selfHost.cta}</a>}
         </div>
         <div className="order-1 grid gap-4 rounded-2xl border border-border bg-card p-6 sm:grid-cols-2 lg:order-2 lg:col-span-8">
-          {([p.basic, p.plus] as const).map((tier, i) => (
-            <div key={tier.name} className={cn(i === 1 && 'sm:border-l sm:border-border sm:pl-6')}>
-              <h3 className="text-lg font-semibold">Runmate {tier.name}</h3>
-              <Price month={tier.month} year={tier.year} />
-              <Points items={tier.points} />
-            </div>
-          ))}
+          {/* Free has one price whatever the toggle says; Plus follows it */}
+          <div>
+            <h3 className="text-lg font-semibold">{p.free.name}</h3>
+            <div className="mt-4 flex items-baseline gap-2"><span className="font-display text-5xl font-semibold tracking-tight">{p.free.price}</span><span className="text-sm text-muted-foreground">{p.free.note}</span></div>
+            <Points items={p.free.points} />
+          </div>
+          <div className="sm:border-l sm:border-border sm:pl-6">
+            <h3 className="text-lg font-semibold">Runmate {p.plus.name}</h3>
+            <Price month={p.plus.month} year={p.plus.year} />
+            <Points items={p.plus.points} />
+          </div>
           <div className="grid gap-3 border-t border-border pt-5 sm:col-span-2 sm:grid-cols-[1fr_auto] sm:items-center">
             <p className="text-sm text-muted-foreground">{p.trial} {p.always}</p>
             <PrimaryCta t={t} />
@@ -170,10 +174,10 @@ export function Analytics() {
   )
 }
 
-// SoftwareApplication with the three offers (self-host, Basic, Plus), for search engines.
+// SoftwareApplication with its offers (self-host, Free, Plus per month and per year), for search engines.
 export function JsonLd({ t }: { t: Dict }) {
   const offer = (name: string, price: string, extra?: object) => ({ '@type': 'Offer', name, price, priceCurrency: 'EUR', ...extra })
-  const month = { priceSpecification: { '@type': 'UnitPriceSpecification', billingDuration: 'P1M' } }
+  const per = (billingDuration: string) => ({ priceSpecification: { '@type': 'UnitPriceSpecification', billingDuration } })
   const data = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -188,8 +192,9 @@ export function JsonLd({ t }: { t: Dict }) {
     ...(repoUrl() ? { codeRepository: repoUrl() } : {}),
     offers: [
       offer(t.pricing.selfHost.name, '0'),
-      offer('Runmate Basic', '6', month),
-      offer('Runmate Plus', '10', month),
+      offer('Runmate Free', '0'),
+      offer('Runmate Plus', '9', per('P1M')),
+      offer('Runmate Plus', '79', per('P1Y')),
     ],
   }
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, '\\u003c') }} />

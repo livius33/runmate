@@ -20,31 +20,24 @@ export const paddleEnv = (): PaddleEnv => (process.env.PADDLE_ENV === 'productio
 export const paddleApiBase = (env: PaddleEnv = paddleEnv()) => (env === 'production' ? 'https://api.paddle.com' : 'https://sandbox-api.paddle.com')
 
 const PRICE_ENV: Record<Tier, Record<Interval, string>> = {
-  basic: { month: 'PADDLE_PRICE_BASIC_MONTH', year: 'PADDLE_PRICE_BASIC_YEAR' },
   plus: { month: 'PADDLE_PRICE_PLUS_MONTH', year: 'PADDLE_PRICE_PLUS_YEAR' },
 }
 
-export interface PriceIds { basic: Record<Interval, string | null>; plus: Record<Interval, string | null> }
+export interface PriceIds { plus: Record<Interval, string | null> }
 
 export function priceIds(): PriceIds {
   const get = (name: string) => process.env[name]?.trim() || null
-  return {
-    basic: { month: get(PRICE_ENV.basic.month), year: get(PRICE_ENV.basic.year) },
-    plus: { month: get(PRICE_ENV.plus.month), year: get(PRICE_ENV.plus.year) },
-  }
+  return { plus: { month: get(PRICE_ENV.plus.month), year: get(PRICE_ENV.plus.year) } }
 }
 
 // Which plan a Paddle price id stands for (webhook → subscription row). Unknown ids → null (ignored, logged).
 export function priceInfo(priceId: string | null | undefined, ids: PriceIds = priceIds()): { tier: Tier; interval: Interval } | null {
   if (!priceId) return null
-  for (const tier of ['basic', 'plus'] as const) {
-    for (const interval of ['month', 'year'] as const) if (ids[tier][interval] === priceId) return { tier, interval }
-  }
+  for (const interval of ['month', 'year'] as const) if (ids.plus[interval] === priceId) return { tier: 'plus', interval }
   return null
 }
 
 // Shown next to the checkout buttons; the amount charged is always the one configured at Paddle.
 export const PRICE_LABEL: Record<Tier, Record<Interval, string>> = {
-  basic: { month: '6 € / Monat', year: '59 € / Jahr' },
-  plus: { month: '10 € / Monat', year: '99 € / Jahr' },
+  plus: { month: '9 € / Monat', year: '79 € / Jahr' },
 }

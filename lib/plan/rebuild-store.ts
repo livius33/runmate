@@ -124,7 +124,7 @@ export async function rebuildState(today: string, blockId?: string) {
   const l = await load(today)
   const history = [...l.history].reverse().map((e) => publicEntry(l.history, e))
   const canApply = l.e.features.rebuild
-  const common = { history, canApply, upsell: canApply ? null : upsellText('rebuild', l.e), profile: l.ctx.profile }
+  const common = { history, canApply, upsell: canApply ? null : upsellText('rebuild'), profile: l.ctx.profile }
   const live = rebuildable(l.entries, today)
   const entry = blockId ? live.find((x) => x.block.id === blockId) : live[0]
   const goal = entry && l.ctx.goals.find((g) => g.id === entry.block.goalId)
@@ -166,10 +166,10 @@ const cap = (entries: RebuildEntry[]) => entries.slice(-KEEP).map((e, i, a) => (
 
 export async function applyRebuild(req: RebuildRequest, today: string): Promise<Fail | (ReturnType<typeof view> & { entryId: string })> {
   const l = await load(today)
-  if (!l.e.features.rebuild) return { error: upsellText('rebuild', l.e), code: 'plus-required' }
+  if (!l.e.features.rebuild) return { error: upsellText('rebuild'), code: 'plus-required' }
   const p = prepare(l, req, today)
   if ('error' in p) return p
-  if (p.ownGate) return { error: upsellText('ownMethod', l.e), code: 'plus-required' }
+  if (p.ownGate) return { error: upsellText('ownMethod'), code: 'plus-required' }
   const r = rebuild(p.input)
   if (!r.ok) return { error: r.error, needs: r.needs }
   const out = view(r, l, p.input)

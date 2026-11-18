@@ -8,8 +8,9 @@ Status: draft for Livius' review (2026-11-01). Sources: codebase audit, SaaS/leg
 Two products from one codebase:
 
 1. **Open source** — public repo `runmate` under **AGPL-3.0**: anyone can clone, self-host and plug in their own data.
-2. **Hosted** — runmate.dev as a multi-user web app with a monthly fee: **Basic 6 €/month (59 €/year)** and
-   **Plus ~10 €/month (~99 €/year)**, 30-day trial without a card, billed via **Paddle** (merchant of record).
+2. **Hosted** — runmate.dev as a multi-user web app: **Free** (0 €, a working product) and **Plus 9 €/month
+   (79 €/year)**; a new account gets a 30-day Plus trial without a card and then continues as Free. Plus is billed via
+   **Paddle** (merchant of record).
 
 Out of scope: everything finance (Phase 10/11 of the private dashboard). The private `dashboard` repo stays as it
 is (Porto block frozen); fixes are ported by hand.
@@ -22,8 +23,8 @@ is (Porto block frozen); fixes are ported by hand.
 | Repo | Fresh repo from an allowlist copy, one initial commit — no `git filter-repo` | History holds a committed API key, a credential-like author field, personal health/finance data in 163 PAUL docs |
 | Data sources | Garmin + Apple Health first; then Strava; file import (FIT/GPX/ZIP) | Livius; see "Data sources" for the legal path of each |
 | Billing | Paddle | Seller of record handles EU VAT/OSS; least tax work for a German solo founder |
-| Pricing | Basic 6 € · Plus ~10 € · 30-day trial | Above Runalyze (5,50 €), well below Runna (19,99 €) / TrainingPeaks ($19.95) |
-| Plus vs. Basic | Proposal: Basic = sync, analysis, insights, one generated plan; Plus = adaptive engine (auto moves, fatigue guard, rebalance), several plans/races, own method, race-day tools | **Livius to confirm** |
+| Pricing | Free + Plus, Plus 9 €/month · 79 €/year, 30-day Plus trial, then Free; decided by Livius 2026-11-17 (replaces the two paid tiers of 2026-11-01) | Free is a working product, not a locked account after the trial; Plus stays well below Runna (19,99 €) / TrainingPeaks ($19.95) |
+| Free vs. Plus | Free = sync and import, analysis, insights, one live plan edited by hand, the engine's changes as suggestions, export, delete; Plus = the engine applies its changes, whole-plan rebuild, several plans and B-races, own method, race-day tools, sleep and HRV feeding the plan | Decided by Livius 2026-11-17; rules in `lib/billing/entitlements.ts` |
 
 ## Data sources
 
@@ -63,7 +64,7 @@ with a neutral `source` + `source_activity_id` on activities; `parseDetailStream
 - Apple Health shortcut per user (install guide). Strava OAuth after launch.
 
 ### Phase 4 · Billing + legal
-- Paddle subscriptions (Basic/Plus, monthly/yearly, 30-day trial), webhooks → `subscription` table, entitlement checks
+- Paddle subscriptions (Plus, monthly/yearly; 30-day Plus trial, then Free), webhooks → `subscription` table, entitlement checks
   for Plus features, cancellation button (§312k BGB), customer portal.
 - Impressum (§5 DDG), Datenschutzerklärung (Art. 13), AGB, withdrawal right; **Art. 9 explicit consent** for health
   data; self-service export (Art. 20) and deletion (Art. 17); processing record + light DPIA; DPAs with Vercel (Pro),
@@ -78,7 +79,7 @@ with a neutral `source` + `source_activity_id` on activities; `parseDetailStream
 ### Phase 6 · Landing page (see `docs/LANDING-PAGE.md`)
 - `app/(marketing)` route group, static; `ClerkProvider` only in the dashboard layout; dashboard moves to `/plan`.
 - Sections: hero, built in the open, how it works, methods, adaptive engine, insights, race day, pricing
-  (self-host 0 € · Basic · Plus), FAQ, CTA, footer; de at `/`, en at `/en`; dark tokens; cookieless analytics;
+  (self-host 0 € · Free 0 € · Plus), FAQ, CTA, footer; de at `/`, en at `/en`; dark tokens; cookieless analytics;
   waitlist with double opt-in until billing is live.
 
 ### Phase 7 · Launch
@@ -96,7 +97,7 @@ with a neutral `source` + `source_activity_id` on activities; `parseDetailStream
 3. Apply for Garmin Connect Developer Program (Personal now; Starter with the business entity).
 4. Paddle account + verification; Vercel Pro (DPA); Neon project in Frankfurt.
 5. Trademark search/registration "Runmate" (DPMA/EUIPO).
-6. Confirm the Basic/Plus feature split and the final Plus price.
+6. Create the two Plus prices in Paddle (9 €/month, 79 €/year); the feature split and the price are decided (2026-11-17).
 
 ## Effort (rough)
 

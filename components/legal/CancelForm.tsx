@@ -38,8 +38,8 @@ export function CancelForm({ signedIn, contract }: { signedIn: boolean; contract
     <div role="status" className="grid gap-2 rounded-2xl border border-border bg-card p-5 text-sm">
       <p className="text-base font-semibold">Kündigung eingegangen</p>
       <p>Eingang: {fmt(done.at, true)} Uhr · Art: {kind === 'ordentlich' ? 'ordentliche Kündigung zum nächstmöglichen Zeitpunkt' : 'außerordentliche Kündigung'}</p>
-      {signedIn && done.kind === 'subscription' && <p>Dein Abo endet am <b>{done.endsAt ? fmt(done.endsAt) : 'Ende des bezahlten Zeitraums'}</b>. Bis dahin bleibt alles nutzbar; danach wird nichts mehr abgebucht.</p>}
-      {signedIn && done.kind === 'trial' && <p>Du bist in der kostenlosen Testphase ohne Zahlungsdaten. Sie endet am {done.endsAt ? fmt(done.endsAt) : '–'} von selbst; es entsteht kein Abo.</p>}
+      {signedIn && done.kind === 'subscription' && <p>Dein Abo endet am <b>{done.endsAt ? fmt(done.endsAt) : 'Ende des bezahlten Zeitraums'}</b>. Bis dahin bleibt alles nutzbar; danach wird nichts mehr abgebucht und dein Konto läuft kostenlos weiter.</p>}
+      {signedIn && done.kind === 'trial' && <p>Du bist in der kostenlosen Testphase ohne Zahlungsdaten. Sie endet am {done.endsAt ? fmt(done.endsAt) : '–'} von selbst; es entsteht kein Abo. Danach nutzt du Runmate kostenlos weiter.</p>}
       {signedIn && done.kind === 'none' && <p>Zu deinem Konto besteht kein laufendes Abo. Es wird nichts abgebucht.</p>}
       {!signedIn && <p>Besteht zu dieser E-Mail-Adresse ein Abo, ist es zum Ende des bezahlten Zeitraums gekündigt.</p>}
       {kind === 'ausserordentlich' && <p>Die außerordentliche Kündigung prüfen wir und melden uns; das Abo endet spätestens zum Ende des bezahlten Zeitraums.</p>}

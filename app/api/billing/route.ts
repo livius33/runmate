@@ -11,7 +11,7 @@ export interface BillingInfo {
   billing: boolean
   entitlements: ReturnType<typeof toClient>
   subscription: { status: string; tier: string | null; interval: string | null; trialEndsAt: number | null; periodEnd: number | null; cancelAtPeriodEnd: boolean; paddle: boolean } | null
-  checkout: { env: 'sandbox' | 'production'; clientToken: string | null; prices: { tier: 'basic' | 'plus'; interval: 'month' | 'year'; priceId: string; label: string }[] } | null
+  checkout: { env: 'sandbox' | 'production'; clientToken: string | null; prices: { tier: 'plus'; interval: 'month' | 'year'; priceId: string; label: string }[] } | null
   userId: string
 }
 
@@ -22,8 +22,9 @@ export const GET = withUser(async () => {
   if (!billingEnabled()) return NextResponse.json({ billing: false, entitlements: e, subscription: null, checkout: null, userId: uid() } satisfies BillingInfo)
   const row = await ensureSubscription()
   const ids = priceIds()
-  const prices = (['basic', 'plus'] as const).flatMap((tier) => (['month', 'year'] as const)
-    .flatMap((interval) => (ids[tier][interval] ? [{ tier, interval, priceId: ids[tier][interval]!, label: PRICE_LABEL[tier][interval] }] : [])))
+  // Plus is the only paid plan: one price per interval, as far as configured.
+  const prices = (['month', 'year'] as const)
+    .flatMap((interval) => (ids.plus[interval] ? [{ tier: 'plus' as const, interval, priceId: ids.plus[interval]!, label: PRICE_LABEL.plus[interval] }] : []))
   return NextResponse.json({
     billing: true,
     entitlements: e,

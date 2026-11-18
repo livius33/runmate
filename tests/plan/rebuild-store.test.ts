@@ -1,7 +1,7 @@
 // The rebuild route against a small settings store (v1.1 10-02): state, preview (writes nothing), apply (block, edits,
-// Saison goal, history) and undo. DB = the pg-proxy fake. Billing gate: tests/billing/gating.test.ts.
+// Saison goal, history), undo, and the Plus gate on apply. DB = the pg-proxy fake.
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { activities } from '@/lib/db/schema'
+import { activities, subscription } from '@/lib/db/schema'
 import { listMethodologies } from '@/lib/plan/methodology/load'
 import { EXAMPLE_GOALS } from '@/examples/porto-2026/season'
 import { generateDraft, type Draft } from '@/lib/plan/generator/draft'
@@ -28,6 +28,7 @@ const runs = block.sessions.filter((s) => s.date < '2026-12-30' && s.type !== 'r
   .map((s, i) => rowOf(activities, { id: `a${i}`, userId: 'user_r', date: s.date, type: 'Run', name: s.title, distanceM: s.km! * 1000, durationS: s.km! * 330 }))
 
 const store = new Map<string, string>()
+let plus = false                                              // the subscription row, once billing is on
 const read = <T>(k: string) => JSON.parse(store.get(k) ?? 'null') as T
 const settingsRows = (q: Query) => {
   const keys = q.params.slice(1).map(String)
@@ -37,12 +38,13 @@ const fake = useFakeDb((q) => {
   if (/^insert into "settings"/.test(q.sql)) { store.set(String(q.params[1]), String(q.params[2])); return [] }
   if (/^select .* from "settings"/.test(q.sql)) return settingsRows(q)
   if (/^select .* from "activities"/.test(q.sql)) return runs
+  if (/from "subscription"/.test(q.sql)) return plus ? [rowOf(subscription, { userId: q.params[0], status: 'active', tier: 'plus', cancelAtPeriodEnd: false, updatedAt: 0 })] : []
   return []
 })
 afterAll(() => { fake.restore(); vi.useRealTimers() })
 const edit = (date: string) => ({ date, type: 'easy', km: 5, title: 'Eigener Lauf' })
 beforeEach(() => {
-  store.clear(); fake.log.length = 0; delete process.env.BILLING_ENABLED
+  store.clear(); fake.log.length = 0; delete process.env.BILLING_ENABLED; plus = false
   store.set('season_goals', JSON.stringify({ v: 2, goals: [hm] }))
   store.set('athlete_profile', JSON.stringify(PROFILE))
   store.set('plan_blocks', JSON.stringify({ v: 1, blocks: [{ block, draftId: 'd1', liveAt: '2026-11-20T08:00:00Z', choice: { templateId: 'pfitzinger-half', overrides: {} } }] }))
@@ -132,5 +134,29 @@ describe('Neuaufbau: Übernehmen und Rückgängig (AC-6)', () => {
     const res = await post({ action: 'apply', change: {} })
     expect([res.status, (await res.json()).error]).toEqual([400, expect.stringContaining('nichts zu ändern')])
     expect(writes()).toEqual([])
+  })
+})
+
+describe('Neuaufbau: Free und Plus (AC-7)', () => {
+  it('ohne Plus: Stand und Vorschau gehen, Übernehmen antwortet 402 und schreibt nichts', async () => {
+    process.env.BILLING_ENABLED = '1'
+    const s = await state()
+    expect(s.canApply).toBe(false)
+    expect(s.upsell).toContain('Runmate Plus')
+    expect((await post({ action: 'preview', change: { goalS: 5220 } })).status).toBe(200)
+    fake.log.length = 0
+    const res = await post({ action: 'apply', change: { goalS: 5220 } })
+    expect([res.status, (await res.json()).code]).toEqual([402, 'plus-required'])
+    expect(writes()).toEqual([])
+    expect(liveBlock().block).toEqual(block)
+  })
+  it('mit Plus übernommen, danach ohne Plus: Rückgängig bleibt frei', async () => {
+    process.env.BILLING_ENABLED = '1'
+    plus = true
+    const { entryId } = await (await post({ action: 'apply', change: { goalS: 5220 } })).json()
+    expect(liveBlock().block.race.goalS).toBe(5220)
+    plus = false
+    expect((await post({ action: 'undo', id: entryId })).status).toBe(200)
+    expect(liveBlock().block).toEqual(block)
   })
 })

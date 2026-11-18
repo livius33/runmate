@@ -1,4 +1,4 @@
-// AC-10 and AC-11 (Phase 5): expired accounts are deleted only after 12 months without activity and a reminder at
+// AC-10 and AC-11 (Phase 5): free accounts (trial over or Plus ended; Phase 9) are deleted only after 12 months without activity and a reminder at
 // least 30 days old (never without one, so nothing is deleted while no mailer is wired); a deleted account leaves a
 // tombstone, and a late Paddle webhook for it writes nothing. DB = the pg-proxy fake, Paddle and Clerk mocked.
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -23,11 +23,11 @@ const row = (over: Partial<RetentionRow> = {}): RetentionRow => ({
 describe('dueForDeletion (rein)', () => {
   it('laufende, bezahlte und offene Konten: nie', () => {
     expect(dueForDeletion(row({ trialEndsAt: NOW + DAY }), NOW)).toBe('keep')
-    expect(dueForDeletion(row({ status: 'active', tier: 'basic' }), NOW)).toBe('keep')
+    expect(dueForDeletion(row({ status: 'active', tier: 'plus' }), NOW)).toBe('keep')
     expect(dueForDeletion(row({ status: 'past_due', tier: 'plus' }), NOW)).toBe('keep')
   })
 
-  it('abgelaufen: Erinnerung ab 11 Monaten Inaktivität, vorher nichts', () => {
+  it('kostenlos (Testphase vorbei): Erinnerung ab 11 Monaten Inaktivität, vorher nichts', () => {
     const ended = (days: number) => row({ trialEndsAt: NOW - days * DAY, updatedAt: NOW - days * DAY })
     expect(dueForDeletion(ended(RETENTION.idleDays - RETENTION.noticeDays - 1), NOW)).toBe('keep')
     expect(dueForDeletion(ended(RETENTION.idleDays - RETENTION.noticeDays), NOW)).toBe('notice')
@@ -52,9 +52,14 @@ describe('dueForDeletion (rein)', () => {
   })
 
   it('gekündigt: die Frist beginnt am Periodenende', () => {
-    const canceled = row({ status: 'canceled', tier: 'basic', trialEndsAt: null, currentPeriodEnd: NOW - 200 * DAY, canceledAt: NOW - 230 * DAY })
+    const canceled = row({ status: 'canceled', tier: 'plus', trialEndsAt: null, currentPeriodEnd: NOW - 200 * DAY, canceledAt: NOW - 230 * DAY })
     expect(dueForDeletion(canceled, NOW)).toBe('keep')
     expect(dueForDeletion(canceled, NOW + 135 * DAY)).toBe('notice')
+  })
+
+  it('ein gespeichertes Basic (früherer Tarif) ist kostenlos und fällt unter dieselbe Frist', () => {
+    expect(dueForDeletion(row({ status: 'active', tier: 'basic', lastSeenAt: NOW - 100 * DAY }), NOW)).toBe('keep')
+    expect(dueForDeletion(row({ status: 'active', tier: 'basic' }), NOW)).toBe('notice')
   })
 })
 

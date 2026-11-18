@@ -9,7 +9,7 @@ export const en: Dict = {
     description:
       'Training plans after Daniels, Pfitzinger, Hansons, Lydiard, 80/20 or the Norwegian model. Runmate compares plan and run every day and adapts by fixed rules you can read. Open source, self-hostable, data in the EU.',
     pricingTitle: 'Pricing – Runmate',
-    pricingDescription: 'Self-host for €0 or use the hosted version from €6 a month. 30-day trial, no card.',
+    pricingDescription: 'Self-host for €0, use the hosted version for free or with Plus for €9 a month. Try Plus for 30 days, no card.',
     methodsTitle: 'Training methodologies – Runmate',
     methodsDescription: 'Every template Runmate builds plans from: phases, volume, intensity, adaptation rules and sources.',
     ogAlt: 'Runmate: run to plan. The plan runs with you.',
@@ -27,7 +27,7 @@ export const en: Dict = {
   },
   cta: {
     trial: 'Try it for 30 days',
-    trialNote: 'No card. Then from €6 a month – or self-host for free.',
+    trialNote: 'No card. After that it stays free – or continue with Plus for €9 a month.',
     waitlist: 'Join the waitlist',
     waitlistNote: 'The hosted version opens soon. We will email you once when it does.',
     github: 'Code on GitHub',
@@ -106,7 +106,7 @@ export const en: Dict = {
     year: 'Yearly',
     perMonth: '/ month',
     perYear: '/ year',
-    trial: '30 days with every feature, no card. Billed through Paddle. Cancel any month.',
+    trial: '30 days with every Plus feature, no card. After that you continue for free. Plus is billed through Paddle; cancel any month.',
     selfHost: {
       name: 'Self-host',
       price: '€0',
@@ -114,17 +114,17 @@ export const en: Dict = {
       points: ['Every feature', 'Your own database (Postgres/Neon)', 'Docker or Vercel', 'Garmin login, Apple Health, file import'],
       cta: 'Read the guide',
     },
-    basic: {
-      name: 'Basic',
-      month: '€6',
-      year: '€59',
-      points: ['Daily sync', 'A plan after one method', 'Analysis and weekly review', 'Adaptations as suggestions to accept'],
+    free: {
+      name: 'Free',
+      price: '€0',
+      note: 'no card, no time limit',
+      points: ['Daily sync', 'One plan after one method', 'Analysis and weekly review', 'Adaptations as suggestions to accept'],
     },
     plus: {
       name: 'Plus',
-      month: '€10',
-      year: '€99',
-      points: ['Everything in Basic', 'Automatic adaptation', 'Several plans and races', 'Your own method', 'Race day: splits, plan A/B, checklist'],
+      month: '€9',
+      year: '€79',
+      points: ['Everything in Free', 'Automatic adaptation', 'Rebuild the plan for a new goal or date', 'Several plans and B races', 'Your own method', 'Race day: splits, plan A/B, checklist', 'Sleep and HRV feed the plan'],
     },
     always: 'Always included: ZIP export, one-click deletion, data in the EU.',
   },
@@ -153,7 +153,7 @@ export const en: Dict = {
       },
       {
         q: 'How do I cancel?',
-        a: 'Any time, effective at the end of the paid period, with the “Verträge hier kündigen” (cancel contracts) button – even without signing in. The trial ends by itself; without a card nothing is charged.',
+        a: 'Any time, effective at the end of the paid period, with the “Verträge hier kündigen” (cancel contracts) button – even without signing in. After that your account continues for free. The trial ends by itself; without a card nothing is charged.',
       },
       {
         q: 'What does open source mean here?',
