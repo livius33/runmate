@@ -171,9 +171,10 @@ export function parseKm(input: string): number | null {
   return km >= 0 && km <= 60 ? r1(km) : null
 }
 
+// The workout text counts as the plan shows it (fitted to the km): the plan file's own wording is not an edit.
 function sameSession(a: PlanSession, b: PlanSession) {
   return a.type === b.type && (a.km ?? 0) === (b.km ?? 0) && a.title === b.title &&
-    (a.notes ?? '') === (b.notes ?? '') && (a.pace ?? '') === (b.pace ?? '') && !!a.key === !!b.key &&
+    (fitSession(a).notes ?? '') === (fitSession(b).notes ?? '') && (a.pace ?? '') === (b.pace ?? '') && !!a.key === !!b.key &&
     JSON.stringify(a.strength ?? null) === JSON.stringify(b.strength ?? null)
 }
 
