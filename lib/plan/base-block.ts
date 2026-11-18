@@ -3,10 +3,11 @@
 // 4th week lighter. Recomputed from the runs whenever the blocks are registered, never stored: a week only reads runs
 // before it, so past weeks never change; a goal block going live simply takes its dates. Pure.
 import { addDays, differenceInCalendarDays, format, getISODay, getISOWeek, parseISO } from 'date-fns'
-import { profileMaxKm, type AthleteProfile, type Weekday } from './athlete-profile'
+import { profileMaxKm, statedLongestKm, type AthleteProfile, type Weekday } from './athlete-profile'
 import type { PlanSession, PlanWeek, TrainingBlock } from './types'
 import { formatNotes } from './structure'
 import { fmtKm, paceToS } from './format'
+import { longShare } from './generator/days'
 import { ACWR_PERSIST_DAYS, DEFAULT_PACES, DEFAULT_RULES, DEFAULT_STOP_RULES } from './rules'
 import { NO_BLOCK } from './blocks'
 import { kbDaysOf, placeStrength } from './strength'
@@ -17,7 +18,7 @@ export const BASE = {
   provenWeeks: 52,        // … never above the highest 4-week mean of the last 52 weeks
   cutbackEvery: 4,        // every 4th week …
   cutbackShare: 0.8,      // … at 80 %
-  longShare: 0.25,        // long run ≤ 25 % of the week …
+  longShare: 0.25,        // long run ≤ 25 % of the week (more at low volume: longShare(), long-run.md 1.3) …
   longSpike: 1.1,         // … ≤ 110 % of the longest run of the 30 days before (long-run.md spike rule) …
   longMaxKm: 24,          // … and ≤ 24 km
   longMinKm: 8,           // shorter: no long run that week
@@ -102,20 +103,23 @@ export function baseWeekKm(gap: { start: string; end: string }, runs: BaseRun[],
 }
 
 // One base week laid out on the profile days.
-function baseWeek(start: string, km: number, cutback: boolean, i: { runs: BaseRun[]; profile: AthleteProfile | null; paces: Record<string, string> }): PlanSession[] {
+function baseWeek(start: string, km: number, cutback: boolean, i: { runs: BaseRun[]; profile: AthleteProfile | null; paces: Record<string, string>; statedLongKm?: number; noPace?: boolean }): PlanSession[] {
   const p = i.profile
   const runDays = (p?.availableDays.length ? p.availableDays.filter((d) => d !== p.restDay) : DEFAULT_DAYS.runs).slice().sort((a, b) => a - b)
   const longDay = p?.longRunDay && runDays.includes(p.longRunDay) ? p.longRunDay : runDays.includes(DEFAULT_DAYS.long) ? DEFAULT_DAYS.long : runDays[runDays.length - 1]
   const qDay = (p?.qualityDays ?? [DEFAULT_DAYS.quality]).find((d) => runDays.includes(d) && d !== longDay && d !== (longDay % 7) + 1)
     ?? runDays.find((d) => d !== longDay && d !== (longDay % 7) + 1) ?? null
-  const longest30 = Math.max(0, ...i.runs.filter((r) => r.date >= day(start, -30) && r.date < start).map((r) => r.km))
+  // No run in the 30 days before: the runner's stated longest run stands in (long-run.md 2.3), 0 without one.
+  const longest30 = Math.max(0, ...i.runs.filter((r) => r.date >= day(start, -30) && r.date < start).map((r) => r.km)) || (i.statedLongKm ?? 0)
   // The profile's day limit holds here too (week-layout.md): a capped run is not handed to another day, the week gets lighter.
   const top = (wd: number) => half(profileMaxKm(p, day(start, wd - 1)) ?? Infinity)
-  let long = half(Math.min(BASE.longShare * km, BASE.longSpike * longest30, BASE.longMaxKm, top(longDay)))
+  let long = half(Math.min(longShare(BASE.longShare, km) * km, BASE.longSpike * longest30, BASE.longMaxKm, top(longDay)))
   if (long < BASE.longMinKm) long = 0
   const tPace = i.paces.threshold ?? DEFAULT_PACES.threshold
   const q = half((BASE.thresholdMin * 60) / paceToS(tPace))
-  const key = !cutback && qDay != null
+  // No threshold pace known (no block before, none in the profile): no session at a made-up pace – strides instead
+  // (between-blocks.md 2.1).
+  const key = !cutback && qDay != null && !i.noPace
   let easyDays = runDays.filter((d) => !(long && d === longDay))
   // Easy runs share what is left; fewer runs when they would be shorter than minRunKm.
   const rest = () => km - long - (key ? q : 0)          // the key day = an easy run's km plus the threshold part
@@ -137,7 +141,7 @@ function baseWeek(start: string, km: number, cutback: boolean, i: { runs: BaseRu
           notes: formatNotes({ prefix: '', warmKm: warm, warmWord: 'ein', reps: 1, repKm: q, pace: tPace, recKm: 0, recWord: 'Trab', coolKm: warm, coolWord: 'aus',
             suffix: `. ${BASE.thresholdMin} min Schwelle hält die Form.` }) }
       } else {
-        const strides = cutback && wd === qDay
+        const strides = (cutback || !!i.noPace) && wd === qDay
         s = { date, type: 'easy', km: Math.min(each, top(wd)), title: strides ? 'Grundlage: locker mit Steigerungen' : 'Grundlage: locker',
           notes: strides ? 'Locker, 6 × 20 s Steigerungen.' : 'Locker, Zone 2.' }
       }
@@ -155,11 +159,14 @@ export function baseBlocks(i: BaseInput): TrainingBlock[] {
     // Without a block before it, the threshold pace comes from the runner's profile when it has one.
     const own: Record<string, string> = g.before === NO_GOAL && i.profile?.thresholdPaceS ? { threshold: fmtPace(i.profile.thresholdPaceS) } : {}
     const paces = { ...(g.before.paces ?? DEFAULT_PACES), ...own }
+    const noPace = g.before === NO_GOAL && !i.profile?.thresholdPaceS
+    // … and so does the longest run while no run is known (long-run.md 2.3).
+    const stated = g.before === NO_GOAL && !i.runs.length ? statedLongestKm(i.profile)?.km ?? 0 : 0
     const weeks: PlanWeek[] = []
     const sessions: PlanSession[] = []
     plan.forEach((w, k) => {
       const start = day(g.start, 7 * k)
-      const days = baseWeek(start, w.km, w.cutback, { runs: i.runs, profile: i.profile, paces })
+      const days = baseWeek(start, w.km, w.cutback, { runs: i.runs, profile: i.profile, paces, statedLongKm: stated, noPace })
       const km = r1(days.reduce((t, s) => t + (s.type === 'rest' ? 0 : s.km ?? 0), 0))
       weeks.push({ kw: getISOWeek(parseISO(start)), start, end: day(start, 6), km, cutback: w.cutback || undefined,
         focus: `Grundlage ${k + 1}${w.cutback ? ': leichtere Woche' : ''} (${fmtKm(km)} km)` })
@@ -169,8 +176,9 @@ export function baseBlocks(i: BaseInput): TrainingBlock[] {
       id: `base-${g.start}`, goalId: 'base', base: true, race: g.before.race, planStart: g.start, end: g.end, weeks, sessions,
       rules: [
         'Grundlagenblock: Umfang auf dem Niveau der letzten Wochen, höchstens 5 % mehr pro Woche, nie über deinem gehaltenen Umfang.',
-        'Eine Schlüsseleinheit pro Woche (20 min Schwelle), jede vierte Woche leichter mit Steigerungen.',
-        'Longrun höchstens 25 % der Woche und 10 % über dem längsten Lauf der letzten 30 Tage.',
+        noPace ? 'Noch kein Schwellentempo bekannt: statt der Schwelleneinheit gibt es Steigerungen. Mit einer Rennzeit im Profil kommt sie dazu.'
+          : 'Eine Schlüsseleinheit pro Woche (20 min Schwelle), jede vierte Woche leichter mit Steigerungen.',
+        'Longrun höchstens 25 % der Woche (bei wenig Umfang bis 40 %) und 10 % über dem längsten Lauf der letzten 30 Tage.',
       ],
       stopRules: g.before.stopRules, levers: [], paces,
       engine: { ...(g.before.engine ?? DEFAULT_RULES), acwrPersistDays: ACWR_PERSIST_DAYS },   // 07-23: ACWR alone needs 3 days

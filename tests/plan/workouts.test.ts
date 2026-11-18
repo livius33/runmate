@@ -62,7 +62,7 @@ describe('Tempi (AC-1)', () => {
   it('VDOT-Vorlage ohne Wettkampf: Tempi aus der Zielzeit mit Hinweis', () => {
     const p = trainingPaces({ ...hmIn, template: template('daniels-half') })
     expect(p.source).toBe('goal_time')
-    expect(p.warnings.join(' ')).toContain('VDOT')
+    expect(p.warnings.join(' ')).toContain('Kein Wettkampf aus den letzten 6 Monaten')
   })
 })
 

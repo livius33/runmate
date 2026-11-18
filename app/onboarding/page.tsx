@@ -22,6 +22,7 @@ import { EXPERIENCE_LABEL, WEEKDAYS, type Experience, type Weekday } from '@/lib
 import type { HealthConsentStatus } from '@/lib/legal/consent-text'
 import type { SourcesResponse } from '@/lib/sources/types'
 import type { DraftResult } from '@/lib/plan/generator/draft'
+import { fmtPace } from '@/lib/plan/generator/paces'
 import { parseClock, type SeasonGoal } from '@/lib/season/goals'
 
 type View = OnboardingView & { notes?: string[] }
@@ -121,16 +122,18 @@ function ProfileStep({ view, busy, onSave }: { view: View; busy: boolean; onSave
   const [weight, setWeight] = useState(u?.weightKg ? String(u.weightKg) : '')
   const [timezone, setTimezone] = useState(u?.timezone ?? browserTimeZone())
   const [weeklyKm, setWeeklyKm] = useState(a?.weeklyKm != null ? String(a.weeklyKm) : '')
+  const [longest, setLongest] = useState(a?.longestRunKm != null ? String(a.longestRunKm).replace('.', ',') : '')
   const [experience, setExperience] = useState<Experience | ''>(a?.experience ?? '')
   const [runDays, setRunDays] = useState<Weekday[]>(a?.availableDays ?? [1, 2, 4, 6, 7])
   const [longRunDay, setLongRunDay] = useState<Weekday>(a?.longRunDay ?? 7)
   const ageN = num(age)
+  const guess = hrMaxUnknown || !hrMax.trim()      // an empty HFmax is estimated from the age as well
   const estimate = hrMaxUnknown && ageN != null && ageN >= HRMAX_AGE[0] && ageN <= HRMAX_AGE[1] ? estimateHrMax(ageN) : null
   const toggle = (d: Weekday) => setRunDays((x) => (x.includes(d) ? x.filter((y) => y !== d) : [...x, d].sort()))
   const submit = () => onSave({
     hrMax: hrMaxUnknown ? null : num(hrMax), hrMaxUnknown, age: ageN, hrRest: hrRestUnknown ? null : num(hrRest),
     race: raceDistance && raceTime.trim() ? { distance: raceDistance, time: raceTime } : null,
-    weightKg: num(weight), timezone: timezone.trim() || null, weeklyKm: num(weeklyKm), experience: experience || null,
+    weightKg: num(weight), timezone: timezone.trim() || null, weeklyKm: num(weeklyKm), longestRunKm: num(longest), experience: experience || null,
     runDays, longRunDay,
   })
   return (
@@ -138,23 +141,28 @@ function ProfileStep({ view, busy, onSave }: { view: View; busy: boolean; onSave
       <form className="grid gap-5" onSubmit={(e) => { e.preventDefault(); submit() }}>
         <fieldset className="grid gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Puls</legend>
-          <label className="grid gap-1 text-sm">HFmax (Schläge/min)
-            <input inputMode="numeric" className={box} value={hrMaxUnknown ? (estimate ? `≈ ${estimate}` : '') : hrMax} disabled={hrMaxUnknown}
-              onChange={(e) => setHrMax(e.target.value)} placeholder="z. B. 188" />
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {/* The checkbox has its own label: inside the field's label a click on its text would focus the field instead. */}
+          <div className="grid content-start gap-1 text-sm">
+            <label className="grid gap-1">HFmax (Schläge/min)
+              <input inputMode="numeric" className={box} value={hrMaxUnknown ? (estimate ? `≈ ${estimate}` : '') : hrMax} disabled={hrMaxUnknown}
+                onChange={(e) => setHrMax(e.target.value)} placeholder="z. B. 188" />
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <input type="checkbox" checked={hrMaxUnknown} onChange={(e) => setHrMaxUnknown(e.target.checked)} /> weiß ich nicht – aus dem Alter schätzen
-            </span>
+            </label>
+          </div>
+          <label className="grid content-start gap-1 text-sm">Alter{guess ? ' (für die Schätzung)' : ' (optional)'}
+            <input inputMode="numeric" className={box} value={age} onChange={(e) => setAge(e.target.value)} required={guess} />
+            {guess && <span className="text-xs text-muted-foreground">Ohne HFmax schätzen wir sie: 208 − 0,7 × Alter. Die echte HFmax kann gut 10 Schläge abweichen.</span>}
           </label>
-          <label className="grid gap-1 text-sm">Alter{hrMaxUnknown ? ' (für die Schätzung)' : ' (optional)'}
-            <input inputMode="numeric" className={box} value={age} onChange={(e) => setAge(e.target.value)} required={hrMaxUnknown} />
-            {hrMaxUnknown && <span className="text-xs text-muted-foreground">208 − 0,7 × Alter. Eine Schätzung: die echte HFmax kann gut 10 Schläge abweichen.</span>}
-          </label>
-          <label className="grid gap-1 text-sm">Ruhepuls
-            <input inputMode="numeric" className={box} value={hrRestUnknown ? '' : hrRest} disabled={hrRestUnknown} onChange={(e) => setHrRest(e.target.value)} placeholder="morgens im Bett, z. B. 52" />
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="grid content-start gap-1 text-sm">
+            <label className="grid gap-1">Ruhepuls
+              <input inputMode="numeric" className={box} value={hrRestUnknown ? '' : hrRest} disabled={hrRestUnknown} onChange={(e) => setHrRest(e.target.value)} placeholder="morgens im Bett, z. B. 52" />
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <input type="checkbox" checked={hrRestUnknown} onChange={(e) => setHrRestUnknown(e.target.checked)} /> weiß ich nicht – Beispielwert nutzen (markiert)
-            </span>
-          </label>
+            </label>
+          </div>
           <label className="grid gap-1 text-sm">Gewicht in kg (optional)
             <input inputMode="decimal" className={box} value={weight} onChange={(e) => setWeight(e.target.value)} />
             <span className="text-xs text-muted-foreground">Nur für die Kohlenhydrat-Mengen vor dem Rennen.</span>
@@ -171,10 +179,14 @@ function ProfileStep({ view, busy, onSave }: { view: View; busy: boolean; onSave
           </label>
           <label className="grid gap-1 text-sm">Zeit
             <input className={box} value={raceTime} onChange={(e) => setRaceTime(e.target.value)} placeholder="h:mm:ss oder mm:ss" disabled={!raceDistance} />
-            <span className="text-xs text-muted-foreground">Daraus kommen deine Trainingstempi, sonst aus der Zielzeit.</span>
+            <span className="text-xs text-muted-foreground">Daraus schätzen wir dein Schwellentempo. Ohne Zeit kommen die Trainingstempi aus deiner Zielzeit.</span>
           </label>
           <label className="grid gap-1 text-sm">Kilometer pro Woche zurzeit
             <input inputMode="decimal" className={box} value={weeklyKm} onChange={(e) => setWeeklyKm(e.target.value)} placeholder="z. B. 35" />
+          </label>
+          <label className="grid gap-1 text-sm">Längster Lauf der letzten 4 Wochen (optional)
+            <input inputMode="decimal" className={box} value={longest} onChange={(e) => setLongest(e.target.value)} placeholder="in km, z. B. 12" />
+            <span className="text-xs text-muted-foreground">Von dort wächst dein Longrun, solange Runmate noch keine Läufe von dir kennt.</span>
           </label>
           <label className="grid gap-1 text-sm">Lauferfahrung
             <select className={box} value={experience} onChange={(e) => setExperience(e.target.value as Experience | '')}>
@@ -254,11 +266,16 @@ function GoalStep({ view, busy, onLive, onBase }: { view: View; busy: boolean; o
   const [goalId, setGoalId] = useState<string | null>(null)
   const [templateId, setTemplateId] = useState('')
   const [currentKm, setCurrentKm] = useState(view.athlete?.weeklyKm != null ? String(view.athlete.weeklyKm) : '')
+  const [longestKm, setLongestKm] = useState(view.athlete?.longestRunKm != null ? String(view.athlete.longestRunKm).replace('.', ',') : '')
   const [preview, setPreview] = useState<DraftResult | null>(null)
   const ctx = useQuery<DraftsCtx>({ queryKey: ['drafts'], queryFn: () => fetch('/api/running/drafts').then((r) => r.json()), enabled: !!goalId })
   const fitting = (ctx.data?.templates ?? []).filter((t) => !t.own && t.distances.includes(GOAL_KINDS.find((k) => k[0] === kind)![2]))
   useEffect(() => { if (fitting.length && !fitting.some((t) => t.id === templateId)) setTemplateId(fitting[0].id) }, [fitting, templateId])
-  const overrides = !view.hasRuns && currentKm.trim() ? { currentKm: Number(currentKm.replace(',', '.')) } : {}
+  // Without runs the runner's own numbers start the plan (empty longest run: the profile's, else the mean run of the week).
+  const overrides = view.hasRuns ? {} : {
+    ...(currentKm.trim() ? { currentKm: Number(currentKm.replace(',', '.')) } : {}),
+    ...(longestKm.trim() ? { longest30Km: Number(longestKm.replace(',', '.')) } : {}),
+  }
   const choice = () => ({ goalId, templateId, start: ctx.data!.defaultStart, overrides })
 
   const saveGoal = useMutation({
@@ -338,10 +355,16 @@ function GoalStep({ view, busy, onLive, onBase }: { view: View; busy: boolean; o
                 <span className="text-xs text-muted-foreground">{fitting.find((t) => t.id === templateId)?.summary}</span>
               </label>
               {!view.hasRuns && (
-                <label className="grid gap-1 text-sm sm:max-w-xs">Kilometer pro Woche zurzeit
-                  <input inputMode="decimal" className={box} value={currentKm} onChange={(e) => { setCurrentKm(e.target.value); setPreview(null) }} required />
-                  <span className="text-xs text-muted-foreground">Noch keine Läufe da – der Plan beginnt bei diesem Umfang.</span>
-                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid content-start gap-1 text-sm">Kilometer pro Woche zurzeit
+                    <input inputMode="decimal" className={box} value={currentKm} onChange={(e) => { setCurrentKm(e.target.value); setPreview(null) }} required />
+                    <span className="text-xs text-muted-foreground">Noch keine Läufe da – der Plan beginnt bei diesem Umfang.</span>
+                  </label>
+                  <label className="grid content-start gap-1 text-sm">Längster Lauf der letzten 4 Wochen
+                    <input inputMode="decimal" className={box} value={longestKm} onChange={(e) => { setLongestKm(e.target.value); setPreview(null) }} placeholder="in km" />
+                    <span className="text-xs text-muted-foreground">Von dort wächst der Longrun, höchstens 10 % auf einmal. Leer: dein Wochenumfang geteilt durch deine Lauftage.</span>
+                  </label>
+                </div>
               )}
               <p className="text-xs text-muted-foreground">Start: {longDate(ctx.data.defaultStart)}.</p>
               <button onClick={() => makePreview.mutate()} disabled={makePreview.isPending || !templateId} className={cn(secondary, 'w-fit')}>Entwurf ansehen</button>
@@ -361,9 +384,11 @@ function DraftPreview({ draft }: { draft: Extract<DraftResult, { ok: true }> }) 
   const weeks = draft.days.weeks
   const keys = (start: string, end: string) => draft.workouts.sessions.filter((s) => s.date >= start && s.date <= end && s.key).map((s) => s.title)
   const peak = Math.max(...weeks.map((w) => w.km))
+  const long = Math.max(0, ...draft.workouts.sessions.filter((s) => s.type === 'long').map((s) => s.km ?? 0))
+  const de = (n: number) => String(n).replace('.', ',')
   return (
     <div className="mt-5 grid gap-3 border-t border-border pt-4">
-      <p className="text-sm">{weeks.length} Wochen, Spitze {String(peak).replace('.', ',')} km. Renntempo {draft.paces.fmt.race}/km, locker {draft.paces.fmt.easy}/km.</p>
+      <p className="text-sm">{weeks.length} Wochen, Spitze {de(peak)} km{long ? `, längster Longrun ${de(long)} km` : ''}. Renntempo {fmtPace(draft.paces.racePaceS)}/km, locker {draft.paces.fmt.easy}/km.</p>
       <ul className="grid gap-1.5 text-sm">
         {weeks.map((w, i) => (
           <li key={w.start} className="grid grid-cols-[3rem_1fr] gap-2">

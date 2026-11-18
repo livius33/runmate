@@ -2,7 +2,7 @@
 // Sources: methodologies/research/week-layout.md (1.2, 2.2), long-run.md (1.2, 2.2), phases-and-taper.md 2.3 rules 2, 4, 5.
 import { addDays, differenceInCalendarDays, format, getISODay, parseISO } from 'date-fns'
 import { SAFETY } from '@/lib/plan/methodology/safety'
-import { DAY_RULES, availableRunDays, type DaysInput, type DaysPlan } from '@/lib/plan/generator/days'
+import { DAY_RULES, availableRunDays, longShare, type DaysInput, type DaysPlan } from '@/lib/plan/generator/days'
 import type { Skeleton } from '@/lib/plan/generator/skeleton'
 import type { PlanSession } from '@/lib/plan/types'
 
@@ -78,7 +78,7 @@ export function checkDays(plan: DaysPlan, sk: Skeleton, input: DaysInput): strin
     if (long) {
       const L = long.km ?? 0
       const factor = R.phaseFactor[w.phase]
-      let c = Math.min(t.week.long_run.share * w.km, t.week.long_run.max_km * factor, (t.week.long_run.max_minutes * 60) / longPace,
+      let c = Math.min(longShare(t.week.long_run.share, w.km) * w.km, t.week.long_run.max_km * factor, (t.week.long_run.max_minutes * 60) / longPace,
         cap(long.date), SAFETY.longRunKmMax)
       if (input.distance === 'marathon') {
         if ((input.longest12mKm ?? 0) < R.marathon.bigKm) c = Math.min(c, R.marathon.bigKm - 0.5)

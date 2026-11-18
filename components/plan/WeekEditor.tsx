@@ -117,7 +117,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
           </IconButton>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
-          <span>Ziel {week.km} km</span>
+          <span>Ziel {fmtKm(week.km)} km</span>
           <span>·</span>
           <span>{weekOver ? 'Gelaufen' : 'Prognose'} <span className="font-semibold text-foreground">{fmtKm(summary.forecastKm)} km</span></span>
           {Math.abs(summary.gapKm) >= 0.5 && (

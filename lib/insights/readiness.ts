@@ -18,7 +18,7 @@ import { wellnessLine } from './wellness'
 
 export type ReadinessTone = 'ok' | 'warn' | 'bad' | 'open'
 export interface ReadinessLine { tone: ReadinessTone; label: string; text: string }
-export type ReadinessVerdict = 'Auf Kurs' | 'Mit Fragezeichen' | 'Kritisch'
+export type ReadinessVerdict = 'Auf Kurs' | 'Mit Fragezeichen' | 'Kritisch' | 'Noch offen'
 
 const VOLUME_OK = 0.9
 const VOLUME_WARN = 0.75
@@ -162,7 +162,8 @@ export function raceReadiness({ today, sessions, runs, prediction, fitness, acwr
 
   const bad = lines.filter((l) => l.tone === 'bad').length
   const warn = lines.filter((l) => l.tone === 'warn').length
-  const verdict: ReadinessVerdict = bad >= 2 ? 'Kritisch' : bad >= 1 || warn >= 2 ? 'Mit Fragezeichen' : 'Auf Kurs'
+  // Without a single run nothing here is measured: no rating, the lines say what is still to come.
+  const verdict: ReadinessVerdict = !runs.length ? 'Noch offen' : bad >= 2 ? 'Kritisch' : bad >= 1 || warn >= 2 ? 'Mit Fragezeichen' : 'Auf Kurs'
   // Erholung: sleep, HRV and resting HR of the last 7 nights. Added after the verdict: a note, never a rating.
   if (wellness) lines.push(wellnessLine(wellness, today))
   // The decision rule under the card.

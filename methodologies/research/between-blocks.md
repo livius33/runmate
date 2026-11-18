@@ -62,6 +62,26 @@ inputs: last 3 run weeks (Garmin), proven P (peak-and-recovery.md), profile days
 
 Basis: Hickson (maintenance), Mujika & Padilla (detraining), Seiler 2010 (easy share). **Convention** for the numbers.
 
+### 2.1 A base block for a runner Runmate knows nothing about (2026-11-18)
+
+The onboarding path "Erstmal ohne Ziel" starts a base block with no goal block before it and often no run at all. Found
+in the browser walk with a new account (30 km/week, 5 days, longest run 12 km, no race time): the week had no long run
+(25 % of 30 km is under the 8-km minimum) and a threshold session at 4:52/km, the example pace of `DEFAULT_PACES`. A
+pace nobody measured must not be prescribed as a session.
+
+```text
+long run   : share(K_w) × K_w with the low-volume share of long-run.md 1.3 (25 % from 64 km/week, 40 % at ≤ 32 km);
+             the spike rule (≤ 1.10 × longest run of 30 days, long-run.md 2.3 for the fallback) and 24 km stay
+key session: threshold pace known (a block before, or `thresholdPaceS` in the profile) → 20 min threshold as before
+             not known → no threshold session; the key day is an easy run with 6 × 20 s strides (the 0–1 sessions of
+             the row below allow it; strides need no pace) and the block's rules say why
+easy pace  : still shown as "ca." beside the heart-rate range; the heart rate is the target, the pace an example.
+             Open: an "unknown" state for paces, so the example is not shown at all.
+```
+
+**Convention** (a design decision, no study). Strides as the only faster running in a base phase are common practice
+(Daniels' phase I is described that way: easy running, strides added; not re-checked in the book for this note).
+
 ## 3. Hand-over into a goal block
 
 ```text
@@ -80,7 +100,7 @@ P never changes at a hand-over; the 52-week lookback keeps the Porto build insid
 | base block start | max(30, mean 3 weeks) | — | code constant (07-08) | **Convention** |
 | base block growth | ≤ 5 %/week, ≤ P | — | code constant | peak-and-recovery.md net growth. **Convention** |
 | base block quality | 1 session/week | 0–1 | code constant | Hickson 1981 (intensity maintains fitness). **Moderate** |
-| base block long run | ≤ 25 %, spike rule | — | code constant | long-run.md |
+| base block long run | ≤ 25 % (up to 40 % under 64 km/week), spike rule | — | code constant | long-run.md 1.3 |
 
 **Can the schema express it?** No; post-race recovery and the base block are not template concepts today. Proposed
 **G-27: `post_race_recovery[distance] = { weeks, shares }` and `base_block = { growth, key_sessions, long_run_share }`**

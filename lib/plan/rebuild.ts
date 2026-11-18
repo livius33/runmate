@@ -77,7 +77,7 @@ export interface DataCheck {
   long: { state: 'good' | 'missing'; km: number; text: string }
 }
 
-export function dataCheck(a: { runs: RunRow[]; today: string; base: RebuildBase; measured: Pick<MeasuredInputs, 'recentRace' | 'longest30Km'>; profile: AthleteProfile | null }): DataCheck {
+export function dataCheck(a: { runs: RunRow[]; today: string; base: RebuildBase; measured: Pick<MeasuredInputs, 'recentRace' | 'longest30Km'> & { longest30Source?: MeasuredInputs['longest30Source'] }; profile: AthleteProfile | null }): DataCheck {
   const mon = monday(a.today)
   const n = Array.from({ length: REBUILD.dataWeeks }, (_, i) => plus(mon, -7 * (i + 1)))
     .filter((from) => a.runs.some((r) => r.date >= from && r.date < plus(from, 7) && r.distanceM > 0)).length
@@ -96,9 +96,14 @@ export function dataCheck(a: { runs: RunRow[]; today: string; base: RebuildBase;
       ? { state: 'checked', text: `Zielzeit prüfbar: Schwellentest im Profil (${fmtPace(a.profile.thresholdPaceS)}/km).` }
       : { state: 'unchecked', text: 'Zielzeit nicht prüfbar: kein Wettkampf in den letzten 6 Monaten und kein Schwellentest. Sie gilt so, wie du sie einträgst.' }
   const km = a.measured.longest30Km
-  const long: DataCheck['long'] = km > 0
-    ? { state: 'good', km, text: `Längster Lauf der letzten 30 Tage: ${num(km)} km.` }
-    : { state: 'missing', km: 0, text: 'Kein Lauf in den letzten 30 Tagen: der Longrun beginnt vorsichtig.' }
+  const src = a.measured.longest30Source
+  const long: DataCheck['long'] = km > 0 && src === 'profile'
+    ? { state: 'good', km, text: `Längster Lauf laut deinem Profil: ${num(km)} km (noch kein Lauf gemessen).` }
+    : km > 0 && src === 'estimate'
+      ? { state: 'missing', km, text: `Noch kein Lauf gemessen: der Longrun beginnt bei ${num(km)} km (dein Wochenumfang geteilt durch deine Lauftage).` }
+      : km > 0
+        ? { state: 'good', km, text: `Längster Lauf der letzten 30 Tage: ${num(km)} km.` }
+        : { state: 'missing', km: 0, text: 'Kein Lauf in den letzten 30 Tagen: der Longrun beginnt vorsichtig.' }
   return { base, goal, long }
 }
 
@@ -223,7 +228,7 @@ export function rebuild(a: RebuildInput): RebuildResult {
   if (goal.date <= today) return { ok: false, error: 'Das Renndatum muss in der Zukunft liegen.' }
   const cut = cutOf(today, block)
 
-  const measured = measureInputs({ runs: a.runs, plan: a.plan, weeks: a.weeks, today, start: cut, distance })
+  const measured = measureInputs({ runs: a.runs, plan: a.plan, weeks: a.weeks, today, start: cut, distance, profile: a.profile })
   const base = rebuildBase(a)
   const data = dataCheck({ runs: a.runs, today, base, measured, profile: a.profile })
   const late = tooLate(a.template, goal, cut)
@@ -283,7 +288,7 @@ function reasonsFor(a: RebuildInput & { cut: string; draft: Draft; base: Rebuild
   if (Math.abs(n.longestKm - o.longestKm) >= 0.5) {
     const l30 = draft.inputs.longest30Km.value ?? 0
     out.push(`Längster Longrun ${num(o.longestKm)} → ${num(n.longestKm)} km`
-      + (l30 > 0 ? `: er wächst von deinem längsten Lauf der letzten 30 Tage (${num(l30)} km), nie mehr als 10 % auf einmal.` : '.'))
+      + (l30 > 0 ? `: er wächst von ${draft.inputs.longest30Source === 'profile' ? 'dem längsten Lauf aus deinem Profil' : draft.inputs.longest30Source === 'estimate' ? 'deinem geschätzten längsten Lauf' : 'deinem längsten Lauf der letzten 30 Tage'} (${num(l30)} km), nie mehr als 10 % auf einmal.` : '.'))
   }
   if (n.taperStart !== o.taperStart && n.taperStart) out.push(`Taper ab ${dm(n.taperStart)}${o.taperStart ? ` statt ${dm(o.taperStart)}` : ''}`)
   out.push(Math.abs(n.restKm - o.restKm) < 0.5

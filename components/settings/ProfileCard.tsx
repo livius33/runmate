@@ -88,7 +88,7 @@ export function ProfileCard() {
         Zonen{data.resolved.zoneModelUsed === 'lthr' ? ' (LTHR)' : ' (HFmax)'}:{' '}
         {data.zones.map((z) => `${z.name} ${z.min}–${z.max === 999 ? '…' : z.max}`).join(' · ')}
         {' · '}Marathon-Block unter {data.raceHr.marathon.cap}
-        {data.resolved.defaults.length > 0 && <span className="block">Beispielwerte: {data.resolved.defaults.join(', ')}</span>}
+        {data.resolved.defaults.length > 0 && <span className="block">Noch Beispielwerte, bis du sie einträgst: {ALL_FIELDS.filter((f) => data.resolved.defaults.includes(f.key)).map((f) => f.label).join(', ')}</span>}
       </p>
     </div>
   )

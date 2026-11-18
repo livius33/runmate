@@ -57,7 +57,7 @@ describe('blockProgress: Wochen und Grenzen', () => {
     expect(p.volume.tone).toBe('neutral')
     expect(p.volume.text).toContain('beginnt am 21.12.')
     expect(p.z2.tone).toBe('neutral')
-    expect(p.long.text).toBe('Noch kein Longrun im Block.')
+    expect(p.long.text).toBe('Erster Longrun: 20 km am 26.12.')
     expect(p.quality.points).toHaveLength(0)
     expect(p.quality.text).toBe('Noch kein Renntempo-Block gelaufen.')
   })

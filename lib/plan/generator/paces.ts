@@ -54,14 +54,15 @@ export function trainingPaces(input: PacesInput): Paces {
 
   let source: Paces['source'] = 'goal_time'
   let racePace = goalPaceS
+  let fromGoal: string | null = null                // why the template's own source is missing; one hint, not two
   if (t.paces.source === 'threshold' && input.profile?.thresholdPaceS) {
     source = 'threshold'
     racePace = input.profile.thresholdPaceS - (off.threshold ?? 0)
   } else if (t.paces.source === 'vdot') {
-    if (predictedPaceS != null) { source = 'race'; racePace = predictedPaceS }
-    else warnings.push('VDOT-Vorlage ohne aktuellen Wettkampf: Tempi aus der Zielzeit.')
-    warnings.push('VDOT-Tabellen fehlen noch: Tempi über die Riegel-Formel aus dem Wettkampf.')
-  } else if (t.paces.source === 'threshold') warnings.push('Schwellen-Vorlage ohne Schwellentest im Profil: Tempi aus der Zielzeit.')
+    // No VDOT tables yet: the race is carried to the goal distance with Riegel.
+    if (predictedPaceS != null) { source = 'race'; racePace = predictedPaceS; warnings.push('Tempi aus deinem letzten Wettkampf, auf die Zieldistanz umgerechnet (Riegel-Formel).') }
+    else fromGoal = 'Kein Wettkampf aus den letzten 6 Monaten'
+  } else if (t.paces.source === 'threshold') fromGoal = 'Kein Schwellentest im Profil'
   const racePaceS = Math.round(racePace)
 
   // Plausibility: goal vs. the prediction from a recent race; threshold test vs. that prediction; nothing measured.
@@ -74,7 +75,11 @@ export function trainingPaces(input: PacesInput): Paces {
     if (tt && off.threshold != null && Math.abs(tt - (predictedPaceS + off.threshold)) > THRESHOLD_DIFF_S) {
       warnings.push(`Schwellentest (${fmtPace(tt)}) und Wettkampf (${fmtPace(predictedPaceS + off.threshold)}) passen nicht zusammen.`)
     }
+  } else if (fromGoal) {
+    warnings.push(`${fromGoal}: die Tempi kommen aus deiner Zielzeit. Ein Testlauf in Woche 2–3 zeigt, ob sie passen.`)
+    fromGoal = null
   } else if (!input.profile?.thresholdPaceS) warnings.push('Keine aktuelle Zeit: Tempi aus der Zielzeit – Test in Woche 2–3 einplanen.')
+  if (fromGoal) warnings.push(`${fromGoal}: die Tempi kommen aus deiner Zielzeit.`)
 
   const paces: Record<string, number> = {}
   for (const name of PACE_NAMES) {

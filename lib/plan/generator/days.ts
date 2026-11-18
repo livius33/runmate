@@ -29,6 +29,7 @@ export const DAY_RULES = {
   noviceRuns: 4,
   weight: { key: 1.25, easy: 1, recovery: 0.7 },          // share of the non-long km per run (practice value)
   phaseFactor: { base: 0.75, build: 0.9, peak: 1, taper: 1 } as Record<Phase, number>,
+  lowVolume: { fullKm: 64, lowKm: 32 },                    // long-run share: the template's from 64 km/week, rising to SAFETY's below (long-run.md 1.3)
   stepKm: 2,                                               // long run + 2 km per load week …
   holdRiseKm: 1.5,                                         // … holding after two rises of ≥ 1,5 km
   recoveryLong: 0.7,
@@ -43,6 +44,14 @@ export const DAY_RULES = {
   defaultProfile: { availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, restDay: 5, qualityDays: [2, 4], maxKmWeekday: null, maxKmWeekend: null } as
     Pick<AthleteProfile, 'availableDays' | 'longRunDay' | 'restDay' | 'qualityDays' | 'maxKmWeekday' | 'maxKmWeekend'>,
 } as const
+
+// Long-run share of a week: the template's share is a rule for high volume. Below 64 km it rises linearly to the safety
+// ceiling at 32 km, so a low-volume week still has a long run (long-run.md 1.3). Never below the template's own share.
+export function longShare(templateShare: number, weekKm: number): number {
+  const { fullKm, lowKm } = DAY_RULES.lowVolume
+  const t = Math.min(Math.max((fullKm - weekKm) / (fullKm - lowKm), 0), 1)
+  return Math.max(templateShare, templateShare + t * (SAFETY.longRunShareMax - templateShare))
+}
 
 type Role = 'rest' | 'easy' | 'recovery' | 'key' | 'long' | 'race' | 'shakeout'
 const TITLE: Record<Role, string> = { rest: 'Ruhetag', easy: 'Locker', recovery: 'Regeneration', key: 'Qualität', long: 'Longrun', race: 'Rennen', shakeout: 'Shakeout' }
@@ -102,7 +111,7 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
     longs.forEach((k, j) => { if (k != null && longDates[j] >= from && longDates[j] < date) longest30 = Math.max(longest30, k) })
     longest30s[i] = longest30
     if (i === raceIdx) { longs.push(null); continue }
-    let c = Math.min(t.week.long_run.share * w.km, t.week.long_run.max_km * R.phaseFactor[w.phase],
+    let c = Math.min(longShare(t.week.long_run.share, w.km) * w.km, t.week.long_run.max_km * R.phaseFactor[w.phase],
       (t.week.long_run.max_minutes * 60) / longPace, cap(longDay), SAFETY.longRunKmMax)
     if (input.distance === 'marathon') {
       if ((input.longest12mKm ?? 0) < R.marathon.bigKm) c = Math.min(c, R.marathon.bigKm - STEP)

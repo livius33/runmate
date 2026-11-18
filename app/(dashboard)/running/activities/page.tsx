@@ -111,7 +111,15 @@ export default function RunsPage() {
         </div>
       )}
 
-      {sport !== 'Läufe' ? <CrossTrainingList rows={crossRows} today={today} /> : <>
+      {sport !== 'Läufe' ? <CrossTrainingList rows={crossRows} today={today} /> : !isLoading && !isError && runs.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-sm">
+          <p className="font-medium">Noch keine Läufe.</p>
+          <p className="mt-1 max-w-prose text-muted-foreground">
+            Verbinde eine Datenquelle oder lade Dateien von deiner Uhr hoch (FIT, GPX, TCX). Danach stehen hier deine Läufe, und der Plan rechnet mit dem, was du wirklich gelaufen bist.
+          </p>
+          <Link href={href('/settings#datenquellen')} className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Datenquelle verbinden</Link>
+        </div>
+      ) : <>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Lauftyp">
         {(['Alle', ...RUN_TYPES] as const).filter((t) => t === 'Alle' || counts[t]).map((t) => (
           <button key={t} aria-pressed={type === t} onClick={() => { setType(t); setShown(PAGE) }}

@@ -167,7 +167,7 @@ export function blockProgress({ block, sessions, runs, today }: {
   const weeksStarted = out.filter((w) => w.started).length
   const pct = planToDateKm > 0 ? Math.round((actualToDateKm / planToDateKm) * 100) : null
   let volume: Takeaway
-  if (!weeksStarted || pct == null) volume = { text: `Der Block beginnt am ${fmtDate(first)}.`, tone: 'neutral' }
+  if (!weeksStarted || pct == null) volume = { text: `Der Block beginnt am ${fmtDate(first).replace(/\.$/, '')}.`, tone: 'neutral' }
   else {
     const head = `Nach ${weeksStarted} von ${out.length} Wochen: ${fmtKm(actualToDateKm)} von ${fmtKm(planToDateKm)} geplanten km (${pct} %)`
     volume = pct >= 110 ? { text: `${head} – mehr als geplant, auf die Erholung achten.`, tone: 'warn' }
@@ -197,7 +197,11 @@ export function blockProgress({ block, sessions, runs, today }: {
   const longPlanned = out.filter((w) => w.longPlanKm != null && w.longPlanDate! <= today)
   const longDone = longPlanned.filter((w) => (w.longActualKm ?? 0) >= LONG_DONE_SHARE * w.longPlanKm!)
   let long: Takeaway
-  if (!longPlanned.length) long = { text: longest ? `Längster Lauf im Block: ${fmtKm(longest.km)} km (${fmtDate(longest.date)}).` : 'Noch kein Longrun im Block.', tone: 'neutral' }
+  if (!longPlanned.length) {
+    const next = out.find((w) => w.longPlanKm != null)      // planned, but not due yet
+    long = { text: longest ? `Längster Lauf im Block: ${fmtKm(longest.km)} km (${fmtDate(longest.date)}).`
+      : next ? `Erster Longrun: ${fmtKm(next.longPlanKm!)} km am ${fmtDate(next.longPlanDate!).replace(/\.$/, '')}.` : 'Noch kein Longrun im Block.', tone: 'neutral' }
+  }
   else {
     const head = `${longest ? `Längster Lauf: ${fmtKm(longest.km)} km (${fmtDate(longest.date)})` : 'Noch kein Lauf im Block'} · Longruns gelaufen: ${longDone.length} von ${longPlanned.length}`
     const share = longDone.length / longPlanned.length

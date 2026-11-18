@@ -34,7 +34,7 @@ const boxState = (bad: boolean) => (bad ? 'border-brand focus:border-brand' : 'b
 // The number fields each step owns; "Weiter" waits until they are empty or in range.
 const STEP_FIELDS: Record<number, (p: AthleteProfile) => RangedField[]> = {
   0: () => ['age', 'weightKg', 'heightCm'],
-  2: () => ['weeklyKm'],
+  2: () => ['weeklyKm', 'longestRunKm'],
   3: () => ['maxKmWeekday', 'maxKmWeekend'],
   4: (p) => [p.fitnessMethod === 'fiveK' ? 'fiveKS' : 'thresholdPaceS'],
 }
@@ -112,7 +112,9 @@ export function Onboarding({ initial, events, connections, onSave, saving, error
               ))}
             </div>
             <Num field="weeklyKm" label="Wochenkilometer zuletzt" unit="km/Woche" value={p.weeklyKm} onChange={(v) => set('weeklyKm', v)}
-              hint="Aus deinen Garmin-Läufen der letzten 4 Wochen vorausgefüllt." />
+              hint="Aus deinen Läufen der letzten 4 Wochen vorausgefüllt, sobald welche da sind." />
+            <Num field="longestRunKm" label="Längster Lauf der letzten 4 Wochen (optional)" unit="km" value={p.longestRunKm ?? null} onChange={(v) => set('longestRunKm', v)}
+              hint="Zählt nur, solange Runmate noch keinen Lauf von dir kennt: von dort wächst dein Longrun." />
           </div>
         )}
 
@@ -149,9 +151,9 @@ export function Onboarding({ initial, events, connections, onSave, saving, error
 
         {step === 5 && (
           <ul className="grid gap-2 text-sm">
-            <Conn ok={!!connections.garminSync} label="Garmin" detail={connections.garminSync ? `Letzter Abgleich ${connections.garminSync}` : 'Noch nicht verbunden'} />
+            <Conn ok={!!connections.garminSync} label="Datenquelle" detail={connections.garminSync ? `Letzter Abgleich ${connections.garminSync}` : 'Noch nicht verbunden – in den Einstellungen'} href="/settings#datenquellen" />
             <Conn ok={connections.calendar} label="Apple Kalender" detail={connections.calendar ? 'Abo-Link angelegt' : 'In den Einstellungen anlegen'} href="/settings" />
-            <Conn ok={connections.appleHealth} label="Apple Health" detail={connections.appleHealth ? 'Kurzbefehl verbunden' : 'Kommt als Nächstes (Kurzbefehl)'} />
+            <Conn ok={connections.appleHealth} label="Apple Health" detail={connections.appleHealth ? 'Kurzbefehl verbunden' : 'In den Einstellungen verbinden'} href="/settings#datenquellen" />
           </ul>
         )}
 
@@ -278,9 +280,9 @@ export function ProfileOverview({ profile: p, events, connections, onEdit, onBac
         ) : <p className="text-muted-foreground">Noch kein Rennen geplant.</p>, { aside: asideLink('/season', 'Saison-Seite') })}
         {section(5, (
           <ul className="grid gap-2">
-            <Conn ok={!!connections.garminSync} label="Garmin" detail={connections.garminSync ? `Letzter Abgleich ${connections.garminSync}` : 'Noch nicht verbunden'} />
+            <Conn ok={!!connections.garminSync} label="Datenquelle" detail={connections.garminSync ? `Letzter Abgleich ${connections.garminSync}` : 'Noch nicht verbunden – in den Einstellungen'} href="/settings#datenquellen" />
             <Conn ok={connections.calendar} label="Apple Kalender" detail={connections.calendar ? 'Abo-Link angelegt' : 'In den Einstellungen anlegen'} href="/settings" />
-            <Conn ok={connections.appleHealth} label="Apple Health" detail={connections.appleHealth ? 'Kurzbefehl verbunden' : 'Kommt als Nächstes (Kurzbefehl)'} />
+            <Conn ok={connections.appleHealth} label="Apple Health" detail={connections.appleHealth ? 'Kurzbefehl verbunden' : 'In den Einstellungen verbinden'} href="/settings#datenquellen" />
           </ul>
         ), { aside: asideLink('/settings', 'Einstellungen') })}
       </div>

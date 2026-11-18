@@ -127,9 +127,9 @@ export async function profilePrefill(today: string): Promise<AthleteProfile> {
   const weekendMax = Math.max(0, ...recent.filter((s) => isoDay(s.date) >= 6 && s.type !== 'race').map((s) => s.km ?? 0))
   return {
     v: 1, age: null, weightKg: athlete().weightKg, heightCm: null,
-    experience: 'advanced', weeklyKm: Math.round(km4 / 4),
+    experience: null, weeklyKm: Math.round(km4 / 4) || null,      // not measurable: the runner says it
     availableDays: [1, 2, 3, 4, 5, 6, 7],
-    longRunDay, qualityDays: mostCommon(hardDays.filter((d) => d !== longRunDay), 2), kbDays: [2, 4],
+    longRunDay, qualityDays: mostCommon(hardDays.filter((d) => d !== longRunDay), 2), kbDays: [],
     restDay: mostCommon(restDays.filter((d) => d !== longRunDay), 1)[0] ?? 5,
     maxKmWeekday: weekdayMax ? Math.ceil(weekdayMax) : null, maxKmWeekend: weekendMax ? Math.ceil(weekendMax) : null,
     fitnessMethod: 'threshold', thresholdPaceS: race.goalPaceS + THRESHOLD_FROM_RACE_S(race.distanceKm), fiveKS: null, savedAt: null,

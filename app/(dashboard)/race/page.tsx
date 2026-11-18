@@ -6,7 +6,9 @@ import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { AlertTriangle, Flag } from 'lucide-react'
 import { useToday } from '@/lib/use-today'
-import { hasBlocks, raceOf } from '@/lib/plan/blocks'
+import Link from 'next/link'
+import { NO_BLOCK, hasBlocks, raceOf } from '@/lib/plan/blocks'
+import { useAppHref } from '@/components/AppBase'
 import { fmtClock, fmtPace } from '@/lib/plan/format'
 import { effectiveSessions, type Overrides } from '@/lib/plan/effective'
 import { EMPTY_ENGINE, type EngineState } from '@/lib/plan/engine'
@@ -25,7 +27,23 @@ import { Upsell, useEntitlements } from '@/components/billing/Entitlements'
 // Race-day tools are part of Plus (Phase 4); without it the page shows the upsell.
 export default function RaceDayPage() {
   const { features } = useEntitlements()
+  const today = useToday()
+  const href = useAppHref()
   if (!features.raceDay) return <div className="mx-auto max-w-xl py-6"><Upsell feature="raceDay" /></div>
+  // No race in the season (base block only): nothing to plan a race day for.
+  if (raceOf(today).date === NO_BLOCK.race.date) {
+    return (
+      <div className="mx-auto max-w-xl py-6">
+        <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-sm">
+          <p className="font-medium">Noch kein Rennen.</p>
+          <p className="mt-1 text-muted-foreground">
+            Leg in der Saison ein Rennen an und übernimm einen Plan dafür. Dann stehen hier Renntempo, Zwischenzeiten, Gels und der Ablauf für deinen Renntag.
+          </p>
+          <Link href={href('/season')} className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Zur Saison</Link>
+        </div>
+      </div>
+    )
+  }
   return <RaceDayTools />
 }
 

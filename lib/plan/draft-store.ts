@@ -123,7 +123,7 @@ function generate(ctx: Ctx, c: DraftChoiceIn, today: string): DraftResult {
   if (!tuned.ok) return tuned
   const template = tuned.template
   const distance = GOAL_DISTANCE[goal.kind]
-  const measured = measureInputs({ runs: ctx.runs, plan: ctx.plan, weeks: allWeeks(), today, start: c.start, distance: distance ?? 'half' })
+  const measured = measureInputs({ runs: ctx.runs, plan: ctx.plan, weeks: allWeeks(), today, start: c.start, distance: distance ?? 'half', profile: ctx.profile })
   return generateDraft({ goal, template, start: monday(c.start), profile: ctx.profile, measured, overrides: c.overrides })
 }
 

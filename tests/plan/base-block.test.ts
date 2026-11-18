@@ -1,5 +1,6 @@
 // Rolling base block (07-17): gaps between blocks get base weeks from the recent volume — ≥ 30 km, +5 %/week, ≤ proven,
 // every 4th week at 80 %, one key session, long-run caps — and past weeks never change as time passes.
+import { longShare } from '@/lib/plan/generator/days'
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import { addDays, format, getISODay, parseISO } from 'date-fns'
@@ -98,7 +99,7 @@ describe('Zufällige Läufe, Lücken und Profile (AC-1, AC-2)', () => {
           const longest30 = Math.max(0, ...allRuns.filter((r) => r.date < today && r.date >= day(w.start, -30) && r.date < w.start).map((r) => r.km))
           for (const s of ss) {
             if (s.type === 'long') {
-              expect(s.km!).toBeLessThanOrEqual(Math.min(BASE.longShare * t.km, BASE.longSpike * longest30, BASE.longMaxKm) + 1e-9)
+              expect(s.km!).toBeLessThanOrEqual(Math.min(longShare(BASE.longShare, t.km) * t.km, BASE.longSpike * longest30, BASE.longMaxKm) + 1e-9)
             }
             if (s.type === 'tempo') expect(totalKm(parseStructure(s.notes)!)).toBeCloseTo(s.km!, 5)
             if (s.type !== 'rest') expect(s.km!).toBeGreaterThanOrEqual(BASE.minRunKm)

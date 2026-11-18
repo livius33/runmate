@@ -27,7 +27,7 @@ export type InputField = { value: number | null; measured: number | null; overri
 export interface Draft {
   ok: true
   distance: Distance
-  inputs: { currentKm: InputField; provenKm: InputField; longest30Km: InputField; peakKm: InputField; goalS: InputField; currentKmSource: MeasuredInputs['currentKmSource']; recentRace: MeasuredInputs['recentRace'] }
+  inputs: { currentKm: InputField; provenKm: InputField; longest30Km: InputField; peakKm: InputField; goalS: InputField; currentKmSource: MeasuredInputs['currentKmSource']; longest30Source?: MeasuredInputs['longest30Source']; recentRace: MeasuredInputs['recentRace'] }
   paces: Paces
   skeleton: Skeleton
   days: DaysPlan
@@ -48,7 +48,7 @@ export function generateDraft(c: DraftChoice): DraftResult {
   const inputs = {
     currentKm: field(c.measured.currentKm, o.currentKm), provenKm: field(c.measured.provenKm, o.provenKm),
     longest30Km: field(c.measured.longest30Km, o.longest30Km), peakKm: field(null, o.peakKm), goalS: field(c.goal.goalS, o.goalS),
-    currentKmSource: c.measured.currentKmSource, recentRace: c.measured.recentRace,
+    currentKmSource: c.measured.currentKmSource, longest30Source: c.measured.longest30Source, recentRace: c.measured.recentRace,
   }
   const goalS = inputs.goalS.value
   if (!goalS) return { ok: false, error: 'Zielzeit fehlt: auf der Saison-Seite eintragen oder hier setzen.' }
