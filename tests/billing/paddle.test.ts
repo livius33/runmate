@@ -2,7 +2,7 @@
 // trial, cancellation at period end and the portal link. No network: fetch is stubbed, the DB is the pg-proxy fake.
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { billingEvents, subscription } from '@/lib/db/schema'
-import { signPaddle, verifyPaddleSignature, SIGNATURE_TOLERANCE_S } from '@/lib/billing/paddle'
+import { signPaddle, verifyPaddleSignature, SIGNATURE_TOLERANCE_S, signCheckoutUser } from '@/lib/billing/paddle'
 import { applyPaddleEvent, type PaddleEvent, type SubState } from '@/lib/billing/webhook'
 import { entitlements, planState } from '@/lib/billing/entitlements'
 import type { PriceIds } from '@/lib/billing/config'
@@ -30,7 +30,7 @@ const iso = (s: number) => new Date(s * 1000).toISOString()
 const T0 = 1_800_000_000
 const subEvent = (type: string, at: number, data: Partial<Record<string, unknown>> = {}, id = `evt_${type}_${at}`): PaddleEvent => ({
   event_id: id, event_type: type, occurred_at: iso(at),
-  data: { id: 'sub_1', status: 'active', customer_id: 'ctm_1', items: [{ price: { id: 'pri_pm' } }], current_billing_period: { starts_at: iso(at), ends_at: iso(at + 30 * 86_400) }, scheduled_change: null, canceled_at: null, custom_data: { userId: 'user-p' }, ...data },
+  data: { id: 'sub_1', status: 'active', customer_id: 'ctm_1', items: [{ price: { id: 'pri_pm' } }], current_billing_period: { starts_at: iso(at), ends_at: iso(at + 30 * 86_400) }, scheduled_change: null, canceled_at: null, custom_data: { userId: 'user-p', userSig: signCheckoutUser('user-p', SECRET) }, ...data },
 })
 
 describe('Webhook-Signatur', () => {
@@ -93,6 +93,15 @@ describe('Webhook-Route', async () => {
     expect(await (await post(ev)).json()).toEqual({ ok: true, result: 'duplicate' })
     expect(inserts('subscription')).toEqual([])
     expect(inserts('billing_events')).toEqual([])
+  })
+
+  it('custom_data ohne Signatur des Servers zählt nicht: fremde Nutzer-ID im Checkout schreibt nichts', async () => {
+    const forged = [{ userId: 'user-victim' }, { userId: 'user-victim', userSig: signCheckoutUser('user-p', SECRET) }, { userId: 'user-victim', userSig: 'ab'.repeat(32) }]
+    for (const [i, custom_data] of forged.entries()) {
+      const res = await post(subEvent('subscription.created', T0, { id: 'sub_x', customer_id: 'ctm_x', custom_data }, `evt_forged_${i}`))
+      expect(await res.json()).toEqual({ ok: true, result: 'unknown-user' })
+    }
+    expect(inserts('subscription')).toEqual([])
   })
 
   it('unbekannter Nutzer (kein custom_data, keine gespeicherte Kennung): 200, nichts geschrieben', async () => {

@@ -3,7 +3,7 @@
 // tombstone, and a late Paddle webhook for it writes nothing. DB = the pg-proxy fake, Paddle and Clerk mocked.
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { subscription } from '@/lib/db/schema'
-import { signPaddle } from '@/lib/billing/paddle'
+import { signPaddle, signCheckoutUser } from '@/lib/billing/paddle'
 import { RETENTION, dueForDeletion, type RetentionRow } from '@/lib/billing/retention'
 import { useFakeDb, rowOf } from '../scope/fake-db'
 
@@ -125,7 +125,7 @@ describe('Grabstein gegen späte Paddle-Webhooks', async () => {
   const event = (userId: string) => {
     const at = new Date().toISOString()
     return { event_id: `evt_late_${userId}`, event_type: 'subscription.updated', occurred_at: at,
-      data: { id: 'sub_9', status: 'canceled', customer_id: 'ctm_9', items: [{ price: { id: 'pri_pm' } }], custom_data: { userId } } }
+      data: { id: 'sub_9', status: 'canceled', customer_id: 'ctm_9', items: [{ price: { id: 'pri_pm' } }], custom_data: { userId, userSig: signCheckoutUser(userId, 'pdl_secret') } } }
   }
   const post = (ev: unknown) => {
     const raw = JSON.stringify(ev)

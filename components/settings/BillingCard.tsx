@@ -76,7 +76,7 @@ export function BillingCard() {
       const P = await loadPaddle(data.checkout.env, data.checkout.clientToken)
       P.Checkout.open({
         items: [{ priceId, quantity: 1 }],
-        customData: { userId: data.userId },
+        customData: { userId: data.userId, ...(data.userSig ? { userSig: data.userSig } : {}) },
         settings: { successUrl: `${window.location.origin}/settings?abo=danke#abo` },
       })
     } catch (err) {

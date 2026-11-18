@@ -28,6 +28,18 @@ export function signPaddle(rawBody: string, secret: string, ts = Math.floor(Date
   return `ts=${ts};h1=${createHmac('sha256', secret).update(`${ts}:${rawBody}`).digest('hex')}`
 }
 
+// The checkout runs in the browser, so its custom data is the client's word. The server signs the user id it hands
+// out (GET /api/billing) and the webhook takes a claimed id only with this signature: nobody can attach a
+// subscription they bought to someone else's account.
+export function signCheckoutUser(userId: string, secret: string | undefined = process.env.PADDLE_WEBHOOK_SECRET): string | null {
+  return secret ? createHmac('sha256', secret).update(`checkout-user:${userId}`).digest('hex') : null
+}
+export function verifyCheckoutUser(userId: string, sig: unknown, secret: string | undefined = process.env.PADDLE_WEBHOOK_SECRET): boolean {
+  const expected = signCheckoutUser(userId, secret)
+  if (!expected || typeof sig !== 'string' || !/^[0-9a-f]{64}$/i.test(sig)) return false
+  return timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'))
+}
+
 export class PaddleError extends Error {
   constructor(readonly status: number, readonly code: string) { super(`Paddle API ${status} ${code}`) }
 }

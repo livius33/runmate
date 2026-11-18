@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { billingEnabled, paddleEnv, priceIds, PRICE_LABEL } from '@/lib/billing/config'
 import { currentEntitlements, ensureSubscription } from '@/lib/billing/access'
 import { toClient } from '@/lib/billing/entitlements'
+import { signCheckoutUser } from '@/lib/billing/paddle'
 import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
@@ -13,13 +14,14 @@ export interface BillingInfo {
   subscription: { status: string; tier: string | null; interval: string | null; trialEndsAt: number | null; periodEnd: number | null; cancelAtPeriodEnd: boolean; paddle: boolean } | null
   checkout: { env: 'sandbox' | 'production'; clientToken: string | null; prices: { tier: 'plus'; interval: 'month' | 'year'; priceId: string; label: string }[] } | null
   userId: string
+  userSig: string | null            // the server's signature over userId, sent along as checkout custom data
 }
 
 // Settings → Abo: status, dates and what the browser needs for Paddle.js (client token and price ids are public).
 export const GET = withUser(async () => {
   const { uid } = await import('@/lib/db/owned')
   const e = toClient(await currentEntitlements())
-  if (!billingEnabled()) return NextResponse.json({ billing: false, entitlements: e, subscription: null, checkout: null, userId: uid() } satisfies BillingInfo)
+  if (!billingEnabled()) return NextResponse.json({ billing: false, entitlements: e, subscription: null, checkout: null, userId: uid(), userSig: null } satisfies BillingInfo)
   const row = await ensureSubscription()
   const ids = priceIds()
   // Plus is the only paid plan: one price per interval, as far as configured.
@@ -34,5 +36,6 @@ export const GET = withUser(async () => {
     },
     checkout: { env: paddleEnv(), clientToken: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || null, prices },
     userId: uid(),
+    userSig: signCheckoutUser(uid()),
   } satisfies BillingInfo)
 })
