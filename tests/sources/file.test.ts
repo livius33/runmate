@@ -96,10 +96,30 @@ describe('Datei-Parser', () => {
     await expect(parse('bad.gpx', '<gpx><trk>')).rejects.toThrow(/bad\.gpx/)
     await expect(parse('x.tcx', '<foo/>')).rejects.toThrow(/Keine TCX-Datei/)
     await expect(parse('big.fit', new Uint8Array(MAX_FILE_BYTES + 1))).rejects.toThrow(/zu groß/)
-    // 30 MB of zeros gzip to ~30 kB; the size in the gzip trailer is checked before inflating.
+    // 30 MB of zeros gzip to ~30 kB; inflating stops once more than one file's worth has come out.
     await expect(parse('bomb.gpx.gz', gzipSync(new Uint8Array(30 * 1024 * 1024)))).rejects.toThrow(/zu groß/)
     await expect(parse('broken.zip', strToU8('PK nonsense'))).rejects.toThrow(/ZIP/)
     expect(await parse('empty.zip', zipSync({ 'readme.txt': strToU8('x') }))).toEqual([])
+  })
+
+  // 08-02 follow-up: an upload cut off in transit ends in compressed data, and those last four bytes read as the
+  // uncompressed size said "over 20 MB" nearly every time: the report read "Datei zu groß" for a file of 40 kB.
+  it('abgeschnittene .gz: beschädigt oder unvollständig, nicht „zu groß“', async () => {
+    const whole = gzipSync(strToU8(gpxFile({ ...RUN, seconds: 9000 })))
+    expect(whole.length).toBeGreaterThan(3 * 16 * 1024)        // several slices of the inflater
+    expect((await parse('lang.gpx.gz', whole))[0].summary.movingS).toBeCloseTo(9000, -1)
+    // Cut in the trailer, just before it, in the middle, in the header; and a file that is no gzip at all.
+    for (const keep of [whole.length - 1, whole.length - 5, whole.length - 9, whole.length - 500, whole.length >> 1, 2000, 30, 12, 3]) {
+      const err = await parse('pfad/lauf.gpx.gz', whole.slice(0, keep)).then(() => null, (e: Error) => e.message)
+      expect(err, `${keep} of ${whole.length} bytes`).toBe('lauf.gpx.gz: Datei ist beschädigt oder unvollständig.')
+    }
+    await expect(parse('text.gpx.gz', gpxFile())).rejects.toThrow('text.gpx.gz: Datei ist beschädigt oder unvollständig.')
+    // A stored size that is wrong in the other direction (smaller than the content) no longer cuts the file silently.
+    const short = whole.slice(); short.set([10, 0, 0, 0], short.length - 4)
+    await expect(parse('kurz.gpx.gz', short)).rejects.toThrow(/beschädigt oder unvollständig/)
+    // In a ZIP the damaged or oversized entry is skipped, the rest is imported.
+    const zip = zipSync({ 'ok.fit': fitFile(), 'cut.gpx.gz': whole.slice(0, whole.length >> 1), 'bomb.gpx.gz': gzipSync(new Uint8Array(30 * 1024 * 1024)) }, { level: 0 })
+    expect(await parse('export.zip', zip)).toHaveLength(1)
   })
 
   // 11 × 20 MB of zeros pack to ~230 kB: every entry is within the per-file limit, together they took 220 MB of memory
