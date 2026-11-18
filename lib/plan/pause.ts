@@ -179,14 +179,16 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/
 export const MAX_BACKDATE_DAYS = 14
 
 // German error, or null when the pause may be saved next to the others. `stored` = a pause that is already saved and
-// only gets its end: the backdate limit is for entering a new one.
+// only gets its end: the backdate limit is for entering a new one, and the 90 days count from today once it has begun
+// (an open pause may have run longer and must still take its end).
 export function pauseError(p: Pause, others: Pause[], today: string, stored = false): string | null {
   if (p.kind !== 'krank' && p.kind !== 'pause') return 'Bitte Krank oder Pause wählen.'
   if (!ISO.test(p.from) || Number.isNaN(parseISO(p.from).getTime())) return 'Das Startdatum ist ungültig.'
   if (p.to != null && (!ISO.test(p.to) || Number.isNaN(parseISO(p.to).getTime()))) return 'Das Enddatum ist ungültig.'
   if (!stored && p.from < day(today, -MAX_BACKDATE_DAYS)) return `Höchstens ${MAX_BACKDATE_DAYS} Tage rückwirkend.`
   if (p.to != null && p.to < p.from) return 'Das Ende liegt vor dem Start.'
-  if (p.to != null && differenceInCalendarDays(parseISO(p.to), parseISO(p.from)) > 90) return 'Höchstens 90 Tage am Stück.'
+  const countFrom = stored && today > p.from ? today : p.from
+  if (p.to != null && differenceInCalendarDays(parseISO(p.to), parseISO(countFrom)) > 90) return 'Höchstens 90 Tage am Stück.'
   const end = (x: Pause) => x.to ?? '9999-12-31'
   const clash = others.find((o) => o.id !== p.id && p.from <= end(o) && o.from <= end(p))
   if (clash) return `Überschneidet sich mit ${PAUSE_LABEL[clash.kind]} ab ${dm(clash.from)}.`
