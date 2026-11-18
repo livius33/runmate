@@ -45,18 +45,39 @@ by area, so nothing is lost.**
 - Adapter notes vs code: a missed long run moves up to 7 days (note: 2); ACWR alone triggers after 1 day (note: 3);
   raising the volume has no ramp bound.
 
+## Defects fixed in a second pass (2026-11-18)
+
+Fifteen of the sixteen defects left open by the sweep, each with a test that failed before the fix:
+
+- **Adapter:** runs from file import and Apple Health now count as data coverage (`syncedThrough` = the later of the
+  last successful sync and the newest stored run; `adaptation.md` 1.3), so missed sessions are noticed for those users;
+  the return cap after a pause no longer hands km the engine took off to another day.
+- **Editor:** saves only for days the plan covers (or the editor reaches), with a German reason for a refused save; a
+  swapped or moved pair goes back together; the kettlebell toggle stores the marker alone (`strengthOnly`) and the day
+  keeps following the engine; a run moved onto a marked rest day keeps the marker; a pause open > 90 days can be ended.
+- **Data:** impossible activities are rejected at the ingest (`PLAUSIBLE` in `lib/sources/ingest.ts`) and named in the
+  import report; a file stored without detail data is reported as such and completed on re-import; a truncated .gz is
+  reported as damaged; impossible dates are refused by the cross-training and Shortcut routes; `/api/runner/profile`
+  answers bad JSON with 400; a failed Shortcut upload no longer loses a day's workouts; cross-training ids are UUIDs.
+
+Checked beyond the unit tests: the save route, the kettlebell toggle (on, reload, off) and two bad imports in the
+browser against a local Postgres; the reordered Apple Health writes against the same Postgres.
+
 ## Open — defects not fixed
 
-- Adapter: ACWR inflated after a pause (2.82); the pause cap moves 1.5 km without a log entry; Apple Health and file
-  import have no sync record, so nothing ever counts as missed for those users.
-- Editor: manual overrides apply on any date; a swapped hard session can show twice in the base-plan fallback;
-  toggling kettlebell on an engine-changed day leaves an engine snapshot; moving a run onto a rest day with a
-  kettlebell marker drops the marker; one note over 1000 characters fails the whole save; a pause open > 90 days
-  cannot be ended.
-- Data: no plausibility filter on import (a GPS glitch of 17,793 km is stored); `storeDetail` failing after the
-  insert; a truncated .gz reports "Datei zu groß"; impossible dates accepted by the cross-training and Shortcut
-  routes; `/api/runner/profile` answers invalid JSON with 500; `saveHealth` is not atomic; cross-training ids
-  `manual-${Date.now()}` can collide.
+- Adapter: ACWR inflated after a pause (up to 4.0; a session softened on ACWR alone a week after the return window).
+  The research note does not say what applies after a pause, so nothing was built. Proposal: while a marked pause of
+  ≥ 4 days ended fewer than 28 days ago, ACWR alone does not make the engine "tired" (TSB and recovery flags keep
+  working). Belongs to the rule decision "ACWR alone triggers after 1 day" above.
+- Adapter, seen in the second pass: return caps also cut a test day (a Generalprobe went from 20 to 11 km) and never
+  appear in the engine log; `fatigue`, `hrCap` and `recalibrate` do not check the pause window; a runner who stops
+  uploading gets no missed-session notice until the next run arrives; the Shortcut route does not run the engine.
+- Editor, seen in the second pass: a session note is built by code and can still pass 1000 characters (the save is then
+  refused with a message naming the day); `setDayKm` on a marked rest day drops the kettlebell marker; `stripEdits` in
+  `rebuild-store.ts` can split a swapped pair; swaps of two same-titled sessions are not recognised as a pair.
+- Data, seen in the second pass: glitch rows stored before the filter are not cleaned up; the Garmin history UI does not
+  show the rejected count; `/api/import` does not run the engine when a file only replaced rows; `/api/runner/profile`
+  stores any JSON object unvalidated; no cap on workouts per Shortcut upload.
 
 ## Not tested
 

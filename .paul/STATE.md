@@ -49,6 +49,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - Design pass (12-02): scope and direction; starting list in the plan
 - Waitlist: wire a mail provider or open sign-up without billing (docs/launch/DEPLOY.md step 8)
 - Rule decisions from the sweep (08-02 SUMMARY): low-volume long-run share, 4-run low weeks, floors and caps
+- ACWR after a pause (08-02 SUMMARY, second pass): suspend ACWR as the only fatigue trigger for 28 days after a marked pause of ≥ 4 days? Needs a line in adaptation.md first
+- Glitch activities stored before the plausibility filter stay in the data: clean them up once, or leave them?
 - Base block for an unknown runner shows the example easy pace; undated onboarding race time as a recent race?
 - Retention of idle Free accounts (12 months) and the § 312k confirmation through Paddle (09-01 SUMMARY)
 
