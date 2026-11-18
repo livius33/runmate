@@ -69,14 +69,29 @@ async function enrichPending(src: ActivitySource, limit: number, r: SyncResult) 
 }
 
 // The last `days` from one source, then detail data for up to `enrichLimit` runs, newest first (8 per call keeps one
-// request within 60 s). Saves the result (and a failure) as the source's last sync.
+// request within 60 s). Saves the result (and a failure) as the source's last sync. An activity that cannot be stored
+// counts as failed and the others go on; such a sync is saved with `error`, so it covers no days (the engine's
+// loadSyncedThrough): a run that is missing here must not turn its session into a missed one. The next sync fetches
+// it again.
 export async function syncSource(src: ActivitySource, { days = 28, enrichLimit = 8 } = {}): Promise<SyncResult> {
   const r = empty()
   try {
     if (!src.listActivities) throw new SourceError('invalid', 'Diese Quelle kann nicht synchronisiert werden.')
     const { items } = await src.listActivities({ since: new Date(Date.now() - days * 86_400_000) })
+    let lost = 0
     for (const a of items) {
-      const u = await upsertSummary(src.meta.id, a)
+      let u: Awaited<ReturnType<typeof upsertSummary>>
+      try {
+        u = await upsertSummary(src.meta.id, a)
+      } catch (err) {
+        // Only the error's name goes to the log: a database error's message can carry the row.
+        lost++
+        r.failed++
+        r.log.push(`store failed: ${a.sourceActivityId} (${safeError(err).code})`)
+        console.error('[sync] store failed:', src.meta.id, err instanceof Error ? err.name : 'unknown')
+        if (lost === items.length) throw err                   // nothing could be stored: the sync failed
+        continue
+      }
       // Impossible values (ingest.ts PLAUSIBLE): not stored, counted and logged like a failed enrichment.
       if (u.result === 'rejected') { r.failed++; r.log.push(`implausible, skipped: ${a.sourceActivityId} (${u.reason.check})`); continue }
       r[u.result === 'inserted' ? 'inserted' : u.result === 'duplicate' ? 'duplicates' : 'updated']++
@@ -93,7 +108,8 @@ export async function syncSource(src: ActivitySource, { days = 28, enrichLimit =
       }), isMissingTable, `${src.meta.id} wellness`)
     }
     const { log: _, ...summary } = r
-    await setSettingJson(lastSyncKey(src.meta.id), { at: new Date().toISOString(), source: src.meta.id, ...summary } satisfies LastSync)
+    const gap = lost ? { error: `${lost} ${lost === 1 ? 'Aktivität konnte' : 'Aktivitäten konnten'} nicht gespeichert werden.`, errorCode: 'unknown' as const } : {}
+    await setSettingJson(lastSyncKey(src.meta.id), { at: new Date().toISOString(), source: src.meta.id, ...summary, ...gap } satisfies LastSync)
     await src.markSynced?.(null)
     return r
   } catch (err) {

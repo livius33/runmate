@@ -379,3 +379,61 @@ describe('Plausibilität beim Speichern', () => {
     expect(tables['user-a']).toHaveLength(1)
   })
 })
+
+// 08-02 follow-up: one activity the database did not take ended the whole sync; the activities after it were never
+// stored. Now it counts as failed and the others go on, and such a sync covers no days.
+describe('Sync: eine Aktivität lässt sich nicht speichern', () => {
+  const day = (d: number, id: string) => ({ sourceActivityId: id, startUtc: `2026-05-${d}T06:00:00Z`, startLocal: `2026-05-${d}T08:00:00`, sport: 'running', name: null, distanceM: 10000, movingS: 3000, elapsedS: 3100, elevationGainM: null, avgSpeedMs: null, maxSpeedMs: null, avgHr: null, maxHr: null, avgCadenceSpm: null, calories: null, startLat: null, startLng: null })
+  const items = [day(10, 'first'), day(11, 'broken'), day(12, 'last')]
+  const source = (marked: unknown[]) => ({
+    meta: { id: 'garmin', label: 'x', description: '', auth: 'credentials' as const, available: true, capabilities: { activities: true, detailStreams: false, dailyWellness: false, mode: 'pull' as const, history: true, runs: true } },
+    status: async () => ({ connected: true, lastSyncAt: null, error: null }),
+    disconnect: async () => {},
+    listActivities: async () => ({ items, hasMore: false }),
+    markSynced: async (e?: unknown) => { marked.push(e ?? null) },
+  })
+  const failOn = (ids: string[]) => (q: Query) => {
+    if (/^insert into "activities"/.test(q.sql) && ids.some((id) => q.params.includes(id))) throw new Error('value too long: secret-row-content')
+  }
+  const lastSync = () => JSON.parse(String(fake.log.filter((q) => /^insert into "settings"/.test(q.sql) && q.params.includes('last_sync:garmin')).at(-1)!.params.find((p) => typeof p === 'string' && p.startsWith('{'))))
+
+  it('die übrigen werden gespeichert, sie zählt als fehlgeschlagen, der Sync deckt keine Tage ab', async () => {
+    const tables: Record<string, Act[]> = {}
+    fake = fakeActivities(tables, failOn(['broken']))
+    const { syncSource } = await import('@/lib/sources/sync')
+    const { syncedThroughOf } = await import('@/lib/plan/strength')
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const marked: unknown[] = []
+    try {
+      const r = await asUser('user-a', () => syncSource(source(marked)))
+      expect(r).toMatchObject({ inserted: 2, updated: 0, duplicates: 0, failed: 1 })
+      expect(r.log).toContain('store failed: broken (unknown)')
+      expect(JSON.stringify([r.log, errors.mock.calls])).not.toContain('secret-row-content')
+    } finally { errors.mockRestore() }
+    expect(tables['user-a'].map((a) => a.sourceActivityId)).toEqual(['first', 'last'])
+    expect(lastSync()).toMatchObject({ source: 'garmin', inserted: 2, failed: 1, error: '1 Aktivität konnte nicht gespeichert werden.', errorCode: 'unknown' })
+    expect(syncedThroughOf(lastSync(), () => '2026-05-13')).toBeNull()
+    expect(marked).toEqual([null])                              // the connection itself is fine
+
+    // The next sync stores it: a complete sync again, and it covers the days before it.
+    fake.restore()
+    fake = fakeActivities(tables)
+    expect(await asUser('user-a', () => syncSource(source(marked)))).toMatchObject({ inserted: 1, updated: 2, failed: 0 })
+    expect(lastSync().error).toBeUndefined()
+    expect(syncedThroughOf(lastSync(), () => '2026-05-13')).toBe('2026-05-12')
+  })
+
+  it('keine lässt sich speichern: der Sync ist fehlgeschlagen, neutral gemeldet', async () => {
+    const tables: Record<string, Act[]> = {}
+    fake = fakeActivities(tables, failOn(['first', 'broken', 'last']))
+    const { syncSource } = await import('@/lib/sources/sync')
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const marked: any[] = []
+    try {
+      await expect(asUser('user-a', () => syncSource(source(marked)))).rejects.toMatchObject({ code: 'unknown', message: 'Synchronisierung fehlgeschlagen. Bitte später erneut versuchen.' })
+    } finally { errors.mockRestore() }
+    expect(tables['user-a'] ?? []).toEqual([])
+    expect(lastSync()).toMatchObject({ inserted: 0, failed: 3, errorCode: 'unknown', error: 'Synchronisierung fehlgeschlagen. Bitte später erneut versuchen.' })
+    expect(marked.map((e) => e?.code)).toEqual(['unknown'])
+  })
+})
