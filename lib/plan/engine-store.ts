@@ -28,6 +28,8 @@ async function saveEngineState(state: EngineState) {
 
 import { todayLocal, localDate } from '@/lib/dates'
 import { ensureLiveBlocks } from './live-blocks'
+import { pullSources } from '@/lib/sources/registry'
+import { loadLastSync } from '@/lib/sources/sync'
 
 // Runs of the plan window plus today's form (TSB) and load ratio (ACWR), from the shared model.
 async function loadRunsAndFitness(): Promise<{ runs: DatedRun[]; fitness: Fitness }> {
@@ -52,12 +54,12 @@ async function loadRunsAndFitness(): Promise<{ runs: DatedRun[]; fitness: Fitnes
   return { runs, fitness }
 }
 
-// Last day fully covered by the latest successful sync: the day before the sync (the runner's date).
-// A failed sync covers nothing new. No sync record → null (nothing counts as missed).
-async function loadSyncedThrough(): Promise<string | null> {
-  const s = await getSettingJson<{ at: string; error?: string }>('garmin_last_sync')
-  if (!s || s.error || typeof s.at !== 'string' || Number.isNaN(Date.parse(s.at))) return null
-  return format(addDays(parseISO(todayLocal(new Date(s.at))), -1), 'yyyy-MM-dd')
+// Last day fully covered by the latest successful sync: the day before the sync (the runner's date). The sync saves
+// its result per source; a source whose last sync failed covers nothing. No sync record → null (nothing counts as missed).
+export async function loadSyncedThrough(): Promise<string | null> {
+  const syncs = await Promise.all(pullSources().map((src) => loadLastSync(src.meta.id)))
+  const at = syncs.flatMap((s) => (s && !s.error && typeof s.at === 'string' && !Number.isNaN(Date.parse(s.at)) ? [s.at] : [])).sort().at(-1)
+  return at ? format(addDays(parseISO(todayLocal(new Date(at))), -1), 'yyyy-MM-dd') : null
 }
 
 // The engine's state plus, without Plus (lib/billing/entitlements.ts autoAdapt), the changes it would make now.
