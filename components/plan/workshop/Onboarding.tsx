@@ -319,7 +319,7 @@ function WeekStrip({ p }: { p: AthleteProfile }) {
 }
 
 // Keeps what is typed (German comma allowed) and only reports it; the range is checked by the step, not while typing.
-function Num({ field, label, unit, value, onChange, decimals = 0, hint }: {
+export function Num({ field, label, unit, value, onChange, decimals = 0, hint }: {
   field: RangedField; label: string; unit: string; value: number | null; onChange: (v: number | null) => void; decimals?: number; hint?: string
 }) {
   const [t, setT] = useState(value == null ? '' : String(value).replace('.', ','))
@@ -371,14 +371,14 @@ function Choice({ active, onClick, label, description }: { active: boolean; onCl
   )
 }
 
-function Days({ label, value, onToggle }: { label: string; value: Weekday[]; onToggle: (d: Weekday) => void }) {
+export function Days({ label, value, onToggle }: { label: string; value: Weekday[]; onToggle: (d: Weekday) => void }) {
   return (
     <div className="grid gap-1.5 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="grid max-w-[21.5rem] grid-cols-7 gap-1.5">
         {WEEKDAYS.map((w) => (
           <button key={w.d} type="button" onClick={() => onToggle(w.d)} aria-pressed={value.includes(w.d)} aria-label={w.long}
-            className={cn('tap h-9 w-11 rounded-lg border text-sm', value.includes(w.d) ? 'border-foreground bg-foreground text-background' : 'border-border hover:border-foreground/40')}>
+            className={cn('tap h-9 rounded-lg border text-sm', value.includes(w.d) ? 'border-foreground bg-foreground text-background' : 'border-border hover:border-foreground/40')}>
             {w.short}
           </button>
         ))}
@@ -387,7 +387,7 @@ function Days({ label, value, onToggle }: { label: string; value: Weekday[]; onT
   )
 }
 
-function One({ label, value, options, onChange, allowNone }: { label: string; value: Weekday | null; options: Weekday[]; onChange: (d: Weekday | null) => void; allowNone?: boolean }) {
+export function One({ label, value, options, onChange, allowNone }: { label: string; value: Weekday | null; options: Weekday[]; onChange: (d: Weekday | null) => void; allowNone?: boolean }) {
   return (
     <label className="grid gap-1 text-sm">
       <span className="text-muted-foreground">{label}</span>

@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, Check, History, Lightbulb, RotateCcw, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, TypeTag } from '@/components/plan/ui'
-import { PauseControl } from '@/components/plan/PauseControl'
+import { RebuildArea, RebuildHistoryRow, rebuildPost, useAfterRebuild, useRebuildState, type RebuildHistoryItem } from '@/components/plan/Rebuild'
 import { useToday } from '@/lib/use-today'
 import type { FeedbackHint } from '@/lib/feedback/rules'
 import { Onboarding, ProfileOverview } from '@/components/plan/workshop/Onboarding'
@@ -34,7 +34,8 @@ async function post(body: unknown) {
   return d
 }
 
-// Plan-Werkstatt: pick a period, see how it is going, apply rule-based suggestions (with diff) and undo them.
+// Plan anpassen: on top the whole plan (goal, race, everyday, interruption: preview, reasons, apply; components/plan/
+// Rebuild.tsx), below the period check with rule-based suggestions (with diff). One history for both, each with undo.
 export default function WorkshopPage() {
   const qc = useQueryClient()
   const today = useToday()
@@ -43,6 +44,8 @@ export default function WorkshopPage() {
   // null = workshop; 'overview' = all profile answers; a number = edit that onboarding step alone
   const [profileView, setProfileView] = useState<null | 'overview' | number>(null)
   const [note, setNote] = useState<string | null>(null)
+  const [blockId, setBlockId] = useState<string | undefined>(undefined)
+  const afterRebuild = useAfterRebuild()
 
   const prof = useQuery<ProfileData>({ queryKey: ['athlete-profile'], queryFn: () => fetch('/api/running/profile').then((r) => r.json()) })
   const ready = choice.p !== 'range' || (choice.from && choice.to)
@@ -51,7 +54,8 @@ export default function WorkshopPage() {
     queryFn: () => fetch(`/api/running/workshop?${qs(choice)}`).then((r) => { if (!r.ok) throw new Error(); return r.json() }),
     enabled: !!ready && !!prof.data?.profile,
   })
-  const refresh = () => ['workshop', 'plan-overrides', 'plan-engine', 'plan-actuals'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }))
+  const rebuild = useRebuildState(blockId)
+  const refresh = () => ['workshop', 'plan-overrides', 'plan-engine', 'plan-actuals', 'plan-rebuild'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }))
 
   const saveProfile = useMutation({
     mutationFn: async (profile: AthleteProfile) => {
@@ -68,6 +72,11 @@ export default function WorkshopPage() {
   const undo = useMutation({
     mutationFn: (entryId: string) => post({ action: 'undo', entryId }),
     onSuccess: (d: { changedSince?: string[] }) => { setNote(d.changedSince?.length ? `Rückgängig. Achtung: ${d.changedSince.length} Tag(e) hattest du danach noch geändert, sie sind jetzt wieder wie vorher.` : 'Rückgängig gemacht.'); refresh() },
+  })
+
+  const undoRebuild = useMutation({
+    mutationFn: (id: string) => rebuildPost({ action: 'undo', id }),
+    onSuccess: () => { setNote('Neuaufbau zurückgenommen: der Plan ist wieder wie davor.'); afterRebuild() },
   })
 
   if (prof.isLoading) return <p className="text-sm text-muted-foreground">Lädt…</p>
@@ -90,21 +99,31 @@ export default function WorkshopPage() {
     )
   }
 
-  const error = [apply, undo].find((m) => m.isError)?.error as Error | undefined
+  const error = [apply, undo, undoRebuild].find((m) => m.isError)?.error as Error | undefined
   return (
     <div className="flex flex-col gap-5 pb-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link href="/plan" className="text-xs text-muted-foreground hover:text-foreground">← Plan</Link>
           <h1 className="mt-1 text-2xl sm:text-[28px] font-semibold tracking-tight">Plan anpassen</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Zeitraum wählen, prüfen, Vorschläge übernehmen. Feste Regeln, nichts ändert sich ohne dich.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Den ganzen Plan ändern oder einzelne Vorschläge übernehmen. Du siehst vorher, was sich ändert und warum; nichts passiert ohne dich.</p>
         </div>
         <button onClick={() => setProfileView('overview')} className="tap inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-secondary">
           <Settings2 className="h-3.5 w-3.5" /> Trainingsprofil
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Zeitraum">
+      {note && <p className="flex items-center gap-1.5 text-sm text-teal"><Check className="h-4 w-4" />{note}</p>}
+      {error && <p className="flex items-center gap-1.5 text-sm text-brand"><AlertTriangle className="h-4 w-4" />{error.message}</p>}
+      {rebuild.data && <RebuildArea state={rebuild.data} today={today} onBlock={setBlockId} onNote={setNote} />}
+      {rebuild.isError && <p className="text-sm text-brand">Der Planstand konnte nicht geladen werden. Seite neu laden.</p>}
+
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Vorschläge und Verlauf</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">Zeitraum wählen und prüfen. Vorschläge ändern einzelne Tage, der Rest des Plans bleibt.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Zeitraum">
         {CHOICES.map((c) => (
           <button key={c.p} aria-pressed={choice.p === c.p}
             onClick={() => setChoice(c.p === 'range' ? { p: 'range', from: range.from || undefined, to: range.to || undefined } : { p: c.p })}
@@ -119,10 +138,9 @@ export default function WorkshopPage() {
             <input type="date" value={range.to} onChange={(e) => { const r = { ...range, to: e.target.value }; setRange(r); setChoice({ p: 'range', from: r.from || undefined, to: r.to || undefined }) }} className="rounded-lg border border-border bg-card px-2 py-1" aria-label="Bis" />
           </span>
         )}
+        </div>
       </div>
 
-      {note && <p className="flex items-center gap-1.5 text-sm text-teal"><Check className="h-4 w-4" />{note}</p>}
-      {error && <p className="flex items-center gap-1.5 text-sm text-brand"><AlertTriangle className="h-4 w-4" />{error.message}</p>}
       {!ready && <p className="text-sm text-muted-foreground">Start- und Enddatum wählen.</p>}
       {isLoading && ready && <p className="text-sm text-muted-foreground">Rechnet…</p>}
       {isError && <p className="text-sm text-brand">Konnte nicht geladen werden. Seite neu laden.</p>}
@@ -130,6 +148,7 @@ export default function WorkshopPage() {
       {data && (
         <>
           <Overview d={data} />
+          <div className="grid items-start gap-5 lg:grid-cols-2">
           <Card title="Vorschläge" aside={<span className="text-xs text-muted-foreground">{data.period.label}</span>}>
             {data.hints?.length > 0 && (
               <ul className="mb-4 grid gap-2 text-sm" aria-label="Aus deinem Feedback">
@@ -139,7 +158,6 @@ export default function WorkshopPage() {
                       {h.tone === 'warn' ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> : <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" />}
                       <span>{h.text}</span>
                     </span>
-                    {h.pause && <PauseControl today={today} />}
                   </li>
                 ))}
               </ul>
@@ -154,28 +172,37 @@ export default function WorkshopPage() {
             )}
           </Card>
           <Card title="Verlauf" aside={<History className="h-4 w-4 text-muted-foreground" />}>
-            {data.log.length === 0 ? <p className="text-sm text-muted-foreground">Noch keine Änderungen über „Plan anpassen“.</p> : (
-              <ul className="grid gap-2 text-sm">
-                {data.log.map((e) => (
-                  <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
-                    <span className="min-w-0">
-                      <span className={cn('font-medium', e.undoneAt && 'text-muted-foreground line-through')}>{e.title}</span>
-                      <span className="block text-xs text-muted-foreground">{format(parseISO(e.at), 'd.M. HH:mm')} · {e.period} · {Object.keys(e.after).length} Tag(e)</span>
-                    </span>
-                    {e.undoneAt ? <span className="text-xs text-muted-foreground">rückgängig</span> : (
-                      <button onClick={() => undo.mutate(e.id)} disabled={undo.isPending}
-                        className="tap inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-secondary disabled:opacity-50">
-                        <RotateCcw className="h-3 w-3" /> Rückgängig
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <HistoryList log={data.log} rebuilds={rebuild.data?.history ?? []} busy={undo.isPending || undoRebuild.isPending}
+              onUndo={(id) => undo.mutate(id)} onUndoRebuild={(id) => undoRebuild.mutate(id)} />
           </Card>
+          </div>
         </>
       )}
     </div>
+  )
+}
+
+// Rebuilds and taken-over suggestions in one list, newest first.
+function HistoryList({ log, rebuilds, busy, onUndo, onUndoRebuild }: { log: WorkshopLogEntry[]; rebuilds: RebuildHistoryItem[]; busy: boolean; onUndo: (id: string) => void; onUndoRebuild: (id: string) => void }) {
+  const items = [...rebuilds.map((e) => ({ at: e.at, rebuild: e, entry: null })), ...log.map((e) => ({ at: e.at, rebuild: null, entry: e }))].sort((a, b) => b.at.localeCompare(a.at))
+  if (!items.length) return <p className="text-sm text-muted-foreground">Noch keine Änderungen über „Plan anpassen“.</p>
+  return (
+    <ul className="grid gap-2 text-sm">
+      {items.map(({ rebuild, entry: e }) => rebuild ? <RebuildHistoryRow key={rebuild.id} e={rebuild} busy={busy} onUndo={() => onUndoRebuild(rebuild.id)} /> : e && (
+        <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
+          <span className="min-w-0">
+            <span className={cn('font-medium', e.undoneAt && 'text-muted-foreground line-through')}>{e.title}</span>
+            <span className="block text-xs text-muted-foreground">{format(parseISO(e.at), 'd.M. HH:mm')} · {e.period} · {Object.keys(e.after).length} Tag(e)</span>
+          </span>
+          {e.undoneAt ? <span className="text-xs text-muted-foreground">rückgängig</span> : (
+            <button onClick={() => onUndo(e.id)} disabled={busy}
+              className="tap inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-secondary disabled:opacity-50">
+              <RotateCcw className="h-3 w-3" /> Rückgängig
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
   )
 }
 

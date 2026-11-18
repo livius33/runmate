@@ -285,7 +285,7 @@ function reasonsFor(a: RebuildInput & { cut: string; draft: Draft; base: Rebuild
     out.push(`Längster Longrun ${num(o.longestKm)} → ${num(n.longestKm)} km`
       + (l30 > 0 ? `: er wächst von deinem längsten Lauf der letzten 30 Tage (${num(l30)} km), nie mehr als 10 % auf einmal.` : '.'))
   }
-  if (n.taperStart !== o.taperStart && n.taperStart) out.push(`Taper ab ${dm(n.taperStart)}${o.taperStart ? ` statt ${dm(o.taperStart)}` : ''}.`)
+  if (n.taperStart !== o.taperStart && n.taperStart) out.push(`Taper ab ${dm(n.taperStart)}${o.taperStart ? ` statt ${dm(o.taperStart)}` : ''}`)
   out.push(Math.abs(n.restKm - o.restKm) < 0.5
     ? `Bis zum Rennen bleiben es ${num(n.restKm)} km.`
     : `Bis zum Rennen: ${num(o.restKm)} → ${num(n.restKm)} km (${n.restKm > o.restKm ? '+' : '−'}${num(Math.abs(n.restKm - o.restKm))} km).`)
