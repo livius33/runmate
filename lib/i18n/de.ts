@@ -8,7 +8,7 @@ export const de = {
     description:
       'Trainingspläne nach Daniels, Pfitzinger, Hansons, Lydiard, 80/20 oder dem norwegischen Modell. Runmate gleicht jeden Tag Plan und Lauf ab und passt nach festen, lesbaren Regeln an. Open Source, selbst hostbar, Daten in der EU.',
     pricingTitle: 'Preise – Runmate',
-    pricingDescription: 'Selbst hosten für 0 € oder gehostet ab 6 € im Monat. 30 Tage testen, ohne Karte.',
+    pricingDescription: 'Selbst hosten für 0 €, gehostet kostenlos oder mit Plus für 9 € im Monat. 30 Tage Plus testen, ohne Karte.',
     methodsTitle: 'Trainingsmethoden – Runmate',
     methodsDescription: 'Alle Vorlagen, aus denen Runmate Pläne baut: Phasen, Umfang, Intensität, Anpassungsregeln und Quellen.',
     ogAlt: 'Runmate: Lauf nach Plan. Der Plan läuft mit.',
@@ -26,7 +26,7 @@ export const de = {
   },
   cta: {
     trial: '30 Tage testen',
-    trialNote: 'Ohne Karte. Danach ab 6 € im Monat – oder kostenlos selbst hosten.',
+    trialNote: 'Ohne Karte. Danach kostenlos weiter – oder mit Plus für 9 € im Monat.',
     waitlist: 'Auf die Warteliste',
     waitlistNote: 'Die gehostete Version startet bald. Wir schreiben dir einmal, wenn es losgeht.',
     github: 'Code auf GitHub',
@@ -105,7 +105,7 @@ export const de = {
     year: 'Jährlich',
     perMonth: '/ Monat',
     perYear: '/ Jahr',
-    trial: '30 Tage alle Funktionen, ohne Karte. Abrechnung über Paddle. Monatlich kündbar.',
+    trial: '30 Tage alle Plus-Funktionen, ohne Karte. Danach geht es kostenlos weiter. Plus wird über Paddle abgerechnet und ist monatlich kündbar.',
     selfHost: {
       name: 'Selbst hosten',
       price: '0 €',
@@ -113,17 +113,17 @@ export const de = {
       points: ['Alle Funktionen', 'Eigene Datenbank (Postgres/Neon)', 'Docker oder Vercel', 'Garmin-Login, Apple Health, Datei-Import'],
       cta: 'Anleitung lesen',
     },
-    basic: {
-      name: 'Basic',
-      month: '6 €',
-      year: '59 €',
-      points: ['Täglicher Sync', 'Plan nach einer Methode', 'Analyse und Wochenrückblick', 'Anpassungen als Vorschlag zum Übernehmen'],
+    free: {
+      name: 'Kostenlos',
+      price: '0 €',
+      note: 'ohne Karte, ohne Frist',
+      points: ['Täglicher Sync', 'Ein Plan nach einer Methode', 'Analyse und Wochenrückblick', 'Anpassungen als Vorschlag zum Übernehmen'],
     },
     plus: {
       name: 'Plus',
-      month: '10 €',
-      year: '99 €',
-      points: ['Alles aus Basic', 'Anpassung automatisch', 'Mehrere Pläne und Rennen', 'Eigene Methode', 'Renntag: Splits, Plan A/B, Checkliste'],
+      month: '9 €',
+      year: '79 €',
+      points: ['Alles aus Kostenlos', 'Anpassung automatisch', 'Plan neu aufbauen bei neuem Ziel oder Termin', 'Mehrere Pläne und B-Rennen', 'Eigene Methode', 'Renntag: Splits, Plan A/B, Checkliste', 'Schlaf und HRV fließen in den Plan ein'],
     },
     always: 'Immer dabei: Export als ZIP, Löschen mit einem Klick, Daten in der EU.',
   },
@@ -152,7 +152,7 @@ export const de = {
       },
       {
         q: 'Wie kündige ich?',
-        a: 'Jederzeit zum Ende des bezahlten Zeitraums, über den Button „Verträge hier kündigen“ – auch ohne Anmeldung. Die Testphase endet von selbst; ohne Karte wird nichts abgebucht.',
+        a: 'Jederzeit zum Ende des bezahlten Zeitraums, über den Button „Verträge hier kündigen“ – auch ohne Anmeldung. Danach läuft dein Konto kostenlos weiter. Die Testphase endet von selbst; ohne Karte wird nichts abgebucht.',
       },
       {
         q: 'Was heißt Open Source hier?',

@@ -391,7 +391,7 @@ function DoneStep({ view, busy, onFinish }: { view: View; busy: boolean; onFinis
         {view.state.skipped.includes('source') ? ' Eine Datenquelle verbindest du jederzeit unter Einstellungen → Datenquellen.' : ''}
       </p>
       {e.state === 'trial' && e.trialEndsAt && (
-        <p className="mt-2 text-sm text-muted-foreground">Deine Testphase läuft bis {format(new Date(e.trialEndsAt * 1000), 'd. MMMM yyyy', { locale: de })} – ohne Zahlungsdaten.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Deine Testphase läuft bis {format(new Date(e.trialEndsAt * 1000), 'd. MMMM yyyy', { locale: de })} – ohne Zahlungsdaten. Danach geht es kostenlos weiter.</p>
       )}
       <button onClick={onFinish} disabled={busy} className={cn(primary, 'mt-4')}>Zum Plan</button>
     </Card>

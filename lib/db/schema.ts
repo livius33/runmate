@@ -193,7 +193,7 @@ export const wellnessDays = pgTable('wellness_days', {
 export const subscription = pgTable('subscription', {
   userId: userId().primaryKey(),
   status: text('status').notNull(),              // 'trialing' (in-app trial) | Paddle: active | past_due | paused | canceled
-  tier: text('tier'),                            // 'basic' | 'plus' (null during the in-app trial)
+  tier: text('tier'),                            // 'plus' (null during the in-app trial and for Free; an old 'basic' counts as Free)
   interval: text('interval'),                    // 'month' | 'year'
   trialEndsAt: integer('trial_ends_at'),         // in-app trial (30 days from the first sign-in, no card)
   paddleCustomerId: text('paddle_customer_id'),
@@ -203,7 +203,7 @@ export const subscription = pgTable('subscription', {
   cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
   canceledAt: integer('canceled_at'),
   eventAt: integer('event_at'),                  // occurred_at of the last Paddle event applied (older ones are ignored)
-  // Retention of expired accounts (Phase 5, lib/billing/retention.ts): last dashboard visit (stamped at most daily) and
+  // Retention of free accounts (Phase 5, lib/billing/retention.ts): last dashboard visit (stamped at most daily) and
   // when the "deleted in 30 days" reminder went out (null = none, or reset by a visit after it).
   lastSeenAt: integer('last_seen_at'),
   noticeSentAt: integer('notice_sent_at'),

@@ -18,12 +18,11 @@ export const useEntitlements = () => useContext(Ctx)
 
 // A calm hint instead of a locked feature: what it is, that the data stays, where to change the plan.
 export function Upsell({ feature, className }: { feature: Feature; className?: string }) {
-  const e = useEntitlements()
   return (
     <div className={`rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm ${className ?? ''}`}>
       <p className="flex items-start gap-2 text-muted-foreground">
         <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-        <span>{upsellText(feature, e)}</span>
+        <span>{upsellText(feature)}</span>
       </p>
       <Link href="/settings#abo" className="mt-2 inline-block text-xs font-medium text-brand hover:underline">Abo ansehen →</Link>
     </div>

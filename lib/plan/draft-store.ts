@@ -170,7 +170,7 @@ export async function planStatus(today: string) {
 }
 
 // Freeze a saved draft into a training block and make it part of the live plan.
-// Entitlements (Phase 4): Basic keeps one live plan (finished blocks do not count) and no own method; `code` lets the
+// Entitlements (Phase 4): Free keeps one live plan (finished blocks do not count) and no own method; `code` lets the
 // route answer 402 with the upsell.
 export async function goLive(draftId: string, today: string): Promise<{ error: string; code?: string } | { block: { id: string; planStart: string; end: string } }> {
   const ctx = await context(today)
@@ -181,7 +181,7 @@ export async function goLive(draftId: string, today: string): Promise<{ error: s
   const gate = !e.features.plan ? 'plan' as const
     : running >= e.maxLivePlans ? 'multiPlan' as const
       : isOwn(stored.templateId) && !e.features.ownMethod ? 'ownMethod' as const : null
-  if (gate) return { error: upsellText(gate, e), code: 'plus-required' }
+  if (gate) return { error: upsellText(gate), code: 'plus-required' }
   const result = generate(ctx, stored, today)
   if (!result.ok) return { error: result.error }
   const goal = ctx.goals.find((g) => g.id === stored.goalId)!
@@ -199,7 +199,7 @@ export async function goLive(draftId: string, today: string): Promise<{ error: s
 // Save the own method for one distance (empty = the neutral base) and its name; checked like a template file (07-19).
 export async function saveOwn(templateId: string, values: Tuning, name: string): Promise<{ error: string; code?: string } | { ok: true }> {
   const e = await currentEntitlements()
-  if (!e.features.ownMethod) return { error: upsellText('ownMethod', e), code: 'plus-required' }
+  if (!e.features.ownMethod) return { error: upsellText('ownMethod'), code: 'plus-required' }
   const b = listOwnBases().valid.find((m) => m.id === templateId)
   if (!b) return { error: 'Grundlage nicht gefunden.' }
   const r = buildOwn(b.params, values, name)
