@@ -9,7 +9,7 @@ import { RUN_ACTIVITY_TYPES, parseMetrics } from '@/lib/analytics/run-view'
 import { acwr, acwrSeries, fitnessSeries } from '@/lib/analytics/load'
 import { firstPlanStart } from './blocks'
 import { loadOverrides } from './load'
-import { EMPTY_ENGINE, runEngine, undoChange, type EngineChange, type EngineState, type Fitness } from './engine'
+import { EMPTY_ENGINE, runEngine, undoChange, type EngineChange, type EngineInput, type EngineState, type Fitness } from './engine'
 import type { DatedRun } from './pace-check'
 import { loadPauses } from './pause-store'
 import { loadRecoveryToday } from '@/lib/wellness/store'
@@ -28,6 +28,8 @@ export async function saveEngineState(state: EngineState) {
 
 import { todayLocal, localDate } from '@/lib/dates'
 import { ensureLiveBlocks } from './live-blocks'
+import { pullSources } from '@/lib/sources/registry'
+import { loadLastSync } from '@/lib/sources/sync'
 
 // Runs of the plan window plus today's form (TSB) and load ratio (ACWR), from the shared model.
 async function loadRunsAndFitness(): Promise<{ runs: DatedRun[]; fitness: Fitness }> {
@@ -52,12 +54,12 @@ async function loadRunsAndFitness(): Promise<{ runs: DatedRun[]; fitness: Fitnes
   return { runs, fitness }
 }
 
-// Last day fully covered by the latest successful sync: the day before the sync (the runner's date).
-// A failed sync covers nothing new. No sync record → null (nothing counts as missed).
-async function loadSyncedThrough(): Promise<string | null> {
-  const s = await getSettingJson<{ at: string; error?: string }>('garmin_last_sync')
-  if (!s || s.error || typeof s.at !== 'string' || Number.isNaN(Date.parse(s.at))) return null
-  return format(addDays(parseISO(todayLocal(new Date(s.at))), -1), 'yyyy-MM-dd')
+// Last day fully covered by the latest successful sync: the day before the sync (the runner's date). The sync saves
+// its result per source; a source whose last sync failed covers nothing. No sync record → null (nothing counts as missed).
+export async function loadSyncedThrough(): Promise<string | null> {
+  const syncs = await Promise.all(pullSources().map((src) => loadLastSync(src.meta.id)))
+  const at = syncs.flatMap((s) => (s && !s.error && typeof s.at === 'string' && !Number.isNaN(Date.parse(s.at)) ? [s.at] : [])).sort().at(-1)
+  return at ? format(addDays(parseISO(todayLocal(new Date(at))), -1), 'yyyy-MM-dd') : null
 }
 
 // The engine's state plus, without Plus (lib/billing/entitlements.ts autoAdapt), the changes it would make now.
@@ -75,7 +77,8 @@ async function runNow(today: string) {
     loadOverrides(), loadEngineState(), loadRunsAndFitness(), loadSyncedThrough(), loadPauses(), loadRecoveryForPlan(today)])
   // This morning's night flags join the fitness; without wellness data (or without Plus) nothing changes.
   const fitness: Fitness = recovery ? { ...load, recovery } : load
-  return { state, r: runEngine({ today, at: new Date().toISOString(), manual, state, runs, fitness, syncedThrough, pauses }) }
+  const input: EngineInput = { today, at: new Date().toISOString(), manual, state, runs, fitness, syncedThrough, pauses }
+  return { input, r: runEngine(input) }
 }
 
 // The engine's new changes that alter the plan (not its notes and not its own corrections).
@@ -120,10 +123,19 @@ export function applySuggestion(state: EngineState, c: EngineChange, decline = f
   return { ...state, overrides: { ...state.overrides, ...c.after }, log: [...state.log, { ...c, before }] }
 }
 
+// One suggestion as it applies on its own. Later rules build on the earlier changes of the same run (the heart-rate note
+// copies a day that rebalance has just raised), so the change is computed again with the run's other suggestions held
+// back: taking over one suggestion never brings in the km of another.
+export function suggestionAlone(input: EngineInput, saved: EngineState, suggestions: EngineChange[], key: string): EngineChange | undefined {
+  const held = suggestions.filter((x) => x.key !== key).map((x) => x.vetoKey ?? x.key)
+  return runEngine({ ...input, state: { ...saved, vetoes: [...saved.vetoes, ...held] } }).added.find((x) => x.key === key && isSuggestion(x))
+}
+
 export async function acceptSuggestion(key: string, decline = false, today = todayLocal()): Promise<EngineResult | { error: string }> {
-  const { r } = await runNow(today)
+  const { input, r } = await runNow(today)
   const { state, suggestions } = withoutSuggestions(r.state, r.added)
-  const c = suggestions.find((x) => x.key === key)
+  const shown = suggestions.find((x) => x.key === key)
+  const c = shown && (decline ? shown : suggestionAlone(input, state, suggestions, key))
   if (!c) return { error: 'Dieser Vorschlag gilt nicht mehr.' }
   const next = applySuggestion(state, c, decline)
   await saveEngineState(next)

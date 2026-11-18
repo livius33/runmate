@@ -25,7 +25,7 @@ const SUBS: Record<string, Record<string, unknown> | null> = {
 const st = { sub: null as Record<string, unknown> | null, sync: null as string | null }
 const fake = useFakeDb((q) => {
   if (/from "subscription"/.test(q.sql)) return st.sub ? [rowOf(subscription, { userId: q.params[0], cancelAtPeriodEnd: false, updatedAt: 0, ...st.sub })] : []
-  if (st.sync && /^select "value" from "settings"/.test(q.sql) && q.params[1] === 'garmin_last_sync') return [[JSON.stringify({ at: st.sync })]]
+  if (st.sync && /^select "value" from "settings"/.test(q.sql) && q.params[1] === 'last_sync:garmin') return [[JSON.stringify({ at: st.sync })]]
   return []
 })
 afterAll(() => fake.restore())

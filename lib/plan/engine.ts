@@ -341,14 +341,16 @@ function correctRebalance(input: EngineInput): { state: EngineState; added: Engi
   const week = weekOf(today)
   const takeBack = (c: EngineChange, why: string) => {
     const overrides = { ...state.overrides }
-    for (const d of Object.keys(c.after)) {
-      const prev = c.before[d]
-      if (prev) overrides[d] = prev
-      else delete overrides[d]
+    revertAddition(overrides, c)
+    // A newer change written on top of the addition remembers it as its `before`: point that at what was there
+    // before the addition, or undoing the newer change would bring the addition back.
+    const rewire = (x: EngineChange): EngineChange => {
+      const days = x.status === 'active' ? Object.keys(c.after).filter((d) => x.before[d] && JSON.stringify(x.before[d]) === JSON.stringify(c.after[d])) : []
+      return days.length ? { ...x, before: { ...x.before, ...Object.fromEntries(days.map((d) => [d, c.before[d] ?? null])) } } : x
     }
     state = {
       ...state, overrides,
-      log: [...state.log.map((x) => (x.id === c.id ? { ...x, status: 'undone' as const } : x)), {
+      log: [...state.log.map((x) => (x.id === c.id ? { ...x, status: 'undone' as const } : rewire(x))), {
         id: `rebalance-fix:${c.id}@${at}`, at, rule: 'rebalance', key: `rebalance-fix:${c.id}`,
         before: {}, after: {}, status: 'info',
         reason: `Ausgleich zurückgenommen (${why}): ${c.reason}`,
@@ -373,7 +375,10 @@ function correctRebalance(input: EngineInput): { state: EngineState; added: Engi
       const plannedOn = (d: string) => { const s = base.find((x) => x.date === d); return s && s.type !== 'rest' && s.type !== 'race' ? s.km ?? 0 : 0 }
       const kmOn = (d: string) => runs.filter((r) => r.date === d).reduce((t, r) => t + r.km, 0)
       const past = weekDates(week).filter((d) => d < today && d >= firstPlanStart() && isSynced(d, syncedThrough))
-      const missing = Math.max(0, past.reduce((t, d) => t + plannedOn(d) - kmOn(d), 0))
+      // The gap as the rule counts it: additions on days already past are part of what was planned there.
+      const withAdditions = effectiveSessions(manual, state.overrides, pz({ today, pauses }))
+      const plannedWith = (d: string) => { const s = withAdditions.find((x) => x.date === d); return s && s.type !== 'rest' && s.type !== 'race' ? s.km ?? 0 : 0 }
+      const missing = Math.max(0, past.reduce((t, d) => t + plannedWith(d) - kmOn(d), 0))
       // Only additions on days still ahead are taken back; past days stay as they were planned.
       const revertible = () => active().filter((c) => Object.keys(c.after).every((d) => d >= today))
       while (revertible().length) {
@@ -390,16 +395,23 @@ function correctRebalance(input: EngineInput): { state: EngineState; added: Engi
   return { state, added }
 }
 
+// Remove one rebalance addition from the overrides: each of its days goes back to what it was before — except where a
+// newer change has put another session on the day since (a missed key session moved there): that session stays.
+function revertAddition(overrides: Overrides, c: EngineChange) {
+  for (const d of Object.keys(c.after)) {
+    const now = overrides[d]
+    if (now && (now.type !== c.after[d].type || now.title !== c.after[d].title)) continue
+    const prev = c.before[d]
+    if (prev) overrides[d] = prev
+    else delete overrides[d]
+  }
+}
+
 // Engine overrides without active rebalance additions: the base that manual edits work on.
 export function withoutRebalance(state: EngineState): Overrides {
   const overrides = { ...state.overrides }
   for (const c of [...state.log].reverse()) {
-    if (c.rule !== 'rebalance' || c.status !== 'active') continue
-    for (const d of Object.keys(c.after)) {
-      const prev = c.before[d]
-      if (prev) overrides[d] = prev
-      else delete overrides[d]
-    }
+    if (c.rule === 'rebalance' && c.status === 'active') revertAddition(overrides, c)
   }
   return overrides
 }
@@ -433,8 +445,10 @@ function rebalance({ today, at, manual, state, runs, fitness, syncedThrough, pau
   const open = Math.round((missing - already) * 2) / 2
   if (open < MIN_REBALANCE_KM) return []
 
-  // No extra km the day before a test or event.
-  const candidates = dates.filter((d) => d >= today && !manual[d] && kmOn(d) === 0 && canTakeExtra(at_(d), d) && !at_(day(d, 1))?.test && !at_(day(d, 1))?.anchor)
+  // No extra km the day before a test or event, and none on a day the fatigue guard softened: it reads as an easy
+  // day, but its cap (maxKm) is still the one of the hard session it replaced.
+  const softened = new Set(state.log.filter((c) => c.rule === 'fatigue' && c.status === 'active').flatMap((c) => Object.keys(c.after)))
+  const candidates = dates.filter((d) => d >= today && !manual[d] && !softened.has(d) && kmOn(d) === 0 && canTakeExtra(at_(d), d) && !at_(day(d, 1))?.test && !at_(day(d, 1))?.anchor)
   const add = new Map<string, number>()
   let left = open
   while (left >= 0.5) {

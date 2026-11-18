@@ -6,6 +6,7 @@ import { own } from '@/lib/db/owned'
 import { getSettingJson, setSettingJson } from '@/lib/db/settings'
 import { timeZone } from '@/lib/dates'
 import { getLinkToken } from '@/lib/links/tokens'
+import { loadLastSync } from '@/lib/sources/sync'
 import { RUN_ACTIVITY_TYPES, toDatedRun } from '@/lib/analytics/run-view'
 import { acwr, acwrSeries, fitnessSeries } from '@/lib/analytics/load'
 import { allGoals, storedGoals } from '@/lib/season/goals'
@@ -137,7 +138,7 @@ export async function profilePrefill(today: string): Promise<AthleteProfile> {
 
 // For the onboarding's "Verbindungen" step.
 export async function connections() {
-  const [sync, cal, health] = await Promise.all([getSetting<{ at: string; error?: string }>('garmin_last_sync'), getLinkToken('calendar'), getLinkToken('health')])
+  const [sync, cal, health] = await Promise.all([loadLastSync('garmin'), getLinkToken('calendar'), getLinkToken('health')])
   const at = sync && !sync.error ? new Date(sync.at) : null
   return {
     garminSync: at ? at.toLocaleString('de-DE', { timeZone: timeZone(), day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : null,
