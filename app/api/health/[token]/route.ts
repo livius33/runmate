@@ -6,6 +6,7 @@ import { parseHealth } from '@/lib/health/parse'
 import { saveHealth } from '@/lib/health/store'
 import { hasOtherRunSource } from '@/lib/sources/registry'
 import { upsertSummary } from '@/lib/sources/ingest'
+import { runAndSaveEngine } from '@/lib/plan/engine-store'
 import { runAsUser } from '@/lib/server/scope'
 import { intakeBlocked } from '@/lib/legal/intake'
 
@@ -14,7 +15,8 @@ export const dynamic = 'force-dynamic'
 
 // Public (the iOS Shortcut cannot log in) but only with the secret token, which names the user. POST JSON → one day
 // of Apple Health data for that user. Running workouts count only when no other connected source delivers runs
-// (otherwise they would count twice); they are deduplicated and checked for impossible values like every import. No values are logged.
+// (otherwise they would count twice); they are deduplicated and checked for impossible values like every import, and
+// the plan engine runs after them. No values are logged.
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
   const userId = await userForLinkToken('health', token)
@@ -30,7 +32,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     const keepRuns = !(await hasOtherRunSource('apple-health'))
     const r = parseHealth(body, yesterday, { keepRuns, latest: tomorrow })
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: 400 })
-    const values = await saveHealth(r.day, r.workouts)
+    // Runs first, the day last: saveHealth ends with the last-upload record, which must only name an upload that was
+    // stored in full. A failure in between is a 500 without that record; the Shortcut sends again and the runs
+    // already stored are updated, not doubled.
     let runs = 0, duplicateRuns = 0, rejectedRuns = 0
     for (const run of r.runs) {
       const u = await upsertSummary('apple-health', run)
@@ -38,6 +42,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       else if (u.result === 'rejected') rejectedRuns++      // impossible values (ingest.ts PLAUSIBLE): not stored
       else runs++
     }
+    const values = await saveHealth(r.day, r.workouts)
+    // Stored runs adapt the plan like an import (app/api/import/route.ts), for the token's user; never fails the upload.
+    if (runs > 0) await runAndSaveEngine().catch((err) => console.error('[health] plan engine failed:', err?.message))
     return NextResponse.json({ ok: true, date: r.day.date, values, runs, duplicateRuns, rejectedRuns, skippedWorkouts: r.skipped })
   })
 }
