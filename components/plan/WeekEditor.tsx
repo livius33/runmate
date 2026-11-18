@@ -84,7 +84,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
           today={today} sessions={baseSessions} actualKm={actualKm} actual={actuals.get(selected)}
           saving={saving}
           onMove={(to, mode) => {
-            change(applyMove(overrides, selected, to, mode, today, baseSessions, actualKm))
+            change(applyMove(overrides, selected, to, mode, today, baseSessions, actualKm, autoSessions))
             setSelected(to)
           }}
           edited={!!overrides[selected]}

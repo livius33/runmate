@@ -113,7 +113,7 @@ export function moveModes(from: string, to: string, today: string, sessions: Pla
 
 export function applyMove(
   overrides: Overrides, from: string, to: string, mode: MoveMode,
-  today: string, sessions: PlanSession[], actual: ActualKm,
+  today: string, sessions: PlanSession[], actual: ActualKm, auto?: PlanSession[],
 ): Overrides {
   if (!moveModes(from, to, today, sessions, actual).includes(mode)) return overrides
   const src = dayState(from, today, sessions, actual)
@@ -138,6 +138,13 @@ export function applyMove(
   } else {
     next[to] = mergeSessions(dst.session!, moving, to)
     next[from] = restDay(from, `zusammengelegt mit ${dayLabel(to)}`)
+  }
+  // Moved or swapped back: a day that is at its plan again carries no edit. Where the engine or a return cap changes
+  // the day (`auto` = the plan as shown without manual edits) the edit stays, so nothing reappears under it.
+  for (const d of [from, to]) {
+    const s = next[d]
+    const same = (o?: PlanSession) => (isRun(s) || isRun(o) ? !!o && sameSession(s, o) : true)
+    if (same(allSessions().find((x) => x.date === d)) && (!auto || same(auto.find((x) => x.date === d)))) delete next[d]
   }
   return next
 }
