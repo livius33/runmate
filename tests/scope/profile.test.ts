@@ -58,6 +58,12 @@ describe('Profil-Formular', () => {
     expect(r).toEqual({ ok: true, profile: expect.objectContaining({ hrMax: 198, hrRest: null, lthr: null, zoneModel: null, pbTime: '3:05:30', easyPace: '5:15', timezone: 'Europe/Lisbon' }) })
   })
 
+  // hr_max, hr_rest, lthr and pb_hr are integer columns: a decimal made Postgres reject the save (500).
+  it('Pulswerte werden ganze Zahlen, Gewicht und VO2max behalten eine Nachkommastelle', () => {
+    const r = validateProfile({ hrMax: 185.5, hrRest: '50.4', lthr: 160.5, pbHr: 170.2, weightKg: 70.25, vo2max: 55.55 })
+    expect(r).toEqual({ ok: true, profile: expect.objectContaining({ hrMax: 186, hrRest: 50, lthr: 161, pbHr: 170, weightKg: 70.3, vo2max: 55.6 }) })
+  })
+
   it.each([
     [{ hrMax: 300 }, 'HFmax'],
     [{ hrMax: 130, hrRest: 100 }, 'Ruhepuls und HFmax'],

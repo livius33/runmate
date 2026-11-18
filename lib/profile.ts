@@ -95,11 +95,12 @@ const CLOCK = /^\d{1,2}:[0-5]\d(:[0-5]\d)?$/
 export function validateProfile(raw: unknown): { ok: true; profile: UserProfile } | { ok: false; error: string } {
   if (!raw || typeof raw !== 'object') return { ok: false, error: 'Profil fehlt.' }
   const r = raw as Record<string, unknown>
-  const num = (k: string, lo: number, hi: number, label: string): number | null | string => {
+  // `whole`: heart rates are stored in integer columns.
+  const num = (k: string, lo: number, hi: number, label: string, whole = false): number | null | string => {
     const v = r[k]
     if (v == null || v === '') return null
     const n = Number(v)
-    return Number.isFinite(n) && n >= lo && n <= hi ? Math.round(n * 10) / 10 : `${label}: bitte ${lo}–${hi} oder leer lassen.`
+    return Number.isFinite(n) && n >= lo && n <= hi ? (whole ? Math.round(n) : Math.round(n * 10) / 10) : `${label}: bitte ${lo}–${hi} oder leer lassen.`
   }
   const str = (k: string, re: RegExp | null, label: string, max = 60): string | null | { error: string } => {
     const v = r[k]
@@ -107,8 +108,8 @@ export function validateProfile(raw: unknown): { ok: true; profile: UserProfile 
     if (typeof v !== 'string' || v.length > max || (re && !re.test(v.trim()))) return { error: `${label}: Format prüfen.` }
     return v.trim()
   }
-  const hrMax = num('hrMax', 120, 230, 'HFmax'), hrRest = num('hrRest', 30, 110, 'Ruhepuls'), lthr = num('lthr', 100, 220, 'LTHR')
-  const pbHr = num('pbHr', 100, 230, 'Puls der Bestzeit'), vo2max = num('vo2max', 20, 90, 'VO2max'), weightKg = num('weightKg', 30, 200, 'Gewicht')
+  const hrMax = num('hrMax', 120, 230, 'HFmax', true), hrRest = num('hrRest', 30, 110, 'Ruhepuls', true), lthr = num('lthr', 100, 220, 'LTHR', true)
+  const pbHr = num('pbHr', 100, 230, 'Puls der Bestzeit', true), vo2max = num('vo2max', 20, 90, 'VO2max'), weightKg = num('weightKg', 30, 200, 'Gewicht')
   for (const v of [hrMax, hrRest, lthr, pbHr, vo2max, weightKg]) if (typeof v === 'string') return { ok: false, error: v }
   const pbTime = str('pbTime', CLOCK, 'Bestzeit'), pbRace = str('pbRace', null, 'Rennen'), easyPace = str('easyPace', PACE, 'Lockeres Tempo')
   const timezone = str('timezone', null, 'Zeitzone', 64), locale = str('locale', /^[a-z]{2}(-[A-Z]{2})?$/, 'Sprache', 10)
