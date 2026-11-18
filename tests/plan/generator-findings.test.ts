@@ -7,6 +7,7 @@ import type { GoalKind } from '@/lib/season/goals'
 import type { MeasuredInputs } from '@/lib/plan/generator/inputs'
 import { parseStructure } from '@/lib/plan/structure'
 import { qualityParts } from '@/lib/plan/methodology/describe'
+import { baseBlocks } from '@/lib/plan/base-block'
 
 const template = (id: string) => [...listMethodologies().valid, ...listOwnBases().valid].find((m) => m.id === id)!.params
 const PROFILE: AthleteProfile = {
@@ -63,5 +64,23 @@ describe('Befunde Generator-Raster', () => {
     const built = d.workouts.sessions.filter((s) => (s.notes ?? '').includes(' km @ '))
     expect(built.length).toBeGreaterThan(0)
     expect(built.filter((s) => !parseStructure(s.notes)).map((s) => s.date + ': ' + s.notes)).toEqual([])
+  })
+
+  // G-04: the base block ignored the profile's day limit — 11,5 km threshold on a Tuesday limited to 5 km, 9 km on a
+  // Saturday limited to 8 km.
+  it('G-04 Grundlagenblock hält das Tageslimit', () => {
+    const tight: AthleteProfile = { ...PROFILE, availableDays: [2, 4, 6], longRunDay: 6, qualityDays: [2], restDay: null, maxKmWeekday: 5, maxKmWeekend: 8, thresholdPaceS: 420 }
+    const roomy: AthleteProfile = { ...tight, maxKmWeekday: 12, maxKmWeekend: 9 }
+    const base = (profile: AthleteProfile) => baseBlocks({ blocks: [], runs: [{ date: '2026-11-15', km: 12 }], today: '2026-11-18', profile,
+      settings: { v: 1, paused: false, capKm: null, start: '2026-11-23' } })[0]
+    for (const profile of [tight, roomy]) {
+      const block = base(profile)
+      const runs = block.sessions.filter((s) => s.type !== 'rest')
+      expect(runs.length).toBeGreaterThan(0)
+      expect(runs.filter((s) => (s.km ?? 0) > profileMaxKm(profile, s.date)!).map((s) => `${s.date}: ${s.type} ${s.km} km`)).toEqual([])
+      for (const w of block.weeks) expect(w.km).toBeCloseTo(runs.filter((s) => s.date >= w.start && s.date <= w.end).reduce((t, s) => t + (s.km ?? 0), 0), 5)
+    }
+    // Where the limit leaves room, the threshold session stays.
+    expect(base(roomy).sessions.some((s) => s.type === 'tempo')).toBe(true)
   })
 })
