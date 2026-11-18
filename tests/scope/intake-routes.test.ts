@@ -128,6 +128,27 @@ describe('Cross-Training: Datum', () => {
     expect(writes()).toEqual([])
   })
 
+  // GET ?from=&to= went into the query as sent: the date column is text, so '1.5.2026' compared as text.
+  it.each([
+    ['from=1.5.2026', 'from'],
+    ['from=2026-5-1', 'from'],
+    ['from=2026-02-31', 'from'],
+    ['from=2026-05-01&to=gestern', 'to'],
+    ['to=2026-05-01%27%20or%201=1', 'to'],
+  ])('GET ?%s: 400 auf Deutsch, keine Abfrage', async (query, param) => {
+    const res = await asUser(() => cross.GET(new Request(`http://localhost/api/cross-training?${query}`)))
+    expect([res.status, await res.json()]).toEqual([400, { error: `${param}: ein Kalendertag als JJJJ-MM-TT` }])
+    expect(fake.log).toEqual([])
+  })
+
+  it('GET mit echten Tagen oder ohne Grenzen: die Einheiten', async () => {
+    for (const query of ['', '?from=2026-05-01&to=2026-05-31', '?from=&to=2024-02-29']) {
+      const res = await asUser(() => cross.GET(new Request(`http://localhost/api/cross-training${query}`)))
+      expect([res.status, (await res.json()).length], query).toEqual([200, 1])
+    }
+    expect(fake.log.at(-2)!.params).toEqual(expect.arrayContaining(['2026-05-01', '2026-05-31']))
+  })
+
   it('ein echter Tag (Schalttag, erster erlaubter Tag) wird gespeichert', async () => {
     for (const date of ['2024-02-29', '2000-01-01']) {
       const res = await asUser(() => cross.POST(json('POST', entry(date))))
