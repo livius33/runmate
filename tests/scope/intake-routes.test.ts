@@ -10,9 +10,14 @@ const crossOne = await import('@/app/api/cross-training/[id]/route')
 const profile = await import('@/app/api/runner/profile/route')
 
 const MANUAL = { id: 'manual-1763000000000', source: 'manual', type: 'Strength', sportType: 'manual', name: 'Kraft', distanceM: 0, durationS: 1800, elapsedTimeS: 1800, date: '2026-05-10' }
-const fake = useFakeDb((q: Query) => (/^select .* from "activities"/.test(q.sql) ? [rowOf(activities, MANUAL)] : []))
+const state = { profile: null as string | null }                // the stored runner profile (settings value)
+const fake = useFakeDb((q: Query) => {
+  if (/^select .* from "activities"/.test(q.sql)) return [rowOf(activities, MANUAL)]
+  if (/^select .* from "settings"/.test(q.sql) && state.profile) return [[state.profile]]
+  return []
+})
 afterAll(() => fake.restore())
-beforeEach(() => { fake.log.length = 0 })
+beforeEach(() => { fake.log.length = 0; state.profile = null })
 
 const asUser = <T>(fn: () => Promise<T>) => runAsUser('user-a', fn, { profile: null })
 const json = (method: string, body: unknown) => new Request('http://localhost/api/x', { method, body: typeof body === 'string' ? body : JSON.stringify(body) })
@@ -28,12 +33,49 @@ describe('Läuferprofil: kein gültiges JSON', () => {
     expect(writes()).toEqual([])
   })
 
-  it('ein gültiges Objekt wird wie bisher gespeichert', async () => {
-    const res = await asUser(() => profile.POST(json('POST', { experience: 'advanced' })))
+  it('gültige Antworten werden wie bisher gespeichert', async () => {
+    const res = await asUser(() => profile.POST(json('POST', { runs_per_week: '5', best_days: ['Dienstag', 'Samstag'], has_physio: false, marathon_pr: 'noch keinen' })))
     expect([res.status, await res.json()]).toEqual([200, { ok: true }])
-    const patched = await asUser(() => profile.PATCH(json('PATCH', { weeklyKm: 50 })))
-    expect([patched.status, await patched.json()]).toEqual([200, { ok: true, profile: { weeklyKm: 50 } }])
+    const patched = await asUser(() => profile.PATCH(json('PATCH', { current_weekly_km: 50, weight_kg: null })))
+    expect([patched.status, await patched.json()]).toEqual([200, { ok: true, profile: { current_weekly_km: 50, weight_kg: null } }])
     expect(writes().map((q) => q.sql.slice(0, 22))).toEqual(['insert into "settings"', 'insert into "settings"'])
+  })
+})
+
+// The route stored any JSON object as the profile: any key, any shape, any size.
+describe('Läuferprofil: nur Antworten auf die Fragen', () => {
+  const storedJson = () => JSON.parse(String(writes().at(-1)!.params.find((p) => typeof p === 'string' && p.startsWith('{'))))
+
+  it('Schlüssel, die keine Frage sind, werden nicht gespeichert', async () => {
+    const res = await asUser(() => profile.POST(json('POST', { runs_per_week: '5', experience: 'advanced', nested: { a: [1, 2] }, blob: 'x'.repeat(5000) })))
+    expect(res.status).toBe(200)
+    expect(storedJson()).toEqual({ runs_per_week: '5' })
+  })
+
+  it.each([
+    [{ current_weekly_km: '50' }, 'current_weekly_km: Zahl von 0 bis 100.000 erwartet'],
+    [{ current_weekly_km: -1 }, 'current_weekly_km: Zahl von 0 bis 100.000 erwartet'],
+    [{ has_physio: 'ja' }, 'has_physio: true oder false erwartet'],
+    [{ runs_per_week: 5 }, 'runs_per_week: eine der vorgegebenen Antworten erwartet'],
+    [{ runs_per_week: '12' }, 'runs_per_week: eine der vorgegebenen Antworten erwartet'],
+    [{ best_days: 'Dienstag' }, 'best_days: Liste aus den vorgegebenen Antworten erwartet'],
+    [{ best_days: ['Dienstag', 'Feiertag'] }, 'best_days: Liste aus den vorgegebenen Antworten erwartet'],
+    [{ primary_race: { name: 'Berlin' } }, 'primary_race: Text erwartet (höchstens 500 Zeichen)'],
+    [{ primary_race: 'x'.repeat(501) }, 'primary_race: Text erwartet (höchstens 500 Zeichen)'],
+  ])('%j: 400 auf Deutsch, nichts gespeichert', async (body, error) => {
+    for (const method of ['POST', 'PATCH'] as const) {
+      const res = await asUser(() => profile[method](json(method, body)))
+      expect([res.status, await res.json()], method).toEqual([400, { error }])
+    }
+    expect(writes()).toEqual([])
+  })
+
+  it('PATCH prüft nur, was kommt: ein früher gespeichertes Profil bleibt, wie es ist', async () => {
+    const old = { experience: 'advanced', runs_per_week: 5 }           // stored before the check: an unknown key, a number
+    state.profile = JSON.stringify(old)
+    const res = await asUser(() => profile.PATCH(json('PATCH', { weight_kg: 70, shoe_size: 44 })))
+    expect([res.status, await res.json()]).toEqual([200, { ok: true, profile: { ...old, weight_kg: 70 } }])
+    expect(await (await asUser(() => profile.GET())).json()).toEqual(old)
   })
 })
 

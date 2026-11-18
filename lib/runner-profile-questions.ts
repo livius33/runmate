@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 export type QuestionType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'time'
 
 export interface ProfileQuestion {
@@ -349,3 +351,39 @@ export const QUESTION_CATEGORIES = [
 ] as const
 
 export type ProfileAnswers = Record<string, string | string[] | number | boolean | null>
+
+// ─── What the route stores (POST and PATCH /api/runner/profile) ───────────────
+
+// One answer by its question's kind; null clears it. A choice must be one of the question's options. zod drops every
+// key that is no question id.
+export const TEXT_MAX = 500
+export const NUMBER_MAX = 100_000
+function answer(q: ProfileQuestion) {
+  const option = q.options?.length ? z.enum(q.options as [string, ...string[]]) : z.string().max(TEXT_MAX)
+  switch (q.type) {
+    case 'number': return z.number().min(0).max(NUMBER_MAX)
+    case 'boolean': return z.boolean()
+    case 'select': return option
+    case 'multiselect': return z.array(option).max(q.options?.length || 20)
+    default: return z.string().max(TEXT_MAX)       // text and time: free text ("noch keinen")
+  }
+}
+export const SavedAnswers = z.object(Object.fromEntries(PROFILE_QUESTIONS.map((q) => [q.id, answer(q).nullable().optional()])))
+
+const EXPECTED: Record<QuestionType, string> = {
+  text: `Text erwartet (höchstens ${TEXT_MAX} Zeichen)`,
+  time: `Text erwartet (höchstens ${TEXT_MAX} Zeichen)`,
+  number: `Zahl von 0 bis ${NUMBER_MAX.toLocaleString('de-DE')} erwartet`,
+  select: 'eine der vorgegebenen Antworten erwartet',
+  multiselect: 'Liste aus den vorgegebenen Antworten erwartet',
+  boolean: 'true oder false erwartet',
+}
+
+// The answers a request may store, or why not (German, naming the first question that is wrong).
+export function parseAnswers(body: unknown): { ok: true; answers: ProfileAnswers } | { ok: false; error: string } {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, error: 'JSON-Objekt erwartet' }
+  const p = SavedAnswers.safeParse(body)
+  if (p.success) return { ok: true, answers: p.data as ProfileAnswers }
+  const q = PROFILE_QUESTIONS.find((x) => x.id === p.error.issues[0].path[0])
+  return { ok: false, error: q ? `${q.id}: ${EXPECTED[q.type]}` : 'Die Antworten sind ungültig.' }
+}
