@@ -17,8 +17,8 @@ export const GET = withUser(async () => {
   return NextResponse.json({ pauses: await loadPauses() })
 })
 
-async function save(next: Pause[], p: Pause) {
-  const err = pauseError(p, next.filter((x) => x.id !== p.id), todayLocal())
+async function save(next: Pause[], p: Pause, stored = false) {
+  const err = pauseError(p, next.filter((x) => x.id !== p.id), todayLocal(), stored)
   if (err) return NextResponse.json({ error: err }, { status: 400 })
   await savePauses(next)
   await runAndSaveEngine()
@@ -41,7 +41,7 @@ export const PATCH = withUser(async (req: Request) => {
   const old = all.find((p) => p.id === parsed.data.id)
   if (!old) return NextResponse.json({ error: 'Pause nicht gefunden.' }, { status: 404 })
   const p = { ...old, to: parsed.data.to }
-  return save(all.map((x) => (x.id === p.id ? p : x)), p)
+  return save(all.map((x) => (x.id === p.id ? p : x)), p, true)
 })
 
 export const DELETE = withUser(async (req: Request) => {
