@@ -8,7 +8,7 @@ import { Check, ChevronLeft, ChevronRight, AlertTriangle, RotateCcw, Scale, Arro
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtKm } from '@/lib/plan/format'
 import {
-  applyMove, balanceWeek, planWeeks, dayLabel, dayState, kmEditEffect, moveModes, parseKm, resetWeek, runMark, setDayKm, setPace, setZone2, strengthEditable, toggleStrength, weekBreakdown, weekDates, weekSummary, z2State,
+  applyMove, balanceWeek, planWeeks, dayLabel, dayState, kmEditEffect, moveModes, parseKm, resetWeek, restoreDay, runMark, setDayKm, setPace, setZone2, strengthEditable, toggleStrength, weekBreakdown, weekDates, weekSummary, z2State,
   type ActualKm, type DayState, type MoveMode, type Overrides,
 } from '@/lib/plan/effective'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
@@ -98,7 +98,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
           }}
           kb={kbOf(summary.days.find((d) => d.date === selected)!)}
           onKb={() => change(toggleStrength(overrides, selected, baseSessions))}
-          onRestore={() => { const next = { ...overrides }; delete next[selected]; change(next) }}
+          onRestore={() => change(restoreDay(overrides, selected))}
         />
   ) : null
 
@@ -274,7 +274,7 @@ function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, 
 }) {
   const [pending, setPending] = useState<string | null>(null)
   const s = day.session
-  const z2 = z2State(s, day.date)
+  const z2 = z2State(s, day.date, sessions)
 
   // Targets: today until the end of next week; moveModes keeps race day and its sides apart.
   const targets = Array.from({ length: 14 }, (_, i) => format(addDays(parseISO(today), i), 'yyyy-MM-dd'))

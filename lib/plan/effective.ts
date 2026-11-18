@@ -1,6 +1,6 @@
 // Plan edits: moving sessions between days, carrying over unrun km, and rebalancing a week
 // so it still reaches its target. Pure functions — used by the page and by the API routes.
-import { addDays, format, getDay, parseISO } from 'date-fns'
+import { addDays, differenceInCalendarDays, format, getDay, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { type PlanSession, type PlanWeek } from './types'
 import { WEEKDAY_NAME, allSessions, allWeeks, firstPlanStart, raceOf, recoveryWeekday } from './blocks'
@@ -196,13 +196,53 @@ function showsWithout(next: PlanSession, date: string, auto?: PlanSession[]) {
 
 // ─── Zone 2 or pace ───────────────────────────────────────────────────────────
 
+// ─── The two days of a swap or a move ─────────────────────────────────────────
+
+// The same session wherever it sits and whatever its km (a session switched to Zone 2 is still that session).
+const sameKind = (a?: PlanSession, b?: PlanSession) => isRun(a) && isRun(b) && a.type === b.type && a.title === b.title && (a.pace ?? '') === (b.pace ?? '')
+const kindOf = (s?: PlanSession) => s?.was ?? s
+const planDay = (date: string) => allSessions().find((x) => x.date === date)
+const inReach = (a: string, b: string) => a !== b && Math.abs(differenceInCalendarDays(parseISO(a), parseISO(b))) < 14   // a move reaches two weeks
+
+// The plan day's pace session already sits on another day (swapped or moved there): a session like it in reach, on a
+// day whose own plan session is a different one.
+function sitsElsewhere(original: PlanSession, date: string, sessions: PlanSession[]) {
+  return sessions.some((x) => inReach(x.date, date) && sameKind(kindOf(x), original) && !sameKind(planDay(x.date), original))
+}
+
+// The other half of the swap or move an edited day belongs to: the day its plan session went to, or the day the session
+// it shows came from.
+function pairedDays(overrides: Overrides, date: string): string[] {
+  const here = kindOf(overrides[date]), plan = planDay(date)
+  if (!here) return []
+  return Object.keys(overrides).filter((d) => {
+    if (!inReach(d, date)) return false
+    const there = kindOf(overrides[d]), planThere = planDay(d)
+    const wentThere = sameKind(there, plan) && !sameKind(planThere, plan) && !sameKind(here, plan)
+    const cameFromThere = sameKind(here, planThere) && !sameKind(plan, planThere) && !sameKind(there, planThere)
+    return wentThere || cameFromThere
+  })
+}
+
+// Days back to their plan ("Original wiederherstellen", "Woche zurücksetzen") — together with the other half of a swap
+// or a move: one day alone would fall back to the plan while the other keeps the session, which then shows twice (or,
+// the other way round, not at all).
+function dropEdits(overrides: Overrides, dates: string[]): Overrides {
+  const drop = new Set(dates.flatMap((d) => [d, ...pairedDays(overrides, d)]))
+  return Object.fromEntries(Object.entries(overrides).filter(([d]) => !drop.has(d)))
+}
+
+export const restoreDay = (overrides: Overrides, date: string) => dropEdits(overrides, [date])
+
 // A day that can be switched: a run with pace (tempo, intervals, long run with pace, a test) or one already switched.
-export function z2State(s: PlanSession | undefined, date: string): 'pace' | 'z2' | null {
+// Without a kept session (`was`) the plan file's day is the fallback — not when its pace session was swapped or moved
+// to another day (`sessions` = the plan as shown): switching back would show that session twice.
+export function z2State(s: PlanSession | undefined, date: string, sessions?: PlanSession[]): 'pace' | 'z2' | null {
   if (!s || s.type === 'race' || s.type === 'rest' || !(s.km ?? 0)) return null
   if (s.was) return isHard(s.was) ? 'z2' : null
   if (isHard(s)) return 'pace'
   const base = allSessions().find((x) => x.date === date)
-  return base && isHard(base) && base.type !== 'race' ? 'z2' : null
+  return base && isHard(base) && base.type !== 'race' && !(sessions && sitsElsewhere(base, date, sessions)) ? 'z2' : null
 }
 
 // Pace run → easy Zone 2 run with the same km; the event flag stays; the pace session is kept in `was`.
@@ -221,7 +261,7 @@ export function setZone2(overrides: Overrides, date: string, sessions: PlanSessi
 // Back to the pace session: the kept one, or the original plan day. Same as the original plan → the edit is dropped.
 export function setPace(overrides: Overrides, date: string, sessions: PlanSession[], auto?: PlanSession[]): Overrides {
   const s = sessions.find((x) => x.date === date)
-  if (z2State(s, date) !== 'z2') return overrides
+  if (z2State(s, date, sessions) !== 'z2') return overrides
   const original = allSessions().find((x) => x.date === date)
   const kept = s!.was ?? original
   // Event and test flags come from the plan day when the kept session lost them.
@@ -367,8 +407,7 @@ export function balanceWeek(summary: WeekSummary, today: string, overrides: Over
 }
 
 export function resetWeek(week: PlanWeek, overrides: Overrides): Overrides {
-  const dates = new Set(weekDates(week))
-  return Object.fromEntries(Object.entries(overrides).filter(([d]) => !dates.has(d)))
+  return dropEdits(overrides, weekDates(week))
 }
 
 // Called at use time: live blocks register after this module is imported (logic audit 2026-10-26, finding 1).
