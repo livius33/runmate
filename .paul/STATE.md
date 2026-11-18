@@ -16,12 +16,12 @@ See: .paul/PROJECT.md (updated 2026-11-18)
 ## Current Position
 
 Milestone: v1.1 Shipping-ready (v1.1.0)
-Phase: 8 (Test Sweep & Fixes)
-Plan: 08-01 in APPLY; 08-02 running (four test agents)
-Status: In progress
-Last activity: 2026-11-18 — PAUL set up in this repo, milestone v1.1 defined
+Phase: 12 (Launch)
+Plan: 12-01 in APPLY — Claude's part done (clean-up, runbook, build check); waits for Livius (PR, keys, domain)
+Status: Phases 8–11 complete on `feature/ship-v1.1`, one PR to `main`
+Last activity: 2026-11-18 — browser walkthrough closed (08-03), summaries written, launch plans and runbook
 Progress:
-- v1.1 Shipping-ready: [░░░░░░░░░░] 0%
+- v1.1 Shipping-ready: [████████░░] 80%
 
 ## Loop Position
 
@@ -45,9 +45,14 @@ PLAN ──▶ APPLY ──▶ UNIFY
 
 ### Open questions for Livius
 
-- Design pass (12-02): scope and direction
-- Confirm the reading of "feature card" (11-02)
+- "Feature card" = the week review overlay? (11-02 was built on that reading)
+- Design pass (12-02): scope and direction; starting list in the plan
+- Waitlist: wire a mail provider or open sign-up without billing (docs/launch/DEPLOY.md step 8)
+- Rule decisions from the sweep (08-02 SUMMARY): low-volume long-run share, 4-run low weeks, floors and caps
+- Base block for an unknown runner shows the example easy pace; undated onboarding race time as a recent race?
+- Retention of idle Free accounts (12 months) and the § 312k confirmation through Paddle (09-01 SUMMARY)
 
 ### Blockers
 
 - Deployment needs Livius: Clerk key swap on the dashboard project, new Vercel project with secrets, domain move
+- Stage B (billing) needs the business registration, Paddle verification and the filled AGB

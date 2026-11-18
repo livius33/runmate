@@ -1,0 +1,64 @@
+---
+phase: 08-test-sweep
+plan: 02
+completed: 2026-11-18
+description: "Sweep by four test agents: editor, generator, adapter, data"
+type: Summary
+about: "Runmate"
+---
+
+
+# Phase 8 Plan 02: Test sweep Summary
+
+**Four agents, each in its own worktree, went through the week editor, the plan generator, the plan adapter and
+data in/out. Every defect got a failing test first, then the fix. 19 fix commits merged (2b8e1c9, 7411ab8, 3fdc1ba,
+262c937), plus a 60-case generator grid that now runs with the suite (85e80fc). What was not fixed is listed below,
+by area, so nothing is lost.**
+
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| AC-1 Findings are reproducible | Pass | One test per fix |
+| AC-2 Nothing else moved | Pass | `npx tsc --noEmit` and `npm test` green after each merge |
+| AC-3 Open points are written down | Pass | This file |
+
+## Fixed
+
+- **Week editor:** stale overrides after moving a session back or an edit and its inverse; km edit and Tempolauf on a
+  day the engine or a return cap changed; a paused day is no move target; an open pause older than 14 days can be ended.
+- **Generator:** dress rehearsal never on a day without room for the pace km; recovery weeks and the base block keep
+  the day limit; build readable from 10:00/km; no run longer than the long run (a7a5919, reported case: 56 km "tempo"
+  on a Friday); key sessions named by their workout (a15aa56).
+- **Adapter:** the engine reads the sync record the sync writes; rebalance no longer refills a day the fatigue guard
+  softened; self-correction keeps a second rebalance of the same week; taking over one suggestion no longer carries
+  another one's km; taking back a rebalance keeps a key session moved onto its day.
+- **Data and account:** one upload unpacks to at most 200 MB (zip bomb); Apple Health whole-number fields read decimal
+  text; profile heart rates saved as whole numbers (was a 500). Secret scan over the history: clean.
+
+## Open — rule decisions (Livius)
+
+- Low-volume long-run share (11-01): rises to the 40 % ceiling at 32 km/week and below. Built on secondary sources;
+  Daniels' 30 % was not checked in the book. Affects every runner under 64 km/week, including the base block.
+- Low weeks keep 4 runs although 5 days were stated; `/plan` → Regeln then says "4 Läufe pro Woche".
+- Capped base week below the 30-km floor; low day limits flatten cutback and taper weeks; 23 of 1066 recovery weeks
+  exceed share × last load week; marathon plan accepted from 5 km/week; recovery after a half with two run days starts
+  with a 0-km week; a threshold pace of 2:30/km is accepted (strides at 1:47/km).
+- Adapter notes vs code: a missed long run moves up to 7 days (note: 2); ACWR alone triggers after 1 day (note: 3);
+  raising the volume has no ramp bound.
+
+## Open — defects not fixed
+
+- Adapter: ACWR inflated after a pause (2.82); the pause cap moves 1.5 km without a log entry; Apple Health and file
+  import have no sync record, so nothing ever counts as missed for those users.
+- Editor: manual overrides apply on any date; a swapped hard session can show twice in the base-plan fallback;
+  toggling kettlebell on an engine-changed day leaves an engine snapshot; moving a run onto a rest day with a
+  kettlebell marker drops the marker; one note over 1000 characters fails the whole save; a pause open > 90 days
+  cannot be ended.
+- Data: no plausibility filter on import (a GPS glitch of 17,793 km is stored); `storeDetail` failing after the
+  insert; a truncated .gz reports "Datei zu groß"; impossible dates accepted by the cross-training and Shortcut
+  routes; `/api/runner/profile` answers invalid JSON with 500; `saveHealth` is not atomic; cross-training ids
+  `manual-${Date.now()}` can collide.
+
+## Not tested
+
+Undo inside simulations, runs on the wrong day, two runs a day, midnight edges, block end, two live blocks, an empty
+plan, B-races inside a block, the frozen past on regeneration, routes against a real Postgres (partly covered by 08-03).

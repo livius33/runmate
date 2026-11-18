@@ -6,3 +6,171 @@ action = "plan"
 phase = 8
 plan = "08-01"
 at = "2026-11-18T09:00:00Z"
+
+[[entry]]
+action = "apply"
+phase = 8
+plan = "08-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "unify"
+phase = 8
+plan = "08-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 8
+plan = "08-02"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "apply"
+phase = 8
+plan = "08-02"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "unify"
+phase = 8
+plan = "08-02"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 8
+plan = "08-03"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "apply"
+phase = 8
+plan = "08-03"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "unify"
+phase = 8
+plan = "08-03"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 9
+plan = "09-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "apply"
+phase = 9
+plan = "09-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "unify"
+phase = 9
+plan = "09-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 10
+plan = "10-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "apply"
+phase = 10
+plan = "10-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "unify"
+phase = 10
+plan = "10-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 10
+plan = "10-02"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "apply"
+phase = 10
+plan = "10-02"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "unify"
+phase = 10
+plan = "10-02"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 10
+plan = "10-03"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "apply"
+phase = 10
+plan = "10-03"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "unify"
+phase = 10
+plan = "10-03"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 11
+plan = "11-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "apply"
+phase = 11
+plan = "11-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "unify"
+phase = 11
+plan = "11-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 11
+plan = "11-02"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "apply"
+phase = 11
+plan = "11-02"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "unify"
+phase = 11
+plan = "11-02"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-01"
+at = "2026-11-18T14:45:00Z"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-02"
+at = "2026-11-18T14:45:00Z"

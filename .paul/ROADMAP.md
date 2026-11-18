@@ -25,11 +25,11 @@ that changes the whole plan, an onboarding that works for a new runner, and its 
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|
-| 8 | Test Sweep & Fixes | 08-01 … 08-03 | 🚧 |
-| 9 | Free + Plus | 09-01 | ⬜ |
-| 10 | Plan anpassen | 10-01 … 10-03 | ⬜ |
-| 11 | Onboarding & Polish | 11-01, 11-02 | ⬜ |
-| 12 | Launch | 12-01, 12-02 | ⬜ (needs Livius) |
+| 8 | Test Sweep & Fixes | 08-01 … 08-03 | ✅ 2026-11-18 |
+| 9 | Free + Plus | 09-01 | ✅ 2026-11-18 |
+| 10 | Plan anpassen | 10-01 … 10-03 | ✅ 2026-11-18 |
+| 11 | Onboarding & Polish | 11-01, 11-02 | ✅ 2026-11-18 (11-02: reading to confirm) |
+| 12 | Launch | 12-01, 12-02 | 🚧 12-01 prepared (docs/launch/DEPLOY.md); the rest needs Livius |
 
 ### Phase 8: Test Sweep & Fixes
 **Goal:** every feature does what it says, including the paths nobody clicks every day.
