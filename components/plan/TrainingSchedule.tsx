@@ -6,7 +6,7 @@ import { CalendarDays } from 'lucide-react'
 import { type PlanSession } from '@/lib/plan/types'
 import { estimateDurationS, fmtDuration, fmtKm } from '@/lib/plan/format'
 import { weekOf } from '@/lib/plan/blocks'
-import type { Overrides } from '@/lib/plan/effective'
+import { changeWhy, type Overrides } from '@/lib/plan/effective'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
 import { Card, Stat, TypeTag, Pill } from './ui'
 import { WeekEditor } from './WeekEditor'
@@ -52,7 +52,7 @@ export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough,
       aside={week && <Pill className="tabular-nums">KW {week.kw} · {week.km} km</Pill>}
     >
       <div className="grid gap-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        {next ? <NextSession session={next} today={today} why={engineNotes.get(next.date) ? [`Automatisch: ${engineNotes.get(next.date)}`] : overrides[next.date] ? ['Von dir angepasst.'] : []} /> : (
+        {next ? <NextSession session={next} today={today} why={changeWhy(overrides[next.date], engineNotes.get(next.date))} /> : (
           <div className="rounded-xl border border-border p-4 text-sm text-muted-foreground">Keine Einheiten mehr geplant.</div>
         )}
         <ul className="flex flex-col gap-2">

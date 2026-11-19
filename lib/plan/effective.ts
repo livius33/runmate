@@ -23,6 +23,19 @@ const r1 = (n: number) => Math.round(n * 10) / 10
 export const dayEdits = (overrides: Overrides): Overrides =>
   Object.fromEntries(Object.entries(overrides).filter(([, s]) => !s.strengthOnly))
 
+// Whose change a day shows (`entry` = the day's manual edit, `engine` = the engine changed the day). A manual edit of
+// the session lies on top of an engine change, so the day is the runner's. A marker-only entry changes no session: the
+// day stays the engine's where the engine changed it, and nobody's otherwise.
+export function changedBy(entry: PlanSession | undefined, engine: boolean): 'manual' | 'engine' | null {
+  return entry && !entry.strengthOnly ? 'manual' : engine ? 'engine' : null
+}
+
+// The same as the line under a session (`engineReason` = the reason of the engine change on that day, if any).
+export function changeWhy(entry: PlanSession | undefined, engineReason?: string): string[] {
+  const by = changedBy(entry, !!engineReason)
+  return by === 'manual' ? ['Von dir angepasst.'] : by === 'engine' ? [`Automatisch: ${engineReason}`] : []
+}
+
 // Layers: plan → engine → return caps after a pause → manual edits → paused days (Krank beats everything but anchors).
 // A marker-only entry sets the kettlebell marker on the day as the layers below show it.
 export function effectiveSessions(overrides: Overrides, engine: Overrides = {}, pause?: PauseInput): PlanSession[] {

@@ -8,7 +8,7 @@ import { Check, ChevronLeft, ChevronRight, AlertTriangle, RotateCcw, Scale, Arro
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtKm } from '@/lib/plan/format'
 import {
-  applyMove, balanceWeek, planWeeks, dayLabel, dayState, kmEditEffect, moveModes, parseKm, resetWeek, restoreDay, runMark, setDayKm, setPace, setZone2, strengthEditable, toggleStrength, weekBreakdown, weekDates, weekSummary, z2State,
+  applyMove, balanceWeek, changeWhy, changedBy, planWeeks, dayLabel, dayState, kmEditEffect, moveModes, parseKm, resetWeek, restoreDay, runMark, setDayKm, setPace, setZone2, strengthEditable, toggleStrength, weekBreakdown, weekDates, weekSummary, z2State,
   type ActualKm, type DayState, type MoveMode, type Overrides,
 } from '@/lib/plan/effective'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
@@ -56,6 +56,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
   const week = weeks[weekIdx]
   const summary = weekSummary(week, today, sessions, actualKm)
   const edited = summary.days.some((d) => overrides[d.date])
+  const by = (d: string) => changedBy(overrides[d], engineNotes.has(d))   // the dot on a day: yours, the engine's, none
   const weekOver = week.end < today
   const done = kbDone ?? new Set<string>()
   const kbOf = (d: DayState) => strengthMark(d.session, today, done.has(d.date), syncedThrough)
@@ -81,7 +82,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
         <DayPanel
           key={selected}
           day={summary.days.find((d) => d.date === selected)!}
-          engineNote={overrides[selected] && !overrides[selected].strengthOnly ? undefined : engineNotes.get(selected)}
+          why={changeWhy(overrides[selected], engineNotes.get(selected))}
           today={today} sessions={baseSessions} actualKm={actualKm} actual={actuals.get(selected)}
           saving={saving}
           onMove={(to, mode) => {
@@ -136,7 +137,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
         <ul className="mt-3 flex flex-col gap-1.5">
           {summary.days.map((d) => (
             <li key={d.date}>
-              <DayRow day={d} today={today} edited={!!overrides[d.date]} auto={!overrides[d.date] && engineNotes.has(d.date)} cross={cross?.get(d.date)} kb={kbOf(d)}
+              <DayRow day={d} today={today} edited={by(d.date) === 'manual'} auto={by(d.date) === 'engine'} cross={cross?.get(d.date)} kb={kbOf(d)}
                 selected={selected === d.date} onSelect={() => setSelected(selected === d.date ? null : d.date)} />
               {selected === d.date && panel}
             </li>
@@ -145,7 +146,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
       ) : (
         <div className="mt-3 grid grid-cols-7 gap-1.5">
           {summary.days.map((d) => (
-            <DayCell key={d.date} day={d} today={today} edited={!!overrides[d.date]} auto={!overrides[d.date] && engineNotes.has(d.date)} cross={cross?.get(d.date)} kb={kbOf(d)}
+            <DayCell key={d.date} day={d} today={today} edited={by(d.date) === 'manual'} auto={by(d.date) === 'engine'} cross={cross?.get(d.date)} kb={kbOf(d)}
               selected={selected === d.date} onSelect={() => setSelected(selected === d.date ? null : d.date)} />
           ))}
         </div>
@@ -255,9 +256,9 @@ function DayCell({ day, today, edited, auto, cross, kb, selected, onSelect }: {
   )
 }
 
-function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, saving, onMove, onSetKm, onZ2, effective, onEdit, onRestore, kb, onKb }: {
+function DayPanel({ day, why, edited, today, sessions, actualKm, actual, saving, onMove, onSetKm, onZ2, effective, onEdit, onRestore, kb, onKb }: {
   day: DayState
-  engineNote?: string
+  why: string[]                      // whose change the day shows (changeWhy)
   today: string
   sessions: PlanSession[]
   actualKm: ActualKm
@@ -300,7 +301,7 @@ function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, 
           <Link href={`/running/activities/${actual.runs[0].id}`} className="underline underline-offset-2 hover:text-foreground">Lauf ansehen</Link>
         )}
       </div>
-      {s && <SessionDetails session={s} why={[...(engineNote ? [`Automatisch: ${engineNote}`] : []), ...(edited ? ['Von dir angepasst.'] : [])]} />}
+      {s && <SessionDetails session={s} why={why} />}
       {z2 && day.actualKm === 0 && day.date >= today && (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="font-medium">Laufen als</span>
