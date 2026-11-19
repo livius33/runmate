@@ -12,8 +12,14 @@ import type { LastSync, SourceInfo } from '@/lib/sources/types'
 // Data that changes after a sync or import (also components/HeaderSync.tsx).
 export const AFTER_SYNC = ['sources', 'running-stats', 'runs', 'run', 'analytics', 'running-fitness', 'plan-actuals', 'plan-engine', 'running-wellness']
 
-const syncCounts = (s: { inserted: number; updated: number; enriched: number }) =>
-  `${s.inserted} neu · ${s.updated} aktualisiert · ${s.enriched} ergänzt`
+// What a sync did. `failed` (an activity with impossible values, one that could not be stored, detail data that did
+// not come) only shows when there is one.
+export const syncCounts = (s: { inserted: number; updated: number; enriched: number; failed?: number }) =>
+  `${s.inserted} neu · ${s.updated} aktualisiert · ${s.enriched} ergänzt${s.failed ? ` · ${s.failed} fehlgeschlagen` : ''}`
+
+// The history walk, while it runs and at its end. `rejected`: activities the server did not store (impossible values).
+export const historyCounts = (h: { inserted: number; updated: number; rejected: number }) =>
+  `${h.inserted} neu, ${h.updated} aktualisiert${h.rejected ? `, ${h.rejected} mit unmöglichen Werten nicht übernommen` : ''}`
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init)
@@ -64,19 +70,19 @@ export function GarminSource({ source }: { source: SourceInfo }) {
   const [history, setHistory] = useState<string | null>(null)
   const full = useMutation({
     mutationFn: async () => {
-      let page = 0, inserted = 0, updated = 0
-      for (;;) {
-        setHistory(`Lade Seite ${page + 1}… (${inserted} neu, ${updated} aktualisiert)`)
-        const d = await call<{ inserted: number; updated: number; hasMore: boolean }>(`/api/sources/${source.id}/history`, {
+      const total = { inserted: 0, updated: 0, rejected: 0 }
+      for (let page = 0; ; page++) {
+        setHistory(`Lade Seite ${page + 1}… (${historyCounts(total)})`)
+        const d = await call<{ inserted: number; updated: number; rejected?: number; hasMore: boolean }>(`/api/sources/${source.id}/history`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page }),
         })
-        inserted += d.inserted
-        updated += d.updated
-        if (!d.hasMore) return { inserted, updated }
-        page++
+        total.inserted += d.inserted
+        total.updated += d.updated
+        total.rejected += d.rejected ?? 0
+        if (!d.hasMore) return total
       }
     },
-    onSuccess: (d) => { setHistory(`Fertig: ${d.inserted} neu, ${d.updated} aktualisiert. Detaildaten folgen mit den nächsten Synchronisierungen.`); refresh() },
+    onSuccess: (d) => { setHistory(`Fertig: ${historyCounts(d)}. Detaildaten folgen mit den nächsten Synchronisierungen.`); refresh() },
     onError: (err: Error) => setHistory(err.message),
   })
 
