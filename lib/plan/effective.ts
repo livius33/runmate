@@ -134,6 +134,17 @@ export function moveModes(from: string, to: string, today: string, sessions: Pla
   return []
 }
 
+// Where the editor offers to move a day: today until the end of next week, on days of the plan's weeks only. A day
+// before the plan's first week or after its last one is shown by no week: a session moved there would vanish from
+// the editor.
+export function moveTargets(from: string, today: string, sessions: PlanSession[], actual: ActualKm, weeks = planWeeks()) {
+  const shown = new Set(weeks.flatMap(weekDates))
+  return Array.from({ length: 14 }, (_, i) => format(addDays(parseISO(today), i), 'yyyy-MM-dd'))
+    .filter((d) => shown.has(d))
+    .map((d) => ({ date: d, modes: moveModes(from, d, today, sessions, actual), state: dayState(d, today, sessions, actual) }))
+    .filter((t) => t.modes.length)
+}
+
 export function applyMove(
   overrides: Overrides, from: string, to: string, mode: MoveMode,
   today: string, sessions: PlanSession[], actual: ActualKm, auto?: PlanSession[],

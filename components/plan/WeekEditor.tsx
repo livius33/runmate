@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { addDays, format, parseISO } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Check, ChevronLeft, ChevronRight, AlertTriangle, RotateCcw, Scale, ArrowRight, SlidersHorizontal, Dumbbell } from 'lucide-react'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtKm } from '@/lib/plan/format'
 import {
-  applyMove, balanceWeek, changeWhy, changedBy, planWeeks, dayLabel, dayState, kmEditEffect, moveModes, parseKm, resetWeek, restoreDay, runMark, setDayKm, setPace, setZone2, strengthEditable, toggleStrength, weekBreakdown, weekDates, weekSummary, z2State,
+  applyMove, balanceWeek, changeWhy, changedBy, planWeeks, dayLabel, kmEditEffect, moveTargets, parseKm, resetWeek, restoreDay, runMark, setDayKm, setPace, setZone2, strengthEditable, toggleStrength, weekBreakdown, weekDates, weekSummary, z2State,
   type ActualKm, type DayState, type MoveMode, type Overrides,
 } from '@/lib/plan/effective'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
@@ -87,7 +87,10 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
           saving={saving}
           onMove={(to, mode) => {
             change(applyMove(overrides, selected, to, mode, today, baseSessions, actualKm, autoSessions))
-            setSelected(to)
+            // The target may lie in next week: show that week, with the moved session selected.
+            const toIdx = weeks.findIndex((w) => w.start <= to && to <= w.end)
+            if (toIdx >= 0) setWeekIdx(toIdx)
+            setSelected(toIdx >= 0 ? to : null)
           }}
           edited={!!overrides[selected]}
           onSetKm={(km, opts) => change(setDayKm(overrides, selected, km, baseSessions, opts, autoSessions))}
@@ -278,10 +281,8 @@ function DayPanel({ day, why, edited, today, sessions, actualKm, actual, saving,
   const s = day.session
   const z2 = z2State(s, day.date, sessions)
 
-  // Targets: today until the end of next week; moveModes keeps race day and its sides apart.
-  const targets = Array.from({ length: 14 }, (_, i) => format(addDays(parseISO(today), i), 'yyyy-MM-dd'))
-    .map((d) => ({ date: d, modes: moveModes(day.date, d, today, sessions, actualKm), state: dayState(d, today, sessions, actualKm) }))
-    .filter((t) => t.modes.length)
+  // Targets: today until the end of next week, days of the plan's weeks only; moveModes keeps race day and its sides apart.
+  const targets = moveTargets(day.date, today, sessions, actualKm)
 
   const movable = targets.length > 0
   const pendingTarget = targets.find((t) => t.date === pending)
