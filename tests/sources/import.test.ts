@@ -380,6 +380,70 @@ describe('Plausibilität beim Speichern', () => {
   })
 })
 
+// 08-02 follow-up: a broken watch clock or a damaged file could store a run on 01.01.1970 or in 2099, where it fed
+// load and the plan from a day that never was. A start day before EARLIEST_DAY or after tomorrow stops at the ingest
+// like the other impossible values; a delivered average speed nobody can reach no longer sets the pace.
+describe('Plausibilität: Startdatum und gelieferte Geschwindigkeit', () => {
+  const summary = { sourceActivityId: 'd', startUtc: '2026-05-10T06:00:00Z', startLocal: '2026-05-10T08:00:00', sport: 'running', name: null, distanceM: 10000, movingS: 3000, elapsedS: 3100, elevationGainM: null, avgSpeedMs: null, maxSpeedMs: null, avgHr: null, maxHr: null, avgCadenceSpm: null, calories: null, startLat: null, startLng: null }
+  const at = (startLocal: string) => ({ ...summary, startLocal, startUtc: null })
+
+  it('vor 2000, nach morgen oder kein Kalendertag → abgelehnt; morgen und der 01.01.2000 bleiben', async () => {
+    const { implausible } = await import('@/lib/sources/ingest')
+    const latest = '2026-05-11'                                // tomorrow
+    expect(implausible(at('1970-01-01T00:00:00'), latest)).toEqual({ check: 'date', message: 'ein Start vor dem 01.01.2000 ist nicht möglich' })
+    expect(implausible(at('2099-05-10T08:00:00'), latest)).toEqual({ check: 'date', message: 'ein Start in der Zukunft ist nicht möglich' })
+    expect(implausible(at('2026-05-12T08:00:00'), latest)?.check).toBe('date')
+    expect(implausible(at('2026-02-31T08:00:00'), latest)).toEqual({ check: 'date', message: 'dieses Startdatum gibt es nicht' })
+    expect(implausible(at('2026-05-11T23:30:00'), latest)).toBeNull()
+    expect(implausible(at('2000-01-01T06:00:00'), latest)).toBeNull()
+  })
+
+  it('Datei von 1970 und von 2099: nicht gespeichert, im Bericht mit Dateiname und Grund', async () => {
+    const tables: Record<string, Act[]> = {}
+    fake = fakeActivities(tables)
+    const r = await asUser('user-a', () => importFiles([
+      { name: 'alt.gpx', bytes: strToU8(gpxFile({ ...RUN, start: new Date('1970-01-01T06:00:00Z') })) },
+      { name: 'zukunft.fit', bytes: fitFile({ ...RUN, start: new Date('2099-05-10T06:00:00Z') }) },
+      { name: 'run.fit', bytes: fitFile() },
+    ]))
+    expect(r).toMatchObject({ files: 3, inserted: 1, duplicates: 0 })
+    expect(r.errors).toEqual([
+      { name: 'alt.gpx', message: 'alt.gpx: Aktivität vom 01.01.1970 nicht importiert – ein Start vor dem 01.01.2000 ist nicht möglich.' },
+      { name: 'zukunft.fit', message: 'zukunft.fit: Aktivität vom 10.05.2099 nicht importiert – ein Start in der Zukunft ist nicht möglich.' },
+    ])
+    expect(tables['user-a'].map((a) => a.date)).toEqual(['2026-05-10'])
+  })
+
+  it('Sync und Historie einer Quelle: übersprungen und gezählt, der Rest läuft weiter', async () => {
+    const tables: Record<string, Act[]> = {}
+    fake = fakeActivities(tables)
+    const { syncSource, syncHistoryPage } = await import('@/lib/sources/sync')
+    const items = [{ ...at('2099-01-01T08:00:00'), sourceActivityId: 'clock' }, { ...at('1970-01-01T01:00:00'), sourceActivityId: 'epoch' }, { ...summary, sourceActivityId: 'good' }]
+    const src = {
+      meta: { id: 'garmin', label: 'x', description: '', auth: 'credentials' as const, available: true, capabilities: { activities: true, detailStreams: false, dailyWellness: false, mode: 'pull' as const, history: true, runs: true } },
+      status: async () => ({ connected: true, lastSyncAt: null, error: null }),
+      disconnect: async () => {},
+      listActivities: async () => ({ items, hasMore: false }),
+    }
+    const r = await asUser('user-a', () => syncSource(src))
+    expect(r).toMatchObject({ inserted: 1, failed: 2 })
+    expect(r.log).toEqual(expect.arrayContaining(['implausible, skipped: clock (date)', 'implausible, skipped: epoch (date)']))
+    expect(await asUser('user-a', () => syncHistoryPage(src, 0))).toMatchObject({ inserted: 0, updated: 1, rejected: 2 })
+    expect(tables['user-a'].map((a) => a.sourceActivityId)).toEqual(['good'])
+  })
+
+  it('eine unmögliche gelieferte Durchschnittsgeschwindigkeit setzt nicht das Tempo: es kommt aus Distanz und Zeit', async () => {
+    const { toActivityRow } = await import('@/lib/sources/ingest')
+    // 10 km in 3000 s: 3.33 m/s, 5:00 min/km. The file or watch states 50 m/s (0:20 min/km).
+    expect(toActivityRow('file', { ...summary, avgSpeedMs: 50 })).toMatchObject({ averageSpeedMs: 10000 / 3000, averagePaceSPerKm: 300 })
+    expect(toActivityRow('file', { ...summary, avgSpeedMs: -3 })).toMatchObject({ averageSpeedMs: 10000 / 3000, averagePaceSPerKm: 300 })
+    // A possible one is the source's own (it may count moving time differently): kept as delivered.
+    expect(toActivityRow('file', { ...summary, avgSpeedMs: 3.5 })).toMatchObject({ averageSpeedMs: 3.5, averagePaceSPerKm: 286 })
+    // A ride may be fast.
+    expect(toActivityRow('garmin', { ...summary, sport: 'cycling', avgSpeedMs: 20 })).toMatchObject({ averageSpeedMs: 20 })
+  })
+})
+
 // 08-02 follow-up: one activity the database did not take ended the whole sync; the activities after it were never
 // stored. Now it counts as failed and the others go on, and such a sync covers no days.
 describe('Sync: eine Aktivität lässt sich nicht speichern', () => {

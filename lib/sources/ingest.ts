@@ -2,11 +2,13 @@
 // values are rejected: PLAUSIBLE), the same source id → update, the same activity from another source → replaced when the new record is richer, else skipped,
 // details → streams + laps + run metrics.
 import { randomUUID } from 'crypto'
+import { addDays, format, parseISO } from 'date-fns'
 import { and, eq, gte, isNull, lte, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { activities, activityStreams } from '@/lib/db/schema'
 import { mine, own } from '@/lib/db/owned'
 import { storeRunMetrics } from '@/lib/analytics/store-metrics'
+import { EARLIEST_DAY, isCalendarDay, todayLocal } from '@/lib/dates'
 import { RUN_ACTIVITY_TYPES } from '@/lib/analytics/run-view'
 import type { PlanSession } from '@/lib/plan/types'
 import { isDuplicate, isRicher, START_TOLERANCE_S, type Richness } from './dedupe'
@@ -24,8 +26,9 @@ export function toActivityRow(source: SourceId, a: ActivitySummary) {
   const date = a.startLocal.slice(0, 10)
   const { type, sportType } = typeForDb(a.sport)
   const run = RUN_ACTIVITY_TYPES.includes(type)
-  // Pace and step cadence are run numbers; a ride or a swim keeps distance and speed only.
-  const speed = a.avgSpeedMs ?? (a.movingS > 0 && a.distanceM > 0 ? a.distanceM / a.movingS : null)
+  // Pace and step cadence are run numbers; a ride or a swim keeps distance and speed only. The source's own average
+  // speed wins (it may count moving time its own way), unless nobody can reach it: then distance and time decide.
+  const speed = possibleSpeed(a.avgSpeedMs, run) ?? (a.movingS > 0 && a.distanceM > 0 ? a.distanceM / a.movingS : null)
   return {
     id: randomUUID(),
     source,
@@ -71,15 +74,28 @@ export const PLAUSIBLE = {
   maxSpeedMs: 100,
 } as const
 
-export interface Implausible { check: 'values' | 'duration' | 'distance' | 'speed'; message: string }   // message: German, for the user
+export interface Implausible { check: 'date' | 'values' | 'duration' | 'distance' | 'speed'; message: string }   // message: German, for the user
+
+// A delivered average speed, or null when it cannot be one (a damaged file, a sensor fault): it would become the
+// stored pace of a run whose distance and time are fine.
+const possibleSpeed = (v: number | null, run: boolean) =>
+  v != null && Number.isFinite(v) && v > 0 && v <= (run ? PLAUSIBLE.maxRunSpeedMs : PLAUSIBLE.maxSpeedMs) ? v : null
 
 const deKm = (m: number) => `${(Math.round(m / 100) / 10).toLocaleString('de-DE')} km`
+const deDay = (ymd: string) => `${ymd.slice(8, 10)}.${ymd.slice(5, 7)}.${ymd.slice(0, 4)}`
 const deHours = (s: number) => `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')} h`
 
-// Why this activity cannot have happened, or null. Speed is judged over the longer of moving and elapsed time, so an
-// odd moving time alone (auto-pause, a source that counts it differently) never rejects a real activity. An activity
-// without distance (strength, a treadmill without a foot pod) only needs a possible duration.
-export function implausible(a: Pick<ActivitySummary, 'sport' | 'distanceM' | 'movingS' | 'elapsedS'>): Implausible | null {
+// Why this activity cannot have happened, or null. Its start day must be one a record may carry (the bounds of
+// lib/dates.ts dayError): a broken watch clock or a damaged file says 1970 or 2099, and such a run would feed load and
+// plan from a day that never was. `latest`: the last start day accepted (upsertSummary passes tomorrow). Speed is
+// judged over the longer of moving and elapsed time, so an odd moving time alone (auto-pause, a source that counts it
+// differently) never rejects a real activity. An activity without distance (strength, a treadmill without a foot pod)
+// only needs a possible duration.
+export function implausible(a: Pick<ActivitySummary, 'sport' | 'startLocal' | 'distanceM' | 'movingS' | 'elapsedS'>, latest = '9999-12-31'): Implausible | null {
+  const day = a.startLocal.slice(0, 10)
+  if (!isCalendarDay(day)) return { check: 'date', message: 'dieses Startdatum gibt es nicht' }
+  if (day < EARLIEST_DAY) return { check: 'date', message: `ein Start vor dem ${deDay(EARLIEST_DAY)} ist nicht möglich` }
+  if (day > latest) return { check: 'date', message: 'ein Start in der Zukunft ist nicht möglich' }
   const distanceM = a.distanceM ?? 0, movingS = a.movingS ?? 0, elapsedS = a.elapsedS ?? 0
   if (![distanceM, movingS, elapsedS].every((v) => Number.isFinite(v) && v >= 0)) return { check: 'values', message: 'Distanz oder Dauer ist negativ oder keine Zahl' }
   const run = RUN_ACTIVITY_TYPES.includes(typeForDb(a.sport).type)
@@ -97,7 +113,7 @@ export function implausible(a: Pick<ActivitySummary, 'sport' | 'distanceM' | 'mo
 // earlier storeDetail failed after the row was written. The caller stores the detail again instead of skipping.
 export type UpsertResult =
   | { result: 'inserted' | 'updated' | 'replaced' | 'duplicate'; id: string; incomplete?: boolean }
-  | { result: 'rejected'; id: null; reason: Implausible }      // impossible values (PLAUSIBLE): nothing stored
+  | { result: 'rejected'; id: null; reason: Implausible }      // impossible start day or values (PLAUSIBLE): nothing stored
 
 // An activity from another source (or another id of the same source) that is the same one: ±2 min, ±3 %.
 export async function findDuplicate(row: Pick<ActivityRow, 'startedAt' | 'date' | 'startTime' | 'distanceM'>): Promise<string | null> {
@@ -117,7 +133,8 @@ export async function findDuplicate(row: Pick<ActivityRow, 'startedAt' | 'date' 
 // → replace it when this record is richer (`detail`: what the caller will store next), else report a duplicate.
 // Every source passes through here, so this is where an impossible activity stops (`rejected`, nothing written).
 export async function upsertSummary(source: SourceId, summary: ActivitySummary, opts: { existing?: 'update' | 'skip'; detail?: ActivityDetail } = {}): Promise<UpsertResult> {
-  const reason = implausible(summary)
+  // Tomorrow: the device may be a day ahead of the profile's time zone (as for the Apple Health upload).
+  const reason = implausible(summary, format(addDays(parseISO(todayLocal()), 1), 'yyyy-MM-dd'))
   if (reason) return { result: 'rejected', id: null, reason }
   const row = toActivityRow(source, summary)
   const [existing] = await db
