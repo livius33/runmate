@@ -245,17 +245,27 @@ function sitsElsewhere(original: PlanSession, date: string, sessions: PlanSessio
 }
 
 // The other half of the swap or move an edited day belongs to: the day its plan session went to, or the day the session
-// it shows came from.
+// it shows came from. The kind ignores km, so two sessions of one kind in reach (two easy runs titled alike) leave a
+// choice: then the km decide. A swap of two such sessions is told apart by its km alone, and of several days that fit
+// by kind, the one whose km went along with the session is the partner (a move keeps the km; one edited since still
+// pairs by kind when it is the only one).
 function pairedDays(overrides: Overrides, date: string, planOf = planDay): string[] {
   const here = kindOf(overrides[date]), plan = planOf(date)
   if (!here) return []
-  return Object.keys(overrides).filter((d) => {
-    if (!inReach(d, date)) return false
+  const sameKm = (a?: PlanSession, b?: PlanSession) => (a?.km ?? 0) === (b?.km ?? 0)
+  const fits = Object.keys(overrides).flatMap((d) => {
+    if (!inReach(d, date)) return []
     const there = kindOf(overrides[d]), planThere = planOf(d)
     const wentThere = sameKind(there, plan) && !sameKind(planThere, plan) && !sameKind(here, plan)
     const cameFromThere = sameKind(here, planThere) && !sameKind(plan, planThere) && !sameKind(there, planThere)
-    return wentThere || cameFromThere
+    const swappedAlike = sameKind(plan, planThere) && sameKind(here, plan) && sameKind(there, plan) &&
+      !sameKm(plan, planThere) && sameKm(here, planThere) && sameKm(there, plan)
+    if (swappedAlike) return [{ d, km: true }]
+    if (wentThere || cameFromThere) return [{ d, km: wentThere ? sameKm(there, plan) : sameKm(here, planThere) }]
+    return []
   })
+  const byKm = fits.filter((f) => f.km)
+  return (byKm.length ? byKm : fits).map((f) => f.d)
 }
 
 // The edits on `dates` taken out of the map — together with the other half of a swap or a move: one day alone would
