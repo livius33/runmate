@@ -5,8 +5,10 @@ import { parseHealth, parseStart } from '@/lib/health/parse'
 import { currentScope } from '@/lib/scope'
 import { useFakeDb, type Query } from '../scope/fake-db'
 
-// The engine is a stand-in: `events` holds the route's writes and the engine run (with its user) in their order.
+// The engine and the block loader are stand-ins: `events` holds the route's writes, the loading of the user's live
+// blocks and the engine run (each with its user) in their order.
 const events = vi.hoisted(() => [] as string[])
+vi.mock('@/lib/plan/live-blocks', () => ({ ensureLiveBlocks: async () => { events.push(`blocks ${currentScope().userId}`); return [] } }))
 vi.mock('@/lib/plan/engine-store', () => ({ runAndSaveEngine: async () => { events.push(`engine ${currentScope().userId}`); return { log: [] } } }))
 
 const { POST } = await import('@/app/api/health/[token]/route')
@@ -82,11 +84,12 @@ describe('Kurzbefehl-Route je Nutzer', () => {
     expect(fake.log.filter((q) => q.sql.startsWith('insert into "activities"'))).toHaveLength(1)
   })
 
-  // 08-02 follow-up: the last-upload record was written before the runs, and the plan never heard of a new run.
+  // 08-02 follow-up: the last-upload record was written before the runs, and the plan never heard of a new run. The
+  // engine plans with the user's own blocks, so they are loaded first, for the token's user.
   it('Reihenfolge: erst die Läufe, dann der Tag mit dem „letzten Upload“, dann die Engine für diesen Nutzer', async () => {
     events.length = 0
     expect(await (await post('B'.repeat(32))).json()).toMatchObject({ ok: true, runs: 1 })
-    expect(events).toEqual(['insert into "activities"', 'insert into "health_days"', 'insert into "health_workouts"', 'delete from "health_workouts"', 'insert into "settings"', 'engine apple-only'])
+    expect(events).toEqual(['insert into "activities"', 'insert into "health_days"', 'insert into "health_workouts"', 'delete from "health_workouts"', 'insert into "settings"', 'blocks apple-only', 'engine apple-only'])
   })
 
   it('kein Lauf gespeichert (andere Laufquelle): die Engine läuft nicht', async () => {
@@ -101,7 +104,7 @@ describe('Kurzbefehl-Route je Nutzer', () => {
     await expect(post('B'.repeat(32))).rejects.toThrow('connection lost')
     expect(events).toEqual([])
     expect(await (await post('B'.repeat(32))).json()).toMatchObject({ ok: true, runs: 1, values: 2 })
-    expect(events.filter((e) => /settings|engine/.test(e))).toEqual(['insert into "settings"', 'engine apple-only'])
+    expect(events.filter((e) => /settings|blocks|engine/.test(e))).toEqual(['insert into "settings"', 'blocks apple-only', 'engine apple-only'])
   })
 
   // 08-02 follow-up: the route stored whatever day the Shortcut named.

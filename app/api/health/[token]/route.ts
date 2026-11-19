@@ -7,6 +7,7 @@ import { saveHealth } from '@/lib/health/store'
 import { hasOtherRunSource } from '@/lib/sources/registry'
 import { upsertSummary } from '@/lib/sources/ingest'
 import { runAndSaveEngine } from '@/lib/plan/engine-store'
+import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { runAsUser } from '@/lib/server/scope'
 import { intakeBlocked } from '@/lib/legal/intake'
 
@@ -44,7 +45,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     }
     const values = await saveHealth(r.day, r.workouts)
     // Stored runs adapt the plan like an import (app/api/import/route.ts), for the token's user; never fails the upload.
-    if (runs > 0) await runAndSaveEngine().catch((err) => console.error('[health] plan engine failed:', err?.message))
+    // The engine plans with the user's own blocks, so they are loaded first (they live in this user's scope).
+    if (runs > 0) {
+      try {
+        await ensureLiveBlocks()
+        await runAndSaveEngine()
+      } catch (err) {
+        console.error('[health] plan engine failed:', (err as Error)?.message)
+      }
+    }
     return NextResponse.json({ ok: true, date: r.day.date, values, runs, duplicateRuns, rejectedRuns, skippedWorkouts: r.skipped })
   })
 }
