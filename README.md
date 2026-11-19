@@ -1,7 +1,20 @@
+<div align="center">
+
+<img src="app/icon.svg" width="72" height="72" alt="">
+
 # Runmate
 
-An adaptive marathon and half-marathon training plan that reads your real runs and adjusts itself, built on published
-training methods.
+**An adaptive marathon and half-marathon training plan that reads your real runs and adjusts itself,<br>built on published training methods.**
+
+[![CI](https://github.com/livius33/runmate/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/livius33/runmate/actions/workflows/ci.yml)
+[![Licence: AGPL v3](https://img.shields.io/badge/licence-AGPL--3.0-E5484D.svg)](LICENSE)
+[![Self-host: Docker Compose](https://img.shields.io/badge/self--host-Docker%20Compose-2496ED.svg)](docs/SELF-HOST.md)
+
+[Features](#features) · [Screenshots](#screenshots) · [Self-host](#self-host) · [Demo](#demo) · [Data sources](#data-sources) · [Contributing](CONTRIBUTING.md)
+
+<img src="docs/screenshots/overview.webp" width="880" alt="Runmate overview: today's session with paces and heart-rate range, the week's plan and race readiness for a half marathon">
+
+</div>
 
 > **Status: pre-release.** Runmate grew out of one runner's private dashboard and is being opened up. One install
 > serves several users, each with their own data, plan, profile and data sources (Garmin login, Apple Health, file
@@ -24,6 +37,16 @@ training methods.
   post-race analysis against the plan.
 - **Calendar and Apple Health.** A private ICS feed of the plan; an iOS Shortcut can post daily Health data (sleep,
   resting HR, HRV, weight, other workouts) to a private link.
+
+## Screenshots
+
+The demo runner, eight weeks into a half-marathon block (invented data, see [Demo](#demo)).
+
+| Analysis | A single run |
+|:---:|:---:|
+| <img src="docs/screenshots/analysis.webp" alt="Analysis: block progress against the plan, long-run build, pace in zone 2, race-pace blocks"> | <img src="docs/screenshots/run.webp" alt="A run: pace, heart rate and elevation over the distance, the route coloured by pace, kilometre splits and time in heart-rate zones"> |
+| **Race day** | **All runs** |
+| <img src="docs/screenshots/race-day.webp" alt="Race day: plan A and B, pacing by section, split times with clock times, gel timing"> | <img src="docs/screenshots/runs.webp" alt="Runs: list of activities with type, distance, pace, heart rate, cadence and efficiency"> |
 
 ## Self-host
 
