@@ -181,3 +181,10 @@ phase = 8
 plan = "08-02"
 at = "2026-11-18T19:30:00Z"
 note = "second pass: 15 of 16 open defects fixed"
+
+[[entry]]
+action = "apply"
+phase = 8
+plan = "08-02"
+at = "2026-11-19T10:00:00Z"
+note = "third pass: remaining small findings fixed (15 commits)"

@@ -63,6 +63,31 @@ Fifteen of the sixteen defects left open by the sweep, each with a test that fai
 Checked beyond the unit tests: the save route, the kettlebell toggle (on, reload, off) and two bad imports in the
 browser against a local Postgres; the reordered Apple Health writes against the same Postgres.
 
+## Defects fixed in a third pass (2026-11-19)
+
+The small items seen in the second pass that need no decision, fifteen commits, each fix with a test that failed before:
+
+- **Data:** `/api/import` runs the engine also when a file only replaced or completed a stored run; the Apple Health
+  Shortcut route stores runs first and the day last ("last upload" only names a complete upload) and then runs the
+  engine with the user's own plan blocks; a workout sent twice in one upload counts once, more than 200 workouts are
+  refused; `/api/runner/profile` only stores answers to its questions (unknown keys dropped, wrong kind → 400); the
+  cross-training list refuses a `from`/`to` that is no calendar day; one activity that cannot be stored no longer stops
+  the sync of the others (such a sync is saved with an error and covers no days); the Garmin card shows `failed` and
+  the history import's `rejected` count; an activity that starts before 2000-01-01 or after tomorrow is rejected at
+  the ingest; a delivered average speed nobody can reach is ignored and the pace comes from distance and time.
+- **Editor:** km typed in on a marked rest day keep the kettlebell marker; a swap or move across the rebuild cut leaves
+  and returns as a whole; a saved entry always carries the date of the day it is stored under; "Von dir angepasst." and
+  the dot only show for a changed session, not for a marker alone (`changedBy` / `changeWhy` in `lib/plan/effective.ts`,
+  used by the editor, the schedule and the today card); move targets are limited to days of the plan's weeks and a
+  move into next week opens that week (the panel looked the target up in the week on screen only); restoring one day
+  of a swap or move of two alike easy runs restores its own partner (`pairedDays` goes by km where the kind is the same).
+
+Checked beyond the unit tests, against a local Postgres: marker-only label, km on a marked rest day and a move into
+next week in the browser; the save route's date handling, the cross-training bounds and the profile check over HTTP;
+two files dated 1970 and 2099 through `/api/import`; the Shortcut route over HTTP (run + a workout sent twice, the same
+upload again, 201 workouts, a run dated 1970, a wrong token) — the run was stored once, the plan day showed 6/6 and
+the engine wrote an `hr-cap` entry for two plan days.
+
 ## Open — defects not fixed
 
 - Adapter: ACWR inflated after a pause (up to 4.0; a session softened on ACWR alone a week after the return window).
@@ -71,13 +96,16 @@ browser against a local Postgres; the reordered Apple Health writes against the 
   working). Belongs to the rule decision "ACWR alone triggers after 1 day" above.
 - Adapter, seen in the second pass: return caps also cut a test day (a Generalprobe went from 20 to 11 km) and never
   appear in the engine log; `fatigue`, `hrCap` and `recalibrate` do not check the pause window; a runner who stops
-  uploading gets no missed-session notice until the next run arrives; the Shortcut route does not run the engine.
-- Editor, seen in the second pass: a session note is built by code and can still pass 1000 characters (the save is then
-  refused with a message naming the day); `setDayKm` on a marked rest day drops the kettlebell marker; `stripEdits` in
-  `rebuild-store.ts` can split a swapped pair; swaps of two same-titled sessions are not recognised as a pair.
-- Data, seen in the second pass: glitch rows stored before the filter are not cleaned up; the Garmin history UI does not
-  show the rejected count; `/api/import` does not run the engine when a file only replaced rows; `/api/runner/profile`
-  stores any JSON object unvalidated; no cap on workouts per Shortcut upload.
+  uploading gets no missed-session notice until the next run arrives.
+- Editor: a session note is built by code and can still pass 1000 characters (the save is then refused with a message
+  naming the day); the swap pairing stays a heuristic — when the partner's km were edited after the move and another
+  day in reach matches by km, the wrong day can be taken.
+- Data: glitch rows stored before the filter are not cleaned up (needs a decision); a delivered `maxSpeedMs` is stored
+  unchecked (nothing reads it); an upload whose `workouts` list holds no valid workout empties that day's stored list
+  (the list is taken as the day's full list).
+- Seen once, not reproduced: three API calls answered 404 during the local browser tests (the session was not
+  recognised for a moment; 404 is what `auth.protect()` answers). Eleven further rounds were clean; cause unknown,
+  suspected in the keyless Clerk dev instance.
 
 ## Not tested
 
