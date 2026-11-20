@@ -29,6 +29,7 @@ export const DAY_RULES = {
   noviceRuns: 4,
   weight: { key: 1.25, easy: 1, recovery: 0.7 },          // share of the non-long km per run (practice value)
   phaseFactor: { base: 0.75, build: 0.9, peak: 1, taper: 1 } as Record<Phase, number>,
+  lowVolume: { fullKm: 64, lowKm: 32 },                    // long-run share: the template's from 64 km/week, rising to SAFETY's below (long-run.md 1.3)
   stepKm: 2,                                               // long run + 2 km per load week …
   holdRiseKm: 1.5,                                         // … holding after two rises of ≥ 1,5 km
   recoveryLong: 0.7,
@@ -43,6 +44,14 @@ export const DAY_RULES = {
   defaultProfile: { availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, restDay: 5, qualityDays: [2, 4], maxKmWeekday: null, maxKmWeekend: null } as
     Pick<AthleteProfile, 'availableDays' | 'longRunDay' | 'restDay' | 'qualityDays' | 'maxKmWeekday' | 'maxKmWeekend'>,
 } as const
+
+// Long-run share of a week: the template's share is a rule for high volume. Below 64 km it rises linearly to the safety
+// ceiling at 32 km, so a low-volume week still has a long run (long-run.md 1.3). Never below the template's own share.
+export function longShare(templateShare: number, weekKm: number): number {
+  const { fullKm, lowKm } = DAY_RULES.lowVolume
+  const t = Math.min(Math.max((fullKm - weekKm) / (fullKm - lowKm), 0), 1)
+  return Math.max(templateShare, templateShare + t * (SAFETY.longRunShareMax - templateShare))
+}
 
 type Role = 'rest' | 'easy' | 'recovery' | 'key' | 'long' | 'race' | 'shakeout'
 const TITLE: Record<Role, string> = { rest: 'Ruhetag', easy: 'Locker', recovery: 'Regeneration', key: 'Qualität', long: 'Longrun', race: 'Rennen', shakeout: 'Shakeout' }
@@ -86,6 +95,7 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
   // 1 · Long runs, week by week (caps, spike rule against the last 30 days, progression, recovery, taper).
   const longs: (number | null)[] = []
   const longDates: string[] = []
+  const longest30s: number[] = sk.weeks.map(() => 0)   // per week: longest long run of the 30 days before its long-run day
   let lastLoad: number | null = null
   let lastPeak: number | null = null
   const rises: number[] = []
@@ -96,16 +106,17 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
     const w = sk.weeks[i]
     const date = plus(w.start, longDay - 1)
     longDates.push(date)
+    const from = plus(date, -R.spikeDays)
+    let longest30 = from < first ? input.longest30Km : 0
+    longs.forEach((k, j) => { if (k != null && longDates[j] >= from && longDates[j] < date) longest30 = Math.max(longest30, k) })
+    longest30s[i] = longest30
     if (i === raceIdx) { longs.push(null); continue }
-    let c = Math.min(t.week.long_run.share * w.km, t.week.long_run.max_km * R.phaseFactor[w.phase],
+    let c = Math.min(longShare(t.week.long_run.share, w.km) * w.km, t.week.long_run.max_km * R.phaseFactor[w.phase],
       (t.week.long_run.max_minutes * 60) / longPace, cap(longDay), SAFETY.longRunKmMax)
     if (input.distance === 'marathon') {
       if ((input.longest12mKm ?? 0) < R.marathon.bigKm) c = Math.min(c, R.marathon.bigKm - STEP)
       if (bigLongs >= R.marathon.maxLong) c = Math.min(c, R.marathon.longKm - STEP)
     }
-    const from = plus(date, -R.spikeDays)
-    let longest30 = from < first ? input.longest30Km : 0
-    longs.forEach((k, j) => { if (k != null && longDates[j] >= from && longDates[j] < date) longest30 = Math.max(longest30, k) })
     c = Math.min(c, (1 + SAFETY.longRunSpikeMax) * longest30)
     if (w.phase !== 'taper' && i > lim) c = Math.min(c, R.laterLongMax * maxBefore)
     let L: number
@@ -135,15 +146,19 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
   let prevHard: string[] = []
   let prevLong: string | null = null
   let capped = false
+  // No run longer than the long run (week-layout.md 1.3): weeks this bound alone keeps below their target.
+  let byLong = false
+  const cutByLong: { kw: number; km: number; target: number }[] = []
   for (let i = 0; i < sk.weeks.length; i++) {
     capped = false
+    byLong = false
     const w = sk.weeks[i]
     const date = (wd: number) => plus(w.start, wd - 1)
     const role: Role[] = Array(8).fill('rest')
     const km: number[] = Array(8).fill(0)
     let keyLong = false
     if (i === raceIdx) {
-      raceWeek(w.km, role, km)
+      raceWeek(w.km, role, km, floorKm(Math.max(longest30s[i], R.minRunKm)))
     } else {
       nearRace = new Set([1, 2, 3, 4, 5, 6, 7].filter((d) => date(d) < input.raceDate && date(d) > plus(input.raceDate, -7)))
       const longNear = nearRace.has(longDay)
@@ -187,13 +202,14 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
       }
       if (g === 1) for (let d = 1; d < 7; d++) if (role[d] === 'key' && role[d + 1] === 'easy') role[d + 1] = 'recovery'
       if (!longNear) km[longDay] = L
-      fillWeek(w.km, L, role, km)
+      fillWeek(w.km, L, role, km, floorKm(Math.max(L, longest30s[i], R.minRunKm)))
       prevHard = hard
       nearRace = new Set()
     }
     // Profile caps on the other days; whatever does not fit lowers the week.
     const total = km.reduce((a, b) => a + b, 0)
-    if (total < w.km - 1e-9) warnings.push(i === raceIdx
+    if (byLong && !capped && total < w.km - 1e-9) cutByLong.push({ kw: w.kw, km: total, target: w.km })
+    if (total < w.km - 1e-9 && (capped || !byLong)) warnings.push(i === raceIdx
       ? `KW ${w.kw}: Rennwoche ${num(total)} statt ${num(w.km)} km (lockere Tage höchstens ${R.raceWeek.easyMax} km).`
       : capped ? `KW ${w.kw}: Tageslimit begrenzt die Woche auf ${num(total)} statt ${num(w.km)} km.`
         : `KW ${w.kw}: ${num(total)} statt ${num(w.km)} km – zu wenig für Läufe ab ${R.minRunKm} km an allen Lauftagen.`)
@@ -210,12 +226,20 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
     const focus = [PHASE_LABEL[w.phase], w.kind === 'recovery' ? 'Erholungswoche' : w.kind === 'tuneup' ? 'Testrennen' : i === raceIdx ? 'Rennwoche' : '']
     weeks.push({ kw: getISOWeek(parseISO(w.start)), start: w.start, end: date(7), km: total, focus: focus.filter(Boolean).join(' · '), ...(w.phase === 'taper' ? { taper: true } : {}), ...(w.kind === 'recovery' ? { cutback: true } : {}) })
   }
+  if (cutByLong.length) {
+    const n = cutByLong.length
+    const worst = cutByLong.reduce((a, b) => (b.target - b.km > a.target - a.km ? b : a))
+    const more = A.length < Math.min(t.week.runs, novice ? R.noviceRuns : 7)
+    const limit = cap(longDay) < Infinity
+    const way = more && limit ? ' Mehr Lauftage oder ein höheres Tageslimit am Longrun-Tag heben sie an.' : more ? ' Mehr Lauftage heben sie an.' : limit ? ' Ein höheres Tageslimit am Longrun-Tag hebt sie an.' : ''
+    warnings.push(`Kein Lauf ist länger als der Longrun – ${n === 1 ? 'eine Woche bleibt' : `${n} Wochen bleiben`} deshalb unter dem Ziel (${n === 1 ? '' : 'am stärksten '}KW ${worst.kw}: ${num(worst.km)} statt ${num(worst.target)} km).${way}`)
+  }
   if (dropped.length) warnings.push(`Nicht alle Schlüsseleinheiten passen in die Woche (Abstand ${g} Tage): KW ${dropped.join(', ')}.`)
   return { ok: true, sessions, weeks, warnings }
 
   // Race week backwards from the race (phases-and-taper.md 2.3 rule 5): race · −1 shakeout · −2 rest · −3 key ·
-  // earlier days easy 5–8 km; days after the race rest.
-  function raceWeek(target: number, role: Role[], km: number[]) {
+  // earlier days easy 5–8 km; days after the race rest. No run longer than the longest of the last 30 days (`longest`).
+  function raceWeek(target: number, role: Role[], km: number[], longest: number) {
     const r = getISODay(parseISO(input.raceDate))
     role[r] = 'race'
     let used = 0
@@ -233,13 +257,13 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
         && !(prevHard.includes(date(d - 1)) && prevHard.includes(date(d - 2)))
       if (ok) { keyDay = d; break }
     }
-    const keyKm = keyDay ? Math.min(R.raceWeek.keyKm[input.distance], floorKm(cap(keyDay)), target - used) : 0
+    const keyKm = keyDay ? Math.min(R.raceWeek.keyKm[input.distance], floorKm(cap(keyDay)), longest, target - used) : 0
     if (keyDay && keyKm >= R.minRunKm) { role[keyDay] = 'key'; km[keyDay] = keyKm; used += keyKm } else keyDay = 0
     const easy = A.filter((d) => d < (keyDay || r - 2) && d < r - 2)
     const rest = target - used
     while (easy.length && rest / easy.length < R.raceWeek.easyMin) easy.pop()
     for (const d of easy) {
-      const k = Math.min(R.raceWeek.easyMax, floorKm(cap(d)), floorKm(rest / easy.length))
+      const k = Math.min(R.raceWeek.easyMax, floorKm(cap(d)), longest, floorKm(rest / easy.length))
       if (k < R.minRunKm) continue
       role[d] = 'easy'
       km[d] = k
@@ -247,7 +271,9 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
   }
 
   // Non-long km over the other run days by weight; runs below the minimum drop (recovery first); caps; exact week sum.
-  function fillWeek(target: number, L: number, role: Role[], km: number[]) {
+  function fillWeek(target: number, L: number, role: Role[], km: number[], longest: number) {
+    // The long run keeps its own limits (step 1); every other run also stays at or below `longest`.
+    const top = (d: number) => (role[d] === 'long' ? cap(d) : Math.min(cap(d), longest))
     const others = () => [1, 2, 3, 4, 5, 6, 7].filter((d) => role[d] === 'key' || role[d] === 'easy' || role[d] === 'recovery')
     const left = target - L
     for (;;) {
@@ -262,12 +288,12 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
     }
     for (let d = 1; d <= 7; d++) if (role[d] === 'rest') km[d] = 0
     // Caps: clip, then hand what is missing to easy/recovery days with headroom (biggest easy day first).
-    for (let d = 1; d <= 7; d++) if (km[d] > cap(d)) { km[d] = floorKm(cap(d)); capped = true }
+    for (let d = 1; d <= 7; d++) if (km[d] > top(d)) { if (role[d] !== 'long' && longest <= cap(d)) byLong = true; else capped = true; km[d] = floorKm(top(d)) }
     let residual = target - km.reduce((a, b) => a + b, 0)
     const receivers = () => [1, 2, 3, 4, 5, 6, 7].filter((d) => role[d] === 'easy' || role[d] === 'recovery')
       .sort((a, b) => (role[a] === role[b] ? km[b] - km[a] : role[a] === 'easy' ? -1 : 1))
     while (residual > 1e-9) {
-      const d = receivers().find((x) => km[x] + STEP <= cap(x) + 1e-9)
+      const d = receivers().find((x) => km[x] + STEP <= top(x) + 1e-9)
       if (d == null) break
       km[d] += STEP
       residual -= STEP
@@ -284,11 +310,13 @@ export function buildDays(sk: Skeleton, input: DaysInput): DaysResult {
       km[drop] = 0
       role[drop] = 'rest'
       while (residual > 1e-9) {
-        const r = receivers().find((x) => km[x] + STEP <= cap(x) + 1e-9)
+        const r = receivers().find((x) => km[x] + STEP <= top(x) + 1e-9)
         if (r == null) break
         km[r] += STEP
         residual -= STEP
       }
     }
+    // Which limit keeps the week below its target (for the warning).
+    if (residual > 1e-9) for (const d of others()) if (km[d] + STEP > top(d) + 1e-9) { if (longest <= cap(d)) byLong = true; else capped = true }
   }
 }

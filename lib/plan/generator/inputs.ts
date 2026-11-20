@@ -4,6 +4,7 @@
 import { addDays, differenceInCalendarDays, format, parseISO, startOfWeek } from 'date-fns'
 import type { Distance } from '../methodology/schema'
 import type { PlanSession, PlanWeek } from '../types'
+import { statedLongestKm, type AthleteProfile } from '../athlete-profile'
 import { RACE_KM, predictTimeS } from './paces'
 
 export interface RunRow { date: string; distanceM: number; durationS: number; workoutType?: number | null; sportType?: string | null }
@@ -14,12 +15,14 @@ export interface MeasureInput {
   today: string
   start: string                     // plan start (any day; its Monday counts)
   distance: Distance                // goal distance (recent-race prediction)
+  profile?: AthleteProfile | null   // stands in for the longest run while no run is known (long-run.md 2.3)
 }
 export interface MeasuredInputs {
   currentKm: number
-  currentKmSource: 'mean4' | 'recoveryBlock' | 'plan'
+  currentKmSource: 'mean4' | 'recoveryBlock' | 'plan' | 'runs2' | 'return'   // runs2, return: a rebuild (lib/plan/rebuild.ts)
   provenKm: number
   longest30Km: number
+  longest30Source?: 'measured' | 'profile' | 'estimate' | 'none'   // profile, estimate: no run known (long-run.md 2.3); missing = measured
   longest12mKm: number
   recentRace: { distanceKm: number; timeS: number; date: string } | null
 }
@@ -69,7 +72,11 @@ export function measureInputs(input: MeasureInput): MeasuredInputs {
   const from30 = plus(start, -SPIKE_DAYS)
   const actual30 = runs.filter((r) => r.date >= from30 && r.date < start && r.date < today && !isRace(r)).map((r) => r.distanceM / 1000)
   const planned30 = plan.filter((s) => s.date >= from30 && s.date < start && s.date >= today && s.type !== 'race' && !s.anchor).map(planKm)
-  const longest30Km = Math.max(0, ...actual30, ...planned30)
+  let longest30Km = Math.max(0, ...actual30, ...planned30)
+  let longest30Source: NonNullable<MeasuredInputs['longest30Source']> = longest30Km > 0 ? 'measured' : 'none'
+  // No run known at all: the runner's own answer, else the mean run of the stated week. A measured break stays 0.
+  const stated = longest30Km === 0 && runs.length === 0 ? statedLongestKm(input.profile) : null
+  if (stated) { longest30Km = stated.km; longest30Source = stated.source }
   const longest12mKm = Math.max(0, ...runs.filter((r) => r.date >= plus(today, -365) && r.date < today).map((r) => r.distanceM / 1000))
 
   // Recent race: standard distance (± 3 %), last 6 months, best by its prediction for the goal distance.
@@ -85,6 +92,6 @@ export function measureInputs(input: MeasureInput): MeasuredInputs {
 
   return {
     currentKm: r1(currentKm), currentKmSource, provenKm: r1(provenKm),
-    longest30Km: r1(longest30Km), longest12mKm: r1(longest12mKm), recentRace,
+    longest30Km: r1(longest30Km), longest30Source, longest12mKm: r1(longest12mKm), recentRace,
   }
 }

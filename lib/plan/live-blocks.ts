@@ -2,6 +2,7 @@
 // lookup sees them, with the minor races from the Saison page applied (07-16; never stored in the block). Server only
 // (database). Per user: registered into the request's scope (lib/scope.ts); read at most every 10 s per user and
 // server instance.
+import type { DraftOverrides } from './generator/draft'
 import { and, gte, inArray } from 'drizzle-orm'
 import { addDays, format, parseISO } from 'date-fns'
 import { db } from '@/lib/db'
@@ -20,7 +21,9 @@ import type { TrainingBlock } from './types'
 
 export const LIVE_BLOCKS_KEY = 'plan_blocks'
 export const BASE_KEY = 'base_block'       // 07-17: BaseSettings { v, paused, capKm }
-export interface LiveEntry { block: TrainingBlock; draftId: string; liveAt: string }
+// `choice`: the method and inputs the block was built from, kept for a rebuild (lib/plan/rebuild-store.ts); entries from
+// before v1.1 have none and fall back to their draft.
+export interface LiveEntry { block: TrainingBlock; draftId: string; liveAt: string; choice?: { templateId: string; overrides: DraftOverrides } }
 export interface StoredLive { v: 1; blocks: LiveEntry[] }
 
 const TTL_MS = 10_000

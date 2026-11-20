@@ -7,7 +7,7 @@ import { activeBlock, raceOf, blockPaces } from '@/lib/plan/blocks'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtClock, fmtKm, fmtPace, paceToS } from '@/lib/plan/format'
 import { athlete } from '@/lib/athlete'
-import { dayLabel, isHard, type Overrides } from '@/lib/plan/effective'
+import { changedBy, dayLabel, isHard, type Overrides } from '@/lib/plan/effective'
 import { checkPace, matchSessionRuns, type DatedRun } from '@/lib/plan/pace-check'
 import { tired, type EngineChange } from '@/lib/plan/engine'
 import { raceWeekDay } from '@/lib/plan/race-week'
@@ -92,8 +92,10 @@ export function todayInsight({ today, sessions, manual, engineLog, runs, tsb, ac
   const state: TodayState = s?.type === 'race' ? 'race' : done.length ? 'done'
     : !s || s.type === 'rest' ? 'rest' : isHard(s) ? 'hard' : 'easy'
 
-  const why = engineLog.filter((c) => c.status === 'active' && c.after[today]).map((c) => c.reason)
-  if (manual[today]) why.push('Von dir angepasst.')
+  // An own session lies on top of an engine change; a kettlebell marker alone is no changed session (changedBy).
+  const reasons = engineLog.filter((c) => c.status === 'active' && c.after[today]).map((c) => c.reason)
+  const by = changedBy(manual[today], reasons.length > 0)
+  const why = by === 'manual' ? ['Von dir angepasst.'] : by === 'engine' ? reasons : []
 
   const fitness = { tsb, acwr, acwrRecent, ...(recovery?.flags.length ? { recovery: { date: recovery.date, flags: recovery.flags } } : {}) }
   const rules = rulesFor(today)                                // the red zone of today's block

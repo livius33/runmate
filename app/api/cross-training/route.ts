@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import { and, desc, gte, inArray, lte } from 'drizzle-orm'
 import { db } from '@/lib/db'
@@ -5,16 +6,19 @@ import { activities } from '@/lib/db/schema'
 import { mine, own } from '@/lib/db/owned'
 import { CROSS_TYPES, MANUAL_ID_PREFIX, parseCrossEntry } from '@/lib/analytics/cross-training'
 import { crossSummary } from '@/lib/analytics/cross-view'
-import { todayLocal } from '@/lib/dates'
+import { isCalendarDay, todayLocal } from '@/lib/dates'
 import { withUser } from '@/lib/server/scope'
 
 export const runtime = 'nodejs'
 
-// All cross-training sessions, newest first; ?from=&to= (yyyy-mm-dd) narrow the window.
+// All cross-training sessions, newest first; ?from=&to= (yyyy-mm-dd) narrow the window. The date column is text, so
+// a bound that is no calendar day ('1.5.2026', '2026-5-1') would compare as text and answer with the wrong sessions.
 export const GET = withUser(async (req: Request) => {
+  const p = new URL(req.url).searchParams
+  const from = p.get('from'), to = p.get('to')
+  const bad = from && !isCalendarDay(from) ? 'from' : to && !isCalendarDay(to) ? 'to' : null
+  if (bad) return NextResponse.json({ error: `${bad}: ein Kalendertag als JJJJ-MM-TT` }, { status: 400 })
   try {
-    const p = new URL(req.url).searchParams
-    const from = p.get('from'), to = p.get('to')
     const where = [inArray(activities.type, CROSS_TYPES)]
     if (from) where.push(gte(activities.date, from))
     if (to) where.push(lte(activities.date, to))
@@ -33,7 +37,7 @@ export const POST = withUser(async (req: Request) => {
   const e = parsed.entry
   try {
     const row = {
-      id: `${MANUAL_ID_PREFIX}${Date.now()}`,
+      id: `${MANUAL_ID_PREFIX}${randomUUID()}`,           // older rows: prefix + milliseconds; only the prefix is ever read
       source: 'manual',
       type: e.type,
       sportType: 'manual',

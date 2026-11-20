@@ -1,7 +1,8 @@
 'use client'
 
-// Settings → Abo (Phase 4): status, trial end or renewal date, checkout (Paddle.js, loaded only when needed), the
-// customer portal and the cancellation button (§312k BGB → /kuendigen). Hidden on a self-hosted install.
+// Settings → Abo (Phase 4): status, trial end or renewal date, the Plus offer (checkout via Paddle.js, loaded only when
+// needed) with what Free includes, the customer portal and the cancellation button (§312k BGB → /kuendigen). Hidden on
+// a self-hosted install.
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -66,6 +67,7 @@ export function BillingCard() {
   const paid = !!sub?.paddle && sub.status !== 'canceled'
   const now = Math.floor(Date.now() / 1000)
   const notice = stateNotice(e, now)
+  const prices = data.checkout?.prices ?? []
 
   const checkout = async (priceId: string) => {
     setError(null)
@@ -74,7 +76,7 @@ export function BillingCard() {
       const P = await loadPaddle(data.checkout.env, data.checkout.clientToken)
       P.Checkout.open({
         items: [{ priceId, quantity: 1 }],
-        customData: { userId: data.userId },
+        customData: { userId: data.userId, ...(data.userSig ? { userSig: data.userSig } : {}) },
         settings: { successUrl: `${window.location.origin}/settings?abo=danke#abo` },
       })
     } catch (err) {
@@ -87,7 +89,7 @@ export function BillingCard() {
       <h2 className="flex items-center gap-2 text-[15px] font-semibold"><CreditCard className="h-4 w-4 text-brand" /> Abo</h2>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted-foreground">Status</dt>
-        <dd className="font-medium">{STATE_LABEL[e.state]}{e.tier && e.state === 'past_due' ? ` (${e.tier === 'plus' ? 'Plus' : 'Basic'})` : ''}{sub?.interval ? ` · ${sub.interval === 'year' ? 'jährlich' : 'monatlich'}` : ''}</dd>
+        <dd className="font-medium">{STATE_LABEL[e.state]}{e.tier && e.state === 'past_due' ? ' (Plus)' : ''}{sub?.interval ? ` · ${sub.interval === 'year' ? 'jährlich' : 'monatlich'}` : ''}</dd>
         {e.state === 'trial' && <><dt className="text-muted-foreground">Testphase bis</dt><dd>{fmtDate(e.trialEndsAt)}</dd></>}
         {paid && <><dt className="text-muted-foreground">{e.cancelAtPeriodEnd ? 'Endet am' : 'Verlängert sich am'}</dt><dd>{fmtDate(e.periodEnd)}</dd></>}
       </dl>
@@ -95,23 +97,15 @@ export function BillingCard() {
       {thanks && !paid && <p className="mt-2 text-xs text-teal">Danke! Das Abo ist in wenigen Sekunden aktiv.</p>}
 
       {!paid && (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {(['basic', 'plus'] as const).map((tier) => {
-            const prices = data.checkout?.prices.filter((p) => p.tier === tier) ?? []
-            return (
-              <div key={tier} className="rounded-xl border border-border p-4">
-                <p className="text-sm font-semibold">{tier === 'plus' ? 'Plus' : 'Basic'}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{tier === 'plus'
-                  ? 'Alles aus Basic, dazu: Plan passt sich selbst an (Verschieben, Ermüdungsschutz, Ausgleich), mehrere Pläne und Rennen, eigene Methode, Renntag-Werkzeuge.'
-                  : 'Synchronisierung, Analyse, Hinweise und ein erstellter Trainingsplan; Anpassungen als Vorschläge.'}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {prices.length ? prices.map((p) => (
-                    <button key={p.priceId} onClick={() => checkout(p.priceId)} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white">{p.label}</button>
-                  )) : <span className="text-xs text-muted-foreground">Noch nicht buchbar.</span>}
-                </div>
-              </div>
-            )
-          })}
+        <div className="mt-4 rounded-xl border border-border p-4">
+          <p className="text-sm font-semibold">Plus</p>
+          <p className="mt-1 text-xs text-muted-foreground">Der Plan passt sich selbst an (Verschieben, Ermüdungsschutz, Ausgleich) und lässt sich neu aufbauen, wenn sich Ziel oder Termin ändern. Dazu mehrere Pläne und Rennen, eigene Methode, Renntag-Werkzeuge, Schlaf und HRV im Plan.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {prices.length ? prices.map((p) => (
+              <button key={p.priceId} onClick={() => checkout(p.priceId)} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white">{p.label}</button>
+            )) : <span className="text-xs text-muted-foreground">Noch nicht buchbar.</span>}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">Kostenlos bleibt: Datenquellen und Import, Analyse und Hinweise, ein Trainingsplan mit Anpassungen als Vorschläge, Export und Löschen.</p>
         </div>
       )}
       {!paid && <p className="mt-2 text-xs text-muted-foreground">Bezahlung über Paddle (Händler und Rechnungssteller). 14 Tage Widerrufsrecht, monatlich bzw. jährlich kündbar.</p>}

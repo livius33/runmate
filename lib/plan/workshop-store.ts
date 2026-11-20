@@ -6,13 +6,16 @@ import { own } from '@/lib/db/owned'
 import { getSettingJson, setSettingJson } from '@/lib/db/settings'
 import { timeZone } from '@/lib/dates'
 import { getLinkToken } from '@/lib/links/tokens'
+import { loadLastSync } from '@/lib/sources/sync'
 import { RUN_ACTIVITY_TYPES, toDatedRun } from '@/lib/analytics/run-view'
 import { acwr, acwrSeries, fitnessSeries } from '@/lib/analytics/load'
 import { allGoals, storedGoals } from '@/lib/season/goals'
 import { activeBlock } from './blocks'
 import { athlete } from '@/lib/athlete'
+import { currentScope } from '@/lib/scope'
+import { loadOwnProfile, saveUserProfile } from '@/lib/profile-store'
 import { loadOverrides, loadPlan, saveOverrides } from './load'
-import { runAndSaveEngine } from './engine-store'
+import { loadRecoveryForPlan, runAndSaveEngine } from './engine-store'
 import { isHard } from './effective'
 import {
   applyChanges, periodFor, recentVolume, reviewPeriod, suggestions, undoEntry, workshopHints,
@@ -20,7 +23,6 @@ import {
 } from './workshop'
 import { THRESHOLD_FROM_RACE_S, isoDay, validProfile, type AthleteProfile, type Weekday } from './athlete-profile'
 import { loadPauses } from './pause-store'
-import { loadRecoveryToday } from '@/lib/wellness/store'
 import { loadRunFeedback } from '@/lib/feedback/run-store'
 import { loadWeekFeedback } from '@/lib/feedback/week-reader'
 import { weekEntryFor, type FeedbackInput } from '@/lib/feedback/rules'
@@ -36,7 +38,13 @@ export const loadProfile = () => getSetting<AthleteProfile>(PROFILE_KEY)
 export async function saveProfile(p: AthleteProfile) {
   if (!validProfile(p)) throw new Error('Profil unvollständig')
   await setSetting(PROFILE_KEY, { ...p, savedAt: new Date().toISOString() })
+  // The weight is asked once: Settings → Mein Profil (carb amounts) takes it over as long as it holds none of its own.
+  if (p.weightKg != null) {
+    const own = await loadOwnProfile()
+    if (own?.weightKg == null) await saveUserProfile({ ...EMPTY_PROFILE, ...own, weightKg: p.weightKg })
+  }
 }
+const EMPTY_PROFILE = { hrMax: null, hrRest: null, lthr: null, zoneModel: null, pbTime: null, pbRace: null, pbHr: null, vo2max: null, weightKg: null, easyPace: null, timezone: null, locale: null }
 
 // Events the period can run up to: race and anchored plan days, plus the Saison page's own goals.
 async function loadEvents(plan: { date: string; title: string; type: string; anchor?: boolean }[]): Promise<WorkshopEvent[]> {
@@ -61,7 +69,7 @@ async function loadInputs(today: string) {
   const now = localDate()        // the runner's day, like the fitness and stats routes (07-20)
   const series = fitnessSeries(rows, now)
   const ratio = acwr(runRows, now).acwr
-  const recovery = await loadRecoveryToday(today)   // this morning's night flags; undefined without data
+  const recovery = await loadRecoveryForPlan(today)   // this morning's night flags; undefined without data or without Plus
   const fitness = { tsb: series.length ? series[series.length - 1].tsb : null, acwr: ratio > 0 ? ratio : null, acwrRecent: acwrSeries(runRows, now), ...(recovery ? { recovery } : {}) }
   const events = await loadEvents(plan)
   return { plan, manual, actual, fitness, events, profile, runRows, feedback }
@@ -126,10 +134,10 @@ export async function profilePrefill(today: string): Promise<AthleteProfile> {
   const weekdayMax = Math.max(0, ...recent.filter((s) => isoDay(s.date) <= 5 && s.type !== 'race').map((s) => s.km ?? 0))
   const weekendMax = Math.max(0, ...recent.filter((s) => isoDay(s.date) >= 6 && s.type !== 'race').map((s) => s.km ?? 0))
   return {
-    v: 1, age: null, weightKg: athlete().weightKg, heightCm: null,
-    experience: 'advanced', weeklyKm: Math.round(km4 / 4),
+    v: 1, age: null, weightKg: currentScope().profile.defaults.includes('weightKg') ? null : athlete().weightKg, heightCm: null,   // never the example weight
+    experience: null, weeklyKm: Math.round(km4 / 4) || null,      // not measurable: the runner says it
     availableDays: [1, 2, 3, 4, 5, 6, 7],
-    longRunDay, qualityDays: mostCommon(hardDays.filter((d) => d !== longRunDay), 2), kbDays: [2, 4],
+    longRunDay, qualityDays: mostCommon(hardDays.filter((d) => d !== longRunDay), 2), kbDays: [],
     restDay: mostCommon(restDays.filter((d) => d !== longRunDay), 1)[0] ?? 5,
     maxKmWeekday: weekdayMax ? Math.ceil(weekdayMax) : null, maxKmWeekend: weekendMax ? Math.ceil(weekendMax) : null,
     fitnessMethod: 'threshold', thresholdPaceS: race.goalPaceS + THRESHOLD_FROM_RACE_S(race.distanceKm), fiveKS: null, savedAt: null,
@@ -138,7 +146,7 @@ export async function profilePrefill(today: string): Promise<AthleteProfile> {
 
 // For the onboarding's "Verbindungen" step.
 export async function connections() {
-  const [sync, cal, health] = await Promise.all([getSetting<{ at: string; error?: string }>('garmin_last_sync'), getLinkToken('calendar'), getLinkToken('health')])
+  const [sync, cal, health] = await Promise.all([loadLastSync('garmin'), getLinkToken('calendar'), getLinkToken('health')])
   const at = sync && !sync.error ? new Date(sync.at) : null
   return {
     garminSync: at ? at.toLocaleString('de-DE', { timeZone: timeZone(), day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : null,

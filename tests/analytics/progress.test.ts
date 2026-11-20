@@ -57,7 +57,7 @@ describe('blockProgress: Wochen und Grenzen', () => {
     expect(p.volume.tone).toBe('neutral')
     expect(p.volume.text).toContain('beginnt am 21.12.')
     expect(p.z2.tone).toBe('neutral')
-    expect(p.long.text).toBe('Noch kein Longrun im Block.')
+    expect(p.long.text).toBe('Erster Longrun: 20 km am 26.12.')
     expect(p.quality.points).toHaveLength(0)
     expect(p.quality.text).toBe('Noch kein Renntempo-Block gelaufen.')
   })
@@ -81,7 +81,9 @@ describe('blockProgress: Wochen und Grenzen', () => {
     expect(p.weeks[1].actualKm).toBeNull()
     expect(p.weeks[2].actualKm).toBeNull()
     expect(p.volume.actualToDateKm).toBe(10)
-    expect(p.volume.planToDateKm).toBe(8 + 12 + 8)    // Mo, Di, Mi geplant bis heute
+    expect(p.volume.planToDateKm).toBe(8 + 12)        // Mo, Di geplant; heute (Mi) zählt erst, wenn gelaufen
+    const ran = blockProgress({ block: BLOCK, sessions: SESSIONS, runs: [...runs, run('2026-12-23', 8, 330, 135)], today: '2026-12-23' })
+    expect(ran.volume.planToDateKm).toBe(8 + 12 + 8)
     expect(p.volume.weeksStarted).toBe(1)
     expect(p.long.longestKm).toBe(10)
   })

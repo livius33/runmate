@@ -2,7 +2,7 @@
 // trial, cancellation at period end and the portal link. No network: fetch is stubbed, the DB is the pg-proxy fake.
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { billingEvents, subscription } from '@/lib/db/schema'
-import { signPaddle, verifyPaddleSignature, SIGNATURE_TOLERANCE_S } from '@/lib/billing/paddle'
+import { signPaddle, verifyPaddleSignature, SIGNATURE_TOLERANCE_S, signCheckoutUser } from '@/lib/billing/paddle'
 import { applyPaddleEvent, type PaddleEvent, type SubState } from '@/lib/billing/webhook'
 import { entitlements, planState } from '@/lib/billing/entitlements'
 import type { PriceIds } from '@/lib/billing/config'
@@ -12,8 +12,8 @@ const clerk = vi.hoisted(() => ({ userId: 'user-p' as string | null }))
 vi.mock('@clerk/nextjs/server', () => ({ auth: async () => ({ userId: clerk.userId }) }))
 
 const SECRET = 'pdl_ntfset_test_secret'
-const IDS: PriceIds = { basic: { month: 'pri_bm', year: 'pri_by' }, plus: { month: 'pri_pm', year: 'pri_py' } }
-const env = { BILLING_ENABLED: '1', PADDLE_WEBHOOK_SECRET: SECRET, PADDLE_API_KEY: 'pdl_sdbx_apikey_test', PADDLE_ENV: 'sandbox', PADDLE_PRICE_BASIC_MONTH: 'pri_bm', PADDLE_PRICE_BASIC_YEAR: 'pri_by', PADDLE_PRICE_PLUS_MONTH: 'pri_pm', PADDLE_PRICE_PLUS_YEAR: 'pri_py' }
+const IDS: PriceIds = { plus: { month: 'pri_pm', year: 'pri_py' } }
+const env = { BILLING_ENABLED: '1', PADDLE_WEBHOOK_SECRET: SECRET, PADDLE_API_KEY: 'pdl_sdbx_apikey_test', PADDLE_ENV: 'sandbox', PADDLE_PRICE_PLUS_MONTH: 'pri_pm', PADDLE_PRICE_PLUS_YEAR: 'pri_py' }
 
 const db = { sub: null as Record<string, unknown> | null, seen: new Set<string>() }
 const fake = useFakeDb((q) => {
@@ -30,7 +30,7 @@ const iso = (s: number) => new Date(s * 1000).toISOString()
 const T0 = 1_800_000_000
 const subEvent = (type: string, at: number, data: Partial<Record<string, unknown>> = {}, id = `evt_${type}_${at}`): PaddleEvent => ({
   event_id: id, event_type: type, occurred_at: iso(at),
-  data: { id: 'sub_1', status: 'active', customer_id: 'ctm_1', items: [{ price: { id: 'pri_pm' } }], current_billing_period: { starts_at: iso(at), ends_at: iso(at + 30 * 86_400) }, scheduled_change: null, canceled_at: null, custom_data: { userId: 'user-p' }, ...data },
+  data: { id: 'sub_1', status: 'active', customer_id: 'ctm_1', items: [{ price: { id: 'pri_pm' } }], current_billing_period: { starts_at: iso(at), ends_at: iso(at + 30 * 86_400) }, scheduled_change: null, canceled_at: null, custom_data: { userId: 'user-p', userSig: signCheckoutUser('user-p', SECRET) }, ...data },
 })
 
 describe('Webhook-Signatur', () => {
@@ -95,6 +95,15 @@ describe('Webhook-Route', async () => {
     expect(inserts('billing_events')).toEqual([])
   })
 
+  it('custom_data ohne Signatur des Servers zählt nicht: fremde Nutzer-ID im Checkout schreibt nichts', async () => {
+    const forged = [{ userId: 'user-victim' }, { userId: 'user-victim', userSig: signCheckoutUser('user-p', SECRET) }, { userId: 'user-victim', userSig: 'ab'.repeat(32) }]
+    for (const [i, custom_data] of forged.entries()) {
+      const res = await post(subEvent('subscription.created', T0, { id: 'sub_x', customer_id: 'ctm_x', custom_data }, `evt_forged_${i}`))
+      expect(await res.json()).toEqual({ ok: true, result: 'unknown-user' })
+    }
+    expect(inserts('subscription')).toEqual([])
+  })
+
   it('unbekannter Nutzer (kein custom_data, keine gespeicherte Kennung): 200, nichts geschrieben', async () => {
     const res = await post(subEvent('subscription.updated', T0, { custom_data: null }))
     expect(await res.json()).toEqual({ ok: true, result: 'unknown-user' })
@@ -127,11 +136,12 @@ describe('Zustandsübergänge (rein)', () => {
     row = step(row, subEvent('subscription.updated', T0 + 32 * 86_400, { status: 'active', current_billing_period: { starts_at: iso(T0 + 32 * 86_400), ends_at: iso(end) }, scheduled_change: { action: 'cancel', effective_at: iso(end) } }))
     expect(row).toMatchObject({ cancelAtPeriodEnd: true, currentPeriodEnd: end })
     expect(state(row, end - 1)).toBe('plus')
-    expect(state(row, end)).toBe('expired')                                   // even if the canceled event is late
+    expect(state(row, end)).toBe('free')                                      // even if the canceled event is late
 
     row = step(row, subEvent('subscription.canceled', end, { status: 'canceled', canceled_at: iso(end), scheduled_change: null }))
     expect(row).toMatchObject({ status: 'canceled', canceledAt: end })
-    expect(state(row, end + 1)).toBe('expired')
+    expect(state(row, end + 1)).toBe('free')
+    expect(entitlements(row, end + 1, true)).toMatchObject({ maxLivePlans: 1, features: { sync: true, plan: true, autoAdapt: false } })     // back to Free, not locked
   })
 
   it('ein älteres Ereignis überschreibt kein neueres', () => {
@@ -139,20 +149,21 @@ describe('Zustandsübergänge (rein)', () => {
     expect(applyPaddleEvent(row, subEvent('subscription.updated', T0 + 50), IDS)).toBeNull()
   })
 
-  it('Tarifwechsel über das Portal: Basic → Plus jährlich', () => {
-    const row = step(step(null, subEvent('subscription.created', T0, { items: [{ price: { id: 'pri_bm' } }] })), subEvent('subscription.updated', T0 + 10, { items: [{ price: { id: 'pri_py' } }] }))
+  it('Wechsel über das Portal: Plus monatlich → Plus jährlich', () => {
+    const row = step(step(null, subEvent('subscription.created', T0)), subEvent('subscription.updated', T0 + 10, { items: [{ price: { id: 'pri_py' } }] }))
     expect(row).toMatchObject({ tier: 'plus', interval: 'year' })
   })
 
-  it('unbekannte Preis-ID: keine Änderung', () => {
+  it('unbekannte Preis-ID (auch die früheren Basic-Preise): keine Änderung', () => {
     expect(applyPaddleEvent(null, subEvent('subscription.created', T0, { items: [{ price: { id: 'pri_other' } }] }), IDS)).toBeNull()
+    expect(applyPaddleEvent(null, subEvent('subscription.created', T0, { items: [{ price: { id: 'pri_bm' } }] }), IDS)).toBeNull()
   })
 
   it('transaction.completed vor dem Abo-Ereignis: verknüpft und aktiviert; danach nur noch die Kundenkennung', () => {
     const trial: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null }
-    const tx = { event_id: 'txn', event_type: 'transaction.completed', occurred_at: iso(T0), data: { subscription_id: 'sub_9', customer_id: 'ctm_9', items: [{ price: { id: 'pri_by' } }] } }
+    const tx = { event_id: 'txn', event_type: 'transaction.completed', occurred_at: iso(T0), data: { subscription_id: 'sub_9', customer_id: 'ctm_9', items: [{ price: { id: 'pri_py' } }] } }
     const row = applyPaddleEvent(trial, tx, IDS)
-    expect(row).toMatchObject({ status: 'active', tier: 'basic', interval: 'year', paddleSubscriptionId: 'sub_9', trialEndsAt: T0 + 86_400 })
+    expect(row).toMatchObject({ status: 'active', tier: 'plus', interval: 'year', paddleSubscriptionId: 'sub_9', trialEndsAt: T0 + 86_400 })
     expect(applyPaddleEvent(row, tx, IDS)).toBeNull()
     expect(applyPaddleEvent(trial, { ...tx, data: { customer_id: 'ctm_9' } }, IDS)).toBeNull()     // no subscription: one-off
   })
@@ -160,7 +171,7 @@ describe('Zustandsübergänge (rein)', () => {
   it('nach der Kündigung lebt die Testphase nicht wieder auf', () => {
     const trialRow: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 20 * 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null }
     const row = step(trialRow, subEvent('subscription.canceled', T0 + 86_400, { status: 'canceled' }))
-    expect(state(row, T0 + 2 * 86_400)).toBe('expired')
+    expect(state(row, T0 + 2 * 86_400)).toBe('free')
   })
 })
 
@@ -180,7 +191,7 @@ describe('Testphase beim ersten Anmelden', async () => {
   })
 
   it('Zeile vorhanden: nichts geschrieben', async () => {
-    db.sub = { userId: 'user-p', status: 'active', tier: 'basic', cancelAtPeriodEnd: false, updatedAt: 0 }
+    db.sub = { userId: 'user-p', status: 'active', tier: 'plus', cancelAtPeriodEnd: false, updatedAt: 0 }
     await runAsUser('user-p', ensureSubscription, { profile: null })
     expect(fake.log.some((q) => q.sql.startsWith('insert'))).toBe(false)
   })
@@ -189,6 +200,39 @@ describe('Testphase beim ersten Anmelden', async () => {
     delete process.env.BILLING_ENABLED
     expect(await runAsUser('user-p', ensureSubscription, { profile: null })).toBeNull()
     expect(fake.log).toEqual([])
+  })
+})
+
+// AC-5 (Phase 9): the settings card gets exactly the configured Plus prices, nothing else.
+describe('Angebot für die Einstellungen (/api/billing)', async () => {
+  const { GET } = await import('@/app/api/billing/route')
+  const info = async () => (await (GET as unknown as () => Promise<Response>)()).json()
+
+  it('beide Preise gesetzt: Plus monatlich und jährlich, mit 9 € und 79 €', async () => {
+    db.sub = { userId: 'user-p', status: 'trialing', trialEndsAt: 1, cancelAtPeriodEnd: false, updatedAt: 0 }
+    const b = await info()
+    expect(b.checkout.prices).toEqual([
+      { tier: 'plus', interval: 'month', priceId: 'pri_pm', label: '9 € / Monat' },
+      { tier: 'plus', interval: 'year', priceId: 'pri_py', label: '79 € / Jahr' },
+    ])
+    expect(b.entitlements.state).toBe('free')
+  })
+
+  it('nur der Monatspreis gesetzt; frühere Basic-Variablen zählen nicht', async () => {
+    delete process.env.PADDLE_PRICE_PLUS_YEAR
+    process.env.PADDLE_PRICE_BASIC_MONTH = 'pri_bm'
+    try {
+      const b = await info()
+      expect(b.checkout.prices).toEqual([{ tier: 'plus', interval: 'month', priceId: 'pri_pm', label: '9 € / Monat' }])
+    } finally {
+      delete process.env.PADDLE_PRICE_BASIC_MONTH
+    }
+  })
+
+  it('Billing aus: kein Angebot', async () => {
+    delete process.env.BILLING_ENABLED
+    const b = await info()
+    expect(b).toMatchObject({ billing: false, checkout: null, subscription: null })
   })
 })
 

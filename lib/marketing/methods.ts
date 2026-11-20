@@ -50,7 +50,7 @@ export function sampleWeek(m: MethodologyFile): SampleWeek | null {
   const goal = SAMPLE_GOALS[distance]
   const draft = generateDraft({
     goal, template: m.params, start: SAMPLE_START, profile: SAMPLE_PROFILE,
-    measured: { currentKm: 50, currentKmSource: 'mean4', provenKm: 62, longest30Km: 18, longest12mKm: distance === 'marathon' ? 30 : 21.1, recentRace: null },
+    measured: { currentKm: 50, currentKmSource: 'mean4', provenKm: 62, longest30Km: 18, longest30Source: 'measured', longest12mKm: distance === 'marathon' ? 30 : 21.1, recentRace: null },
   })
   if (!draft.ok) return null
   // A build-phase load week with key sessions, from the middle of the block (the most characteristic week).

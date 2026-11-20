@@ -1,12 +1,14 @@
-// The only writer of activities that come from a source (lib/sources/types.ts): normalised summary → row, the same
-// source id → update, the same activity from another source → replaced when the new record is richer, else skipped,
+// The only writer of activities that come from a source (lib/sources/types.ts): normalised summary → row (impossible
+// values are rejected: PLAUSIBLE), the same source id → update, the same activity from another source → replaced when the new record is richer, else skipped,
 // details → streams + laps + run metrics.
 import { randomUUID } from 'crypto'
+import { addDays, format, parseISO } from 'date-fns'
 import { and, eq, gte, isNull, lte, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { activities, activityStreams } from '@/lib/db/schema'
 import { mine, own } from '@/lib/db/owned'
 import { storeRunMetrics } from '@/lib/analytics/store-metrics'
+import { EARLIEST_DAY, isCalendarDay, todayLocal } from '@/lib/dates'
 import { RUN_ACTIVITY_TYPES } from '@/lib/analytics/run-view'
 import type { PlanSession } from '@/lib/plan/types'
 import { isDuplicate, isRicher, START_TOLERANCE_S, type Richness } from './dedupe'
@@ -24,8 +26,9 @@ export function toActivityRow(source: SourceId, a: ActivitySummary) {
   const date = a.startLocal.slice(0, 10)
   const { type, sportType } = typeForDb(a.sport)
   const run = RUN_ACTIVITY_TYPES.includes(type)
-  // Pace and step cadence are run numbers; a ride or a swim keeps distance and speed only.
-  const speed = a.avgSpeedMs ?? (a.movingS > 0 && a.distanceM > 0 ? a.distanceM / a.movingS : null)
+  // Pace and step cadence are run numbers; a ride or a swim keeps distance and speed only. The source's own average
+  // speed wins (it may count moving time its own way), unless nobody can reach it: then distance and time decide.
+  const speed = possibleSpeed(a.avgSpeedMs, run) ?? (a.movingS > 0 && a.distanceM > 0 ? a.distanceM / a.movingS : null)
   return {
     id: randomUUID(),
     source,
@@ -53,7 +56,64 @@ export function toActivityRow(source: SourceId, a: ActivitySummary) {
 }
 export type ActivityRow = ReturnType<typeof toActivityRow>
 
-export type UpsertResult = { result: 'inserted' | 'updated' | 'replaced' | 'duplicate'; id: string }
+// What no real activity exceeds. A record beyond these is a recording error (a GPS jump once became a stored run of
+// 17,793 km) and is not stored: it would feed load and plan. Each bound is a record with room to spare, so none of
+// them can cost a real activity.
+export const PLAUSIBLE = {
+  // One recording. The longest races on a running clock last six to ten days; no watch records for more than a
+  // few weeks on one charge.
+  maxDurationS: 31 * 86_400,
+  // On foot: 3100 miles (4,989 km) is the longest certified race there is, and it takes 40 days and more.
+  maxRunDistanceM: 5_000_000,
+  // Any other sport: twice the Race Across America (4,800 km), the longest ride done in one go.
+  maxDistanceM: 10_000_000,
+  // Average speed on foot: the fastest a human has been timed is 12.4 m/s (the peak of the 9.58 s 100 m world
+  // record, whose average is 10.4 m/s). No run of any length averages more than that peak.
+  maxRunSpeedMs: 12.5,
+  // Average speed in any other sport: above every cycling record, motor-paced ones included (296 km/h = 82 m/s).
+  maxSpeedMs: 100,
+} as const
+
+export interface Implausible { check: 'date' | 'values' | 'duration' | 'distance' | 'speed'; message: string }   // message: German, for the user
+
+// A delivered average speed, or null when it cannot be one (a damaged file, a sensor fault): it would become the
+// stored pace of a run whose distance and time are fine.
+const possibleSpeed = (v: number | null, run: boolean) =>
+  v != null && Number.isFinite(v) && v > 0 && v <= (run ? PLAUSIBLE.maxRunSpeedMs : PLAUSIBLE.maxSpeedMs) ? v : null
+
+const deKm = (m: number) => `${(Math.round(m / 100) / 10).toLocaleString('de-DE')} km`
+const deDay = (ymd: string) => `${ymd.slice(8, 10)}.${ymd.slice(5, 7)}.${ymd.slice(0, 4)}`
+const deHours = (s: number) => `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')} h`
+
+// Why this activity cannot have happened, or null. Its start day must be one a record may carry (the bounds of
+// lib/dates.ts dayError): a broken watch clock or a damaged file says 1970 or 2099, and such a run would feed load and
+// plan from a day that never was. `latest`: the last start day accepted (upsertSummary passes tomorrow). Speed is
+// judged over the longer of moving and elapsed time, so an odd moving time alone (auto-pause, a source that counts it
+// differently) never rejects a real activity. An activity without distance (strength, a treadmill without a foot pod)
+// only needs a possible duration.
+export function implausible(a: Pick<ActivitySummary, 'sport' | 'startLocal' | 'distanceM' | 'movingS' | 'elapsedS'>, latest = '9999-12-31'): Implausible | null {
+  const day = a.startLocal.slice(0, 10)
+  if (!isCalendarDay(day)) return { check: 'date', message: 'dieses Startdatum gibt es nicht' }
+  if (day < EARLIEST_DAY) return { check: 'date', message: `ein Start vor dem ${deDay(EARLIEST_DAY)} ist nicht möglich` }
+  if (day > latest) return { check: 'date', message: 'ein Start in der Zukunft ist nicht möglich' }
+  const distanceM = a.distanceM ?? 0, movingS = a.movingS ?? 0, elapsedS = a.elapsedS ?? 0
+  if (![distanceM, movingS, elapsedS].every((v) => Number.isFinite(v) && v >= 0)) return { check: 'values', message: 'Distanz oder Dauer ist negativ oder keine Zahl' }
+  const run = RUN_ACTIVITY_TYPES.includes(typeForDb(a.sport).type)
+  const longestS = Math.max(movingS, elapsedS)
+  if (distanceM > 0 && longestS === 0) return { check: 'duration', message: `${deKm(distanceM)} ohne Dauer sind nicht möglich` }
+  if (longestS > PLAUSIBLE.maxDurationS) return { check: 'duration', message: `eine Dauer über ${PLAUSIBLE.maxDurationS / 86_400} Tage ist nicht möglich` }
+  const maxDistanceM = run ? PLAUSIBLE.maxRunDistanceM : PLAUSIBLE.maxDistanceM
+  const maxSpeedMs = run ? PLAUSIBLE.maxRunSpeedMs : PLAUSIBLE.maxSpeedMs
+  if (distanceM > 0 && distanceM / longestS > maxSpeedMs) return { check: 'speed', message: `${deKm(distanceM)} in ${deHours(longestS)} sind nicht möglich (über ${Math.round(maxSpeedMs * 3.6)} km/h im Schnitt)` }
+  if (distanceM > maxDistanceM) return { check: 'distance', message: `${deKm(distanceM)} sind nicht möglich (über ${(maxDistanceM / 1000).toLocaleString('de-DE')} km)` }
+  return null
+}
+
+// `incomplete` (only with `existing: 'skip'`): this very record is stored, but its detail data is not, because an
+// earlier storeDetail failed after the row was written. The caller stores the detail again instead of skipping.
+export type UpsertResult =
+  | { result: 'inserted' | 'updated' | 'replaced' | 'duplicate'; id: string; incomplete?: boolean }
+  | { result: 'rejected'; id: null; reason: Implausible }      // impossible start day or values (PLAUSIBLE): nothing stored
 
 // An activity from another source (or another id of the same source) that is the same one: ±2 min, ±3 %.
 export async function findDuplicate(row: Pick<ActivityRow, 'startedAt' | 'date' | 'startTime' | 'distanceM'>): Promise<string | null> {
@@ -71,14 +131,22 @@ export async function findDuplicate(row: Pick<ActivityRow, 'startedAt' | 'date' 
 // Same (source, source id) as before → refresh the summary fields (detail data already loaded stays), or with
 // `existing: 'skip'` (a file imported again) leave it and report a duplicate. The same activity from another source
 // → replace it when this record is richer (`detail`: what the caller will store next), else report a duplicate.
+// Every source passes through here, so this is where an impossible activity stops (`rejected`, nothing written).
 export async function upsertSummary(source: SourceId, summary: ActivitySummary, opts: { existing?: 'update' | 'skip'; detail?: ActivityDetail } = {}): Promise<UpsertResult> {
+  // Tomorrow: the device may be a day ahead of the profile's time zone (as for the Apple Health upload).
+  const reason = implausible(summary, format(addDays(parseISO(todayLocal()), 1), 'yyyy-MM-dd'))
+  if (reason) return { result: 'rejected', id: null, reason }
   const row = toActivityRow(source, summary)
   const [existing] = await db
-    .select({ id: activities.id })
+    .select({ id: activities.id, type: activities.type, hasDetailedData: activities.hasDetailedData })
     .from(activities)
     .where(own(activities, eq(activities.source, source), eq(activities.sourceActivityId, summary.sourceActivityId)))
     .limit(1)
-  if (existing && opts.existing === 'skip') return { result: 'duplicate', id: existing.id }
+  if (existing && opts.existing === 'skip') {
+    // Only runs carry detail data (storeDetail), and storeDetail sets the flag as its last step.
+    const incomplete = RUN_ACTIVITY_TYPES.includes(existing.type) && !existing.hasDetailedData
+    return { result: 'duplicate', id: existing.id, ...(incomplete ? { incomplete } : {}) }
+  }
   if (existing) {
     const { id: _id, source: _s, sourceActivityId: _sid, ...set } = row
     await db.update(activities).set(set).where(own(activities, eq(activities.id, existing.id)))
@@ -157,6 +225,11 @@ const json = (v: unknown) => (v ? JSON.stringify(v) : null)
 
 // Laps and streams for one stored activity, then its run metrics. Splits, streams and metrics are run data: a
 // cross-training row is never enriched (returns false).
+// Not atomic with the row itself: the app has no transaction that works on both drivers (Neon HTTP has none that
+// spans reads; lib/db/index.ts). So the writes are ordered instead: `hasDetailedData` is set last, after streams and
+// metrics. A failure at any step leaves the row marked as lacking detail, and every step may run again (the streams
+// are upserted): the next sync of a pull source (sync.ts missingDetail) or importing the file again (upsertSummary:
+// `incomplete`) completes it.
 export async function storeDetail(activityId: string, detail: ActivityDetail, plan?: PlanSession[]): Promise<boolean> {
   const [row] = await db.select({ type: activities.type }).from(activities).where(own(activities, eq(activities.id, activityId))).limit(1)
   if (!row) throw new Error(`Activity ${activityId} not in DB`)
@@ -182,10 +255,10 @@ export async function storeDetail(activityId: string, detail: ActivityDetail, pl
       .values(mine({ activityId, ...values }))
       .onConflictDoUpdate({ target: [activityStreams.userId, activityStreams.activityId], set: values })
   }
+  await storeRunMetrics(activityId, plan)
   await db
     .update(activities)
     .set({ splitsMetricJson: detail.laps.length ? JSON.stringify(detail.laps) : null, hasDetailedData: true, hasStreams: !!st })
     .where(own(activities, eq(activities.id, activityId)))
-  await storeRunMetrics(activityId, plan)
   return true
 }

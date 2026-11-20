@@ -12,7 +12,7 @@ export const maxDuration = 60
 
 const MAX_DELETES = 20          // per run; the rest follow the next night
 
-// Daily (Phase 5): expired accounts idle for 12 months are deleted, with a reminder 30 days before
+// Daily (Phase 5): free accounts idle for 12 months are deleted, with a reminder 30 days before
 // (lib/billing/retention.ts). Without a configured mailer no reminder is sent or stamped, so nothing is deleted.
 // The response lists counts only.
 export async function GET(req: NextRequest) {

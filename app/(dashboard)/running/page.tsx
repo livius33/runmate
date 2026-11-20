@@ -145,9 +145,9 @@ export default function AnalysePage() {
                 <div key={t.label} className="rounded-2xl border border-border bg-card px-4 py-3.5">
                   <div className="text-xs text-muted-foreground">{t.label}</div>
                   <div className="mt-0.5 text-2xl font-semibold tracking-tight tabular-nums">{t.value}</div>
-                  <div className={cn('mt-0.5 text-xs tabular-nums', d == null ? 'text-muted-foreground' : d >= 0 ? 'text-teal' : 'text-brand')}>
+                  <div className={cn('mt-0.5 text-xs tabular-nums', d == null || d === 0 ? 'text-muted-foreground' : d > 0 ? 'text-teal' : 'text-brand')}>
                     {d == null ? (period === 'all' ? `seit ${format(parseISO(runs[0].date), 'MMMM yyyy', { locale: de })}` : 'kein Vergleich')
-                      : `${d >= 0 ? '▲' : '▼'} ${Math.abs(d)} % ${P.prevLabel}`}
+                      : d === 0 ? `unverändert ${P.prevLabel}` : `${d > 0 ? '▲' : '▼'} ${Math.abs(d)} % ${P.prevLabel}`}
                   </div>
                 </div>
               )

@@ -93,13 +93,13 @@ The repository ships an example training block (a real 3:05 Porto Marathon build
 | `CRON_SECRET` | for the cron | Secret the daily sync route checks (Vercel Cron sends it) |
 | `APP_HOST` | no | Public host for calendar and Health links (e.g. `www.example.com`); default: the request host |
 | `CLERK_WEBHOOK_SECRET` | recommended | Signing secret of the Clerk webhook endpoint `/api/webhooks/clerk` (event `user.deleted` deletes the user's data) |
-| `BILLING_ENABLED` | hosted only | `1` turns on subscriptions, the 30-day trial and the Art. 9 consent prompt. Unset = self-host: every feature, no billing |
+| `BILLING_ENABLED` | hosted only | `1` turns on Free + Plus, the 30-day Plus trial and the Art. 9 consent prompt. Unset = self-host: every feature, no billing |
 | `REQUIRE_HEALTH_CONSENT` | no | `1` asks for the health-data consent without billing (a self-hosted instance serving other people) |
 | `PADDLE_ENV` | with billing | `sandbox` or `production` |
 | `PADDLE_API_KEY` | with billing | Paddle API key (cancel, customer portal); server only |
 | `PADDLE_WEBHOOK_SECRET` | with billing | Secret of the Paddle notification destination `/api/billing/webhook` |
 | `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | with billing | Paddle.js client-side token (checkout) |
-| `PADDLE_PRICE_BASIC_MONTH`, `PADDLE_PRICE_BASIC_YEAR`, `PADDLE_PRICE_PLUS_MONTH`, `PADDLE_PRICE_PLUS_YEAR` | with billing | Paddle price ids (`pri_…`) per plan and interval |
+| `PADDLE_PRICE_PLUS_MONTH`, `PADDLE_PRICE_PLUS_YEAR` | with billing | Paddle price ids (`pri_…`) of Plus per interval |
 | `DEMO_MODE` | demo deployment only | `1` serves the read-only demo athlete without login under `/demo` (see [Demo](#demo)); unset = `/demo` is a 404 |
 | `NEXT_PUBLIC_SITE_URL` | no | Canonical origin of the landing page (sitemap, hreflang, OG, JSON-LD); default `https://runmate.dev` |
 | `NEXT_PUBLIC_REPO_URL` | no | Public repository URL; shows the GitHub links on the landing page (hidden while unset) |
@@ -115,13 +115,14 @@ Europe/Berlin, …), marked as such in the form.
 ### Billing (hosted only)
 
 Self-hosting needs none of this: without `BILLING_ENABLED` every feature is on and no subscription is stored. The
-hosted app sells **Basic** (sync, analysis, insights, one generated plan; the engine's changes are suggestions) and
-**Plus** (the engine adapts the plan by itself, several plans, own method, race-day tools) through
-[Paddle](https://www.paddle.com) as merchant of record, after a 30-day trial without a card. What each plan state may
-do is one pure module, [`lib/billing/entitlements.ts`](lib/billing/entitlements.ts); data export and account
+hosted app has two states: **Free** (sync, analysis, insights, one live plan edited by hand; the engine's changes are
+suggestions) and **Plus** for 9 €/month or 79 €/year (the engine adapts the plan by itself, whole-plan rebuild, several
+plans, own method, race-day tools, sleep and HRV feeding the plan), sold through [Paddle](https://www.paddle.com) as
+merchant of record. A new account gets 30 days of Plus without a card and then continues as Free. What each plan state
+may do is one pure module, [`lib/billing/entitlements.ts`](lib/billing/entitlements.ts); data export and account
 deletion are never gated.
 
-Setup: create the four prices in Paddle, a client-side token, an API key and a notification destination
+Setup: create the two Plus prices (monthly, yearly) in Paddle, a client-side token, an API key and a notification destination
 `https://<host>/api/billing/webhook` for `subscription.*` and `transaction.completed`; fill the `PADDLE_*` variables.
 For Clerk add a webhook endpoint `https://<host>/api/webhooks/clerk` for `user.deleted`. The legal page templates
 (`/impressum`, `/datenschutz`, `/agb`, `/kuendigen`) contain `[PLATZHALTER: …]` that must be filled and reviewed
@@ -135,7 +136,7 @@ skip, then a goal race with a method and the first generated plan, or "Erstmal o
 Monday). Every step is saved, so the flow resumes; accounts in use before the onboarding existed never see it. With
 billing on, the trial starts there.
 
-Expired accounts (billing on) are deleted after 12 months without a visit, with a reminder 30 days before
+Free accounts (billing on; trial over or Plus ended) are deleted after 12 months without a visit, with a reminder 30 days before
 (`/api/cron/expired-accounts`, [`lib/billing/retention.ts`](lib/billing/retention.ts)). The reminder needs a mail
 provider behind `RetentionMailer`, which is not wired yet: until it is, nothing is sent and **nothing is deleted**.
 Add the cron to `vercel.json` once the mailer exists (`{ "path": "/api/cron/expired-accounts", "schedule": "30 3 * * *" }`).

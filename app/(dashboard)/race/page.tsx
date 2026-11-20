@@ -6,7 +6,9 @@ import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { AlertTriangle, Flag } from 'lucide-react'
 import { useToday } from '@/lib/use-today'
-import { hasBlocks, raceOf } from '@/lib/plan/blocks'
+import Link from 'next/link'
+import { NO_BLOCK, hasBlocks, raceOf } from '@/lib/plan/blocks'
+import { useAppHref } from '@/components/AppBase'
 import { fmtClock, fmtPace } from '@/lib/plan/format'
 import { effectiveSessions, type Overrides } from '@/lib/plan/effective'
 import { EMPTY_ENGINE, type EngineState } from '@/lib/plan/engine'
@@ -25,7 +27,23 @@ import { Upsell, useEntitlements } from '@/components/billing/Entitlements'
 // Race-day tools are part of Plus (Phase 4); without it the page shows the upsell.
 export default function RaceDayPage() {
   const { features } = useEntitlements()
+  const today = useToday()
+  const href = useAppHref()
   if (!features.raceDay) return <div className="mx-auto max-w-xl py-6"><Upsell feature="raceDay" /></div>
+  // No race in the season (base block only): nothing to plan a race day for.
+  if (raceOf(today).date === NO_BLOCK.race.date) {
+    return (
+      <div className="mx-auto max-w-xl py-6">
+        <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-sm">
+          <p className="font-medium">Noch kein Rennen.</p>
+          <p className="mt-1 text-muted-foreground">
+            Leg in der Saison ein Rennen an und übernimm einen Plan dafür. Dann stehen hier Renntempo, Zwischenzeiten, Gels und der Ablauf für deinen Renntag.
+          </p>
+          <Link href={href('/season')} className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Zur Saison</Link>
+        </div>
+      </div>
+    )
+  }
   return <RaceDayTools />
 }
 
@@ -115,11 +133,11 @@ function RaceDayTools() {
             ? `Die ersten ${plan[0].to.toLocaleString('de-DE')} km in ${fmtPace(plan[0].paceS)}, dann ${fmtPace(plan[1].paceS)}.`
             : `${fmtPace(RACE.fallbackPaceS)} gleichmäßig.`}{plan[1]?.hrCap ? ` HF bis km ${Math.round(plan[1].to)} unter ${plan[1].hrCap}.` : ''}</p>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {plan.map((s) => (
+            {plan.map((s, i) => (
               <div key={s.from} className="rounded-xl bg-secondary/60 px-3 py-2">
                 <div className="text-xs text-muted-foreground tabular-nums">km {kmDe(s.from)}–{kmDe(s.to)}</div>
                 <div className="text-base font-semibold tabular-nums">{fmtPace(s.paceS)}/km</div>
-                <div className="text-xs text-muted-foreground">{s.hrCap ? `HF < ${s.hrCap}` : 'alles, was da ist'}</div>
+                <div className="text-xs text-muted-foreground">{s.hrCap ? `HF < ${s.hrCap}` : i === plan.length - 1 ? 'alles, was da ist' : 'nach Tempo'}</div>
               </div>
             ))}
           </div>
@@ -160,7 +178,7 @@ function RaceDayTools() {
                       <td className="py-2 pr-3 text-base font-semibold whitespace-nowrap">{c.time}</td>
                       <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">{c.clock}</td>
                       <td className="py-2 pr-3 whitespace-nowrap">{fmtPace(c.paceS)}</td>
-                      <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">{c.hrCap ? `< ${c.hrCap}` : 'alles'}</td>
+                      <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">{c.hrCap ? `< ${c.hrCap}` : c.km > plan[plan.length - 1].from ? 'alles' : '–'}</td>
                       <td className="py-2 text-right">{gelKm.has(c.km) ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">Gel</span> : ''}</td>
                     </tr>
                   ))}

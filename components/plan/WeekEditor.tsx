@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { addDays, format, parseISO } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Check, ChevronLeft, ChevronRight, AlertTriangle, RotateCcw, Scale, ArrowRight, SlidersHorizontal, Dumbbell } from 'lucide-react'
 import { type PlanSession } from '@/lib/plan/types'
 import { fmtKm } from '@/lib/plan/format'
 import {
-  applyMove, balanceWeek, planWeeks, dayLabel, dayState, kmEditEffect, moveModes, parseKm, resetWeek, runMark, setDayKm, setPace, setZone2, strengthEditable, toggleStrength, weekBreakdown, weekDates, weekSummary, z2State,
+  applyMove, balanceWeek, changeWhy, changedBy, planWeeks, dayLabel, kmEditEffect, moveTargets, parseKm, resetWeek, restoreDay, runMark, setDayKm, setPace, setZone2, strengthEditable, toggleStrength, weekBreakdown, weekDates, weekSummary, z2State,
   type ActualKm, type DayState, type MoveMode, type Overrides,
 } from '@/lib/plan/effective'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
@@ -22,10 +22,11 @@ import { strengthDetail, strengthMark, strengthWeek, type KbMark } from '@/lib/p
 
 type CrossPill = { letter: string; label: string; kb?: boolean }   // kb: a Strength or Gym session (counts for a kettlebell marker)
 
-export function WeekEditor({ today, sessions, baseSessions, overrides, engineOverrides, engineNotes, actuals, cross, kbDone, syncedThrough = null, onChange, saving, saveError, onRetry }: {
+export function WeekEditor({ today, sessions, baseSessions, autoSessions, overrides, engineOverrides, engineNotes, actuals, cross, kbDone, syncedThrough = null, onChange, saving, saveError, saveMessage, onRetry }: {
   today: string
   sessions: PlanSession[]
   baseSessions: PlanSession[]
+  autoSessions: PlanSession[]          // the plan as shown without manual edits: an edit back at the plan value stays where this differs
   overrides: Overrides
   engineOverrides: Overrides
   engineNotes: Map<string, string>
@@ -36,6 +37,7 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
   onChange: (next: Overrides) => void
   saving: boolean
   saveError: boolean
+  saveMessage?: string                 // why the server refused the edit (a retry would be refused again)
   onRetry: () => void
 }) {
   const actualKm: ActualKm = new Map([...actuals].map(([d, a]) => [d, a.km]))
@@ -54,6 +56,7 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
   const week = weeks[weekIdx]
   const summary = weekSummary(week, today, sessions, actualKm)
   const edited = summary.days.some((d) => overrides[d.date])
+  const by = (d: string) => changedBy(overrides[d], engineNotes.has(d))   // the dot on a day: yours, the engine's, none
   const weekOver = week.end < today
   const done = kbDone ?? new Set<string>()
   const kbOf = (d: DayState) => strengthMark(d.session, today, done.has(d.date), syncedThrough)
@@ -79,16 +82,19 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
         <DayPanel
           key={selected}
           day={summary.days.find((d) => d.date === selected)!}
-          engineNote={overrides[selected] ? undefined : engineNotes.get(selected)}
+          why={changeWhy(overrides[selected], engineNotes.get(selected))}
           today={today} sessions={baseSessions} actualKm={actualKm} actual={actuals.get(selected)}
           saving={saving}
           onMove={(to, mode) => {
-            change(applyMove(overrides, selected, to, mode, today, baseSessions, actualKm))
-            setSelected(to)
+            change(applyMove(overrides, selected, to, mode, today, baseSessions, actualKm, autoSessions))
+            // The target may lie in next week: show that week, with the moved session selected.
+            const toIdx = weeks.findIndex((w) => w.start <= to && to <= w.end)
+            if (toIdx >= 0) setWeekIdx(toIdx)
+            setSelected(toIdx >= 0 ? to : null)
           }}
           edited={!!overrides[selected]}
-          onSetKm={(km, opts) => change(setDayKm(overrides, selected, km, baseSessions, opts))}
-          onZ2={(z2) => change(z2 ? setZone2(overrides, selected, baseSessions) : setPace(overrides, selected, baseSessions))}
+          onSetKm={(km, opts) => change(setDayKm(overrides, selected, km, baseSessions, opts, autoSessions))}
+          onZ2={(z2) => change(z2 ? setZone2(overrides, selected, baseSessions) : setPace(overrides, selected, baseSessions, autoSessions))}
           effective={sessions}
           onEdit={(s) => {
             // A new session type keeps the day's kettlebell marker, a rest day drops it.
@@ -96,8 +102,8 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
             change({ ...overrides, [selected]: s.strength || !kb || s.type === 'rest' ? s : { ...s, strength: kb } })
           }}
           kb={kbOf(summary.days.find((d) => d.date === selected)!)}
-          onKb={() => change(toggleStrength(overrides, selected, baseSessions))}
-          onRestore={() => { const next = { ...overrides }; delete next[selected]; change(next) }}
+          onKb={() => change(toggleStrength(overrides, selected, baseSessions, autoSessions))}
+          onRestore={() => change(restoreDay(overrides, selected))}
         />
   ) : null
 
@@ -116,7 +122,7 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
           </IconButton>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
-          <span>Ziel {week.km} km</span>
+          <span>Ziel {fmtKm(week.km)} km</span>
           <span>·</span>
           <span>{weekOver ? 'Gelaufen' : 'Prognose'} <span className="font-semibold text-foreground">{fmtKm(summary.forecastKm)} km</span></span>
           {Math.abs(summary.gapKm) >= 0.5 && (
@@ -134,7 +140,7 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
         <ul className="mt-3 flex flex-col gap-1.5">
           {summary.days.map((d) => (
             <li key={d.date}>
-              <DayRow day={d} today={today} edited={!!overrides[d.date]} auto={!overrides[d.date] && engineNotes.has(d.date)} cross={cross?.get(d.date)} kb={kbOf(d)}
+              <DayRow day={d} today={today} edited={by(d.date) === 'manual'} auto={by(d.date) === 'engine'} cross={cross?.get(d.date)} kb={kbOf(d)}
                 selected={selected === d.date} onSelect={() => setSelected(selected === d.date ? null : d.date)} />
               {selected === d.date && panel}
             </li>
@@ -143,7 +149,7 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
       ) : (
         <div className="mt-3 grid grid-cols-7 gap-1.5">
           {summary.days.map((d) => (
-            <DayCell key={d.date} day={d} today={today} edited={!!overrides[d.date]} auto={!overrides[d.date] && engineNotes.has(d.date)} cross={cross?.get(d.date)} kb={kbOf(d)}
+            <DayCell key={d.date} day={d} today={today} edited={by(d.date) === 'manual'} auto={by(d.date) === 'engine'} cross={cross?.get(d.date)} kb={kbOf(d)}
               selected={selected === d.date} onSelect={() => setSelected(selected === d.date ? null : d.date)} />
           ))}
         </div>
@@ -170,8 +176,8 @@ export function WeekEditor({ today, sessions, baseSessions, overrides, engineOve
 
       {saveError && !saving && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-soft px-3.5 py-2.5 text-sm text-brand">
-          <span>Änderung konnte nicht gespeichert werden und wurde zurückgenommen.</span>
-          <button onClick={onRetry} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Erneut versuchen</button>
+          <span>{saveMessage ? `${saveMessage} Die Änderung wurde zurückgenommen.` : 'Änderung konnte nicht gespeichert werden und wurde zurückgenommen.'}</span>
+          {!saveMessage && <button onClick={onRetry} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Erneut versuchen</button>}
         </div>
       )}
       <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -253,9 +259,9 @@ function DayCell({ day, today, edited, auto, cross, kb, selected, onSelect }: {
   )
 }
 
-function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, saving, onMove, onSetKm, onZ2, effective, onEdit, onRestore, kb, onKb }: {
+function DayPanel({ day, why, edited, today, sessions, actualKm, actual, saving, onMove, onSetKm, onZ2, effective, onEdit, onRestore, kb, onKb }: {
   day: DayState
-  engineNote?: string
+  why: string[]                      // whose change the day shows (changeWhy)
   today: string
   sessions: PlanSession[]
   actualKm: ActualKm
@@ -273,12 +279,10 @@ function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, 
 }) {
   const [pending, setPending] = useState<string | null>(null)
   const s = day.session
-  const z2 = z2State(s, day.date)
+  const z2 = z2State(s, day.date, sessions)
 
-  // Targets: today until the end of next week; moveModes keeps race day and its sides apart.
-  const targets = Array.from({ length: 14 }, (_, i) => format(addDays(parseISO(today), i), 'yyyy-MM-dd'))
-    .map((d) => ({ date: d, modes: moveModes(day.date, d, today, sessions, actualKm), state: dayState(d, today, sessions, actualKm) }))
-    .filter((t) => t.modes.length)
+  // Targets: today until the end of next week, days of the plan's weeks only; moveModes keeps race day and its sides apart.
+  const targets = moveTargets(day.date, today, sessions, actualKm)
 
   const movable = targets.length > 0
   const pendingTarget = targets.find((t) => t.date === pending)
@@ -298,7 +302,7 @@ function DayPanel({ day, engineNote, edited, today, sessions, actualKm, actual, 
           <Link href={`/running/activities/${actual.runs[0].id}`} className="underline underline-offset-2 hover:text-foreground">Lauf ansehen</Link>
         )}
       </div>
-      {s && <SessionDetails session={s} why={[...(engineNote ? [`Automatisch: ${engineNote}`] : []), ...(edited ? ['Von dir angepasst.'] : [])]} />}
+      {s && <SessionDetails session={s} why={why} />}
       {z2 && day.actualKm === 0 && day.date >= today && (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="font-medium">Laufen als</span>

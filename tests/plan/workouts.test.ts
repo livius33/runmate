@@ -15,7 +15,7 @@ import { checkWorkouts } from './workouts-check'
 import { portoTemplate } from '@/examples/porto-2026/template'
 
 const template = (id: string) => listMethodologies().valid.find((m) => m.id === id)!.params
-const LIVIUS: AthleteProfile = {
+const RUNNER: AthleteProfile = {
   v: 1, age: 40, weightKg: 70, heightCm: null, experience: 'advanced', weeklyKm: 64,
   availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, qualityDays: [2, 4], kbDays: [], restDay: 5,
   maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: null, fiveKS: null, savedAt: null,
@@ -33,9 +33,9 @@ const sk = (input: SkeletonInput) => ok(buildSkeleton(input)) as Skeleton
 
 const portoSk = sk({ template: portoTemplate().params, distance: 'marathon', raceDate: '2026-11-08', start: '2026-06-22', currentKm: 64, provenKm: 64, peakKm: 126 })
 const portoIn = { template: portoTemplate().params, distance: 'marathon' as const, raceDate: '2026-11-08', raceName: 'Porto-Marathon',
-  goalS: 3 * 3600 + 5 * 60, profile: LIVIUS, longest30Km: 21, longest12mKm: 42.2 }
+  goalS: 3 * 3600 + 5 * 60, profile: RUNNER, longest30Km: 21, longest12mKm: 42.2 }
 const hmSk = sk({ template: template('pfitzinger-half'), distance: 'half', raceDate: '2027-02-21', start: '2026-11-30', currentKm: 50, provenKm: 101 })
-const hmIn = { template: template('pfitzinger-half'), distance: 'half' as const, raceDate: '2027-02-21', goalS: 85 * 60, profile: LIVIUS, longest30Km: 16 }
+const hmIn = { template: template('pfitzinger-half'), distance: 'half' as const, raceDate: '2027-02-21', goalS: 85 * 60, profile: RUNNER, longest30Km: 16 }
 
 describe('Tempi (AC-1)', () => {
   it('aus der Zielzeit: Porto 4:23, HM 4:02; jedes Tempo = Renntempo + Versatz der Vorlage', () => {
@@ -46,7 +46,7 @@ describe('Tempi (AC-1)', () => {
   })
   it('aus dem Schwellentest (Vorlage mit source threshold)', () => {
     const t = template('norwegian-threshold-half')
-    const p = trainingPaces({ ...hmIn, template: t, profile: { ...LIVIUS, thresholdPaceS: 248 } })
+    const p = trainingPaces({ ...hmIn, template: t, profile: { ...RUNNER, thresholdPaceS: 248 } })
     expect(p.source).toBe('threshold')
     expect(p.racePaceS).toBe(248 - (t.paces.offsets.threshold ?? 0))
   })
@@ -62,7 +62,7 @@ describe('Tempi (AC-1)', () => {
   it('VDOT-Vorlage ohne Wettkampf: Tempi aus der Zielzeit mit Hinweis', () => {
     const p = trainingPaces({ ...hmIn, template: template('daniels-half') })
     expect(p.source).toBe('goal_time')
-    expect(p.warnings.join(' ')).toContain('VDOT')
+    expect(p.warnings.join(' ')).toContain('Kein Wettkampf aus den letzten 6 Monaten')
   })
 })
 
@@ -128,7 +128,7 @@ describe('Renntempo im Longrun je Vorlage (07-04)', () => {
   const marathon = (id: string) => {
     const t = template(id)
     const s = sk({ template: t, distance: 'marathon', raceDate: '2027-04-25', start: '2026-11-30', currentKm: 70, provenKm: 110 })
-    return plan(s, { template: t, distance: 'marathon', raceDate: '2027-04-25', goalS: 3 * 3600 + 5 * 60, profile: LIVIUS, longest30Km: 30, longest12mKm: 42.2 }).w
+    return plan(s, { template: t, distance: 'marathon', raceDate: '2027-04-25', goalS: 3 * 3600 + 5 * 60, profile: RUNNER, longest30Km: 30, longest12mKm: 42.2 }).w
   }
   it('Hansons und Lydiard: lange Läufe ohne Tempo-Block, Marathontempo bleibt unter der Woche', () => {
     for (const id of ['hansons-marathon', 'lydiard-marathon']) {
@@ -139,5 +139,19 @@ describe('Renntempo im Longrun je Vorlage (07-04)', () => {
   })
   it('Pfitzinger behält Tempo-Blöcke im Longrun', () => {
     expect(marathon('pfitzinger-marathon').sessions.some((s) => s.type === 'long' && s.pace === '4:23' && !s.test)).toBe(true)
+  })
+})
+
+describe('Titel der Schlüsseleinheiten', () => {
+  it('eine gefüllte Einheit heißt nach ihrem Inhalt, nicht „Qualität“', () => {
+    const { w } = plan(hmSk, hmIn)
+    const keys = w.sessions.filter((s) => s.key && (s.type === 'tempo' || s.type === 'easy'))
+    expect(keys.length).toBeGreaterThan(10)
+    expect(keys.filter((s) => s.title === 'Qualität')).toEqual([])
+    // The medium-long run is the key by its length: an easy run without a pace, not a tempo day.
+    expect(keys.find((s) => s.notes?.startsWith('Mittellanger Lauf'))).toMatchObject({ title: 'Mittellanger Lauf', type: 'easy', key: true })
+    expect(keys.filter((s) => s.type === 'easy').every((s) => s.title === 'Mittellanger Lauf' && !s.pace)).toBe(true)
+    expect(keys.find((s) => s.notes?.includes('VO2max'))?.title).toBe('Intervalle')
+    expect(keys.find((s) => s.notes?.includes('Schwelle:'))?.title).toMatch(/Schwellenlauf|Tempolauf/)
   })
 })

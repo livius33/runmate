@@ -35,6 +35,11 @@ export const WORKOUT_RULES = {
 
 const W = WORKOUT_RULES
 const SLOT_KINDS: WorkoutKind[] = ['threshold', 'tempo', 'marathon_pace', 'half_marathon_pace', 'progression', 'intervals_vo2', 'hills', 'medium_long']
+// What a filled key slot is called on cards and in the calendar; a slot without a workout keeps "Qualität".
+const KIND_TITLE: Partial<Record<WorkoutKind, string>> = {
+  threshold: 'Schwellenlauf', tempo: 'Tempolauf', marathon_pace: 'Marathontempo', half_marathon_pace: 'Halbmarathontempo',
+  progression: 'Steigerungslauf', intervals_vo2: 'Intervalle', hills: 'Bergläufe', medium_long: 'Mittellanger Lauf',
+}
 const Z1 = () => hrZones()[0]
 const Z2 = () => hrZones()[1]
 const Z4 = () => hrZones()[3]
@@ -126,8 +131,9 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
     const slot = wk.find((s) => s.key && s.type === 'tempo')
     const onLong = long && (long.km ?? 0) - W.warmCoolMinKm >= 0.75 * entry.to && long.date < lastHardFrom && (long.key || spacingOk(long.date))
     const s = onLong ? long : slot && slot.date < lastHardFrom ? slot : null
-    if (!s) { warnings.push(`${name} passt in KW ${sk.weeks[idx].kw} auf keinen Tag.`); return }
-    const q = floorKm(Math.min(entry.to, (s.km ?? 0) - W.warmCoolMinKm))
+    // A day too short for warm-up, 1 km at race pace and cool-down (a low day limit) takes no test.
+    const q = s ? floorKm(Math.min(entry.to, (s.km ?? 0) - W.warmCoolMinKm)) : 0
+    if (!s || q < 1) { warnings.push(`${name} passt in KW ${sk.weeks[idx].kw} auf keinen Tag.`); return }
     // A test on a long run that was easy adds a hard day: the last key slot before it becomes an easy run.
     if (s === long && !long.key) {
       const before = wk.filter((x) => x.key && x.type === 'tempo' && x.date < long.date).pop()
@@ -155,7 +161,7 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
       if (s) {
         let { reps, km } = W.reminder[input.distance]
         while (reps > 1 && (s.km ?? 0) - reps * km - (reps - 1) * STEP < W.warmCoolMinKm) reps--
-        if ((s.km ?? 0) - reps * km >= W.warmCoolMinKm) structured(s, reps, km, STEP, paces.racePaceS, 'Renntempo-Erinnerung, locker bleiben.')
+        if ((s.km ?? 0) - reps * km >= W.warmCoolMinKm) { structured(s, reps, km, STEP, paces.racePaceS, 'Renntempo-Erinnerung, locker bleiben.'); s.title = 'Renntempo kurz' }
         else relaxed(s, 'Rennwoche')
       }
       continue
@@ -209,8 +215,10 @@ export function buildWorkouts(days: DaysPlan, sk: Skeleton, input: WorkoutsInput
 
     for (const { s, e, q: q0 } of plan) {
       if (!e) { relaxed(s, s.date >= lastHardFrom ? 'Frische vor dem Rennen' : 'keine passende Einheit in der Vorlage'); continue }
+      s.title = KIND_TITLE[e.kind] ?? s.title
       if (e.kind === 'hills') { s.notes = `${num(s.km ?? 0)} km locker, darin ${Math.round(q0)} × 45 s zügig bergauf, locker zurück.`; delete s.pace; continue }
-      if (e.kind === 'medium_long') { s.notes = `Mittellanger Lauf, ruhig: Puls ≤ ${Z2().max}.`; delete s.pace; continue }
+      // The medium-long run is the week's key by its length, not by pace: an easy run, so nothing offers to "run it easy instead".
+      if (e.kind === 'medium_long') { s.notes = `Mittellanger Lauf, ruhig: Puls ≤ ${Z2().max}.`; delete s.pace; s.type = 'easy'; continue }
       const q = floorKm(q0 * f)
       const paceS = paceOf(e.kind)
       if (q < 1) { relaxed(s, 'zu kurz für eine Qualitätseinheit'); continue }

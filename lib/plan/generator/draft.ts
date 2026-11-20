@@ -2,7 +2,7 @@
 // plan start, the athlete profile and the measured inputs (with the runner's overrides). Every step's warnings are kept in
 // order; any step's German error stops the draft. Pure.
 import type { Distance, Methodology } from '../methodology/schema'
-import type { AthleteProfile } from '../athlete-profile'
+import { profileMaxKm, type AthleteProfile } from '../athlete-profile'
 import { KIND_LABEL, type GoalKind, type SeasonGoal } from '@/lib/season/goals'
 import { buildSkeleton, type Skeleton } from './skeleton'
 import { buildDays, type DaysPlan } from './days'
@@ -27,7 +27,7 @@ export type InputField = { value: number | null; measured: number | null; overri
 export interface Draft {
   ok: true
   distance: Distance
-  inputs: { currentKm: InputField; provenKm: InputField; longest30Km: InputField; peakKm: InputField; goalS: InputField; currentKmSource: MeasuredInputs['currentKmSource']; recentRace: MeasuredInputs['recentRace'] }
+  inputs: { currentKm: InputField; provenKm: InputField; longest30Km: InputField; peakKm: InputField; goalS: InputField; currentKmSource: MeasuredInputs['currentKmSource']; longest30Source?: MeasuredInputs['longest30Source']; recentRace: MeasuredInputs['recentRace'] }
   paces: Paces
   skeleton: Skeleton
   days: DaysPlan
@@ -48,7 +48,7 @@ export function generateDraft(c: DraftChoice): DraftResult {
   const inputs = {
     currentKm: field(c.measured.currentKm, o.currentKm), provenKm: field(c.measured.provenKm, o.provenKm),
     longest30Km: field(c.measured.longest30Km, o.longest30Km), peakKm: field(null, o.peakKm), goalS: field(c.goal.goalS, o.goalS),
-    currentKmSource: c.measured.currentKmSource, recentRace: c.measured.recentRace,
+    currentKmSource: c.measured.currentKmSource, longest30Source: c.measured.longest30Source, recentRace: c.measured.recentRace,
   }
   const goalS = inputs.goalS.value
   if (!goalS) return { ok: false, error: 'Zielzeit fehlt: auf der Saison-Seite eintragen oder hier setzen.' }
@@ -70,7 +70,7 @@ export function generateDraft(c: DraftChoice): DraftResult {
     ...days.warnings.map((text) => ({ step: 'Tage' as const, text })),
     ...workouts.warnings.map((text) => ({ step: 'Einheiten' as const, text })),
   ]
-  const recovery = recoveryOf({ distance, days, workouts, paces, raceDate: c.goal.date })
+  const recovery = recoveryOf({ distance, days, workouts, paces, raceDate: c.goal.date, profile: c.profile })
   // Kettlebell markers after the workouts: the tests (Generalprobe) are placed there and keep 2 days free.
   const kb = markDraft({ weeks: days.weeks, sessions: workouts.sessions, recovery, raceDate: c.goal.date }, kbDaysOf(c.profile))
   return { ok: true, distance, inputs, paces, skeleton, days, workouts: { ...workouts, sessions: kb.sessions }, recovery: kb.recovery, warnings }
@@ -88,7 +88,7 @@ function markDraft(d: { weeks: PlanWeek[]; sessions: PlanSession[]; recovery: { 
 }
 
 // Recovery weeks after the race from the generated plan (07-22).
-export function recoveryOf(d: Pick<Draft, 'distance' | 'days' | 'workouts' | 'paces'> & { raceDate: string }) {
+export function recoveryOf(d: Pick<Draft, 'distance' | 'days' | 'workouts' | 'paces'> & { raceDate: string; profile?: AthleteProfile | null }) {
   return recoveryAfterRace({ raceDate: d.raceDate, distance: d.distance, weeks: d.days.weeks, sessions: d.workouts.sessions,
-    easyPaceS: d.paces.paces.easy, thresholdPaceS: d.paces.paces.threshold })
+    easyPaceS: d.paces.paces.easy, thresholdPaceS: d.paces.paces.threshold, maxKm: (date) => profileMaxKm(d.profile ?? null, date) })
 }

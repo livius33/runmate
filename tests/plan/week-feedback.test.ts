@@ -2,7 +2,7 @@
 // the clock-change weeks, under several process time zones), and the finished week in one view.
 import { afterAll, describe, expect, it } from 'vitest'
 import { feedbackEntry, storedWeekFeedback, weekError, type WeekFeedbackEntry } from '@/lib/feedback/week'
-import { acwrText, feedbackDue, reviewWeekFor, weekOverview } from '@/lib/insights/week-overlay'
+import { acwrText, feedbackDue, reviewWeekFor, weekFigures, weekOverview } from '@/lib/insights/week-overlay'
 import { effectiveSessions, planWeeks } from '@/lib/plan/effective'
 import type { PlanWeek } from '@/lib/plan/types'
 import type { EngineChange } from '@/lib/plan/engine'
@@ -149,6 +149,16 @@ describe('The finished week in one view (weekOverview)', () => {
   })
   it('next week: KW45 with its target and key session', () => {
     expect(o.next).toMatchObject({ kw: 45, km: 30, keys: ['Porto Marathon'] })
+  })
+  it('the three figures of the first view: volume, runs, key sessions run', () => {
+    expect(weekFigures(o)).toEqual({ km: '59/70', runs: '6/6', runsLabel: 'Läufe', keys: '1/1', keysLabel: 'Kerneinheit' })
+  })
+  it('figures: decimal comma, a missed key session counts as planned, a moved one does not, none → no figure', () => {
+    const review = { ...o.review, km: 45, targetKm: 47.5, runs: 0 }
+    const key = (status: 'done' | 'missed' | 'moved' | 'open') => ({ date: '2026-10-28', title: 'Schwelle', status, text: '' })
+    const f = weekFigures({ ...o, plannedRuns: 1, review: { ...review, keys: [key('done'), key('missed'), key('moved')] } })
+    expect(f).toEqual({ km: '45/47,5', runs: '0/1', runsLabel: 'Lauf', keys: '1/2', keysLabel: 'Kerneinheiten' })
+    expect(weekFigures({ ...o, review: { ...review, keys: [key('moved')] } }).keys).toBeNull()
   })
   it('a week with one run has no "longest" line; no quality run → no "fastest"', () => {
     const one = weekOverview({ week, today: '2026-11-02', sessions, runs: [RUNS[0]], fitness: [], engineLog: [], runsSince: '2026-07-01' })

@@ -6,7 +6,7 @@ import { CalendarDays } from 'lucide-react'
 import { type PlanSession } from '@/lib/plan/types'
 import { estimateDurationS, fmtDuration, fmtKm } from '@/lib/plan/format'
 import { weekOf } from '@/lib/plan/blocks'
-import type { Overrides } from '@/lib/plan/effective'
+import { changeWhy, type Overrides } from '@/lib/plan/effective'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
 import { Card, Stat, TypeTag, Pill } from './ui'
 import { WeekEditor } from './WeekEditor'
@@ -19,7 +19,7 @@ function relativeDay(date: string, today: string) {
   return format(parseISO(date), 'EEEE', { locale: de })
 }
 
-export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough, sessions, overrides, baseSessions, engineOverrides, engineNotes, onChange, saving, saveError, onRetry }: {
+export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough, sessions, overrides, baseSessions, autoSessions, engineOverrides, engineNotes, onChange, saving, saveError, saveMessage, onRetry }: {
   today: string
   actuals: Map<string, DayActual>
   cross?: Map<string, { letter: string; label: string; kb?: boolean }[]>   // cross-training sessions per day (08-04)
@@ -28,11 +28,13 @@ export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough,
   sessions: PlanSession[]
   overrides: Overrides
   baseSessions: PlanSession[]        // plan without engine 'Ausgleich' km — what edits work on
+  autoSessions: PlanSession[]        // plan as shown without manual edits (engine changes, return caps)
   engineOverrides: Overrides
   engineNotes: Map<string, string>   // date → reason of the engine change on that day
   onChange: (next: Overrides) => void
   saving: boolean
   saveError: boolean
+  saveMessage?: string
   onRetry: () => void
 }) {
   const doneToday = actuals.has(today)
@@ -50,7 +52,7 @@ export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough,
       aside={week && <Pill className="tabular-nums">KW {week.kw} · {week.km} km</Pill>}
     >
       <div className="grid gap-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        {next ? <NextSession session={next} today={today} why={engineNotes.get(next.date) ? [`Automatisch: ${engineNotes.get(next.date)}`] : overrides[next.date] ? ['Von dir angepasst.'] : []} /> : (
+        {next ? <NextSession session={next} today={today} why={changeWhy(overrides[next.date], engineNotes.get(next.date))} /> : (
           <div className="rounded-xl border border-border p-4 text-sm text-muted-foreground">Keine Einheiten mehr geplant.</div>
         )}
         <ul className="flex flex-col gap-2">
@@ -73,7 +75,7 @@ export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough,
         </ul>
       </div>
 
-      <WeekEditor today={today} sessions={sessions} baseSessions={baseSessions} overrides={overrides} engineOverrides={engineOverrides} engineNotes={engineNotes} actuals={actuals} cross={cross} kbDone={kbDone} syncedThrough={syncedThrough} onChange={onChange} saving={saving} saveError={saveError} onRetry={onRetry} />
+      <WeekEditor today={today} sessions={sessions} baseSessions={baseSessions} autoSessions={autoSessions} overrides={overrides} engineOverrides={engineOverrides} engineNotes={engineNotes} actuals={actuals} cross={cross} kbDone={kbDone} syncedThrough={syncedThrough} onChange={onChange} saving={saving} saveError={saveError} saveMessage={saveMessage} onRetry={onRetry} />
     </Card>
   )
 }

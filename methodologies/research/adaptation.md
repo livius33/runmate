@@ -86,6 +86,18 @@ missed_key (trigger fires when a key session's matched run < DONE_SHARE)
                        never moved by more than 2 days (it needs the rest day before it)
 ```
 
+### 1.3 Which past days count: data coverage
+
+Both triggers only look at days the stored data covers ("synced days" above): a day that is not covered may still get
+its run with the next sync or upload, so it is not missed yet. Covered is every day up to the **later** of two days:
+(a) the day before the latest successful sync of a pull source (a source whose last sync failed covers nothing), and
+(b) the date of the newest stored run, whatever its source. (b) is what makes the rules work for runners whose runs
+arrive by file import or the Apple Health Shortcut, which leave no sync record: a run on day D shows that the runner's
+data reached Runmate up to D, so earlier days without a run were really missed. An import of old history ends at its
+last run and therefore claims nothing about the weeks after it; a runner who stops uploading is not told about missed
+sessions until the next run arrives. With neither a sync nor a run nothing counts as missed. This is a data rule
+(project decision, 08-02), not a training rule: no source. Code: `loadSyncedThrough` in `lib/plan/engine-store.ts`.
+
 ---
 
 ## 2. Fatigue triggers

@@ -1,5 +1,6 @@
 // Cross-training (08-01): the sports that are not runs, how Garmin's type keys map to them and how a session is
 // validated. Pure. The load per sport lives in load.ts; the research is methodologies/research/cross-training.md.
+import { dayError } from '@/lib/dates'
 
 export type CrossType = 'Strength' | 'Swim' | 'Ride' | 'Gym'
 export type Sport = 'run' | 'strength' | 'swim' | 'bike' | 'gym'
@@ -54,7 +55,8 @@ export function parseCrossEntry(body: unknown, today: string): { ok: true; entry
   const b = body as Record<string, unknown>
   const date = String(b.date ?? '')
   if (!DATE_RE.test(date)) return { ok: false, error: 'Datum: als JJJJ-MM-TT' }
-  if (date > today) return { ok: false, error: 'Datum liegt in der Zukunft' }
+  const badDay = dayError(date, today)
+  if (badDay) return { ok: false, error: `Datum: ${badDay}` }
   const type = String(b.sport ?? b.type ?? '')
   if (!isCrossType(type)) return { ok: false, error: 'Sport: Kraft, Schwimmen, Rad oder Gym' }
   const minutes = typeof b.minutes === 'number' ? b.minutes : Number(b.minutes)

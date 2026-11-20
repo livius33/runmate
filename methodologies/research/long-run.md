@@ -69,6 +69,43 @@ The minutes cap converts with the template's `long` pace offset (paces.md); for 
 ≈ 31 km, 150 min ≈ 26 km — so for a 3:05 marathoner the minute cap, not the km cap, binds Daniels' and Lydiard's
 templates. That is intended: the books cap by time.
 
+### 1.3 Low weekly volume (2026-11-18)
+
+**What happened.** A new runner with 30 km per week on five days and a 12-km longest run chose a half marathon in 20
+weeks. Every template gave a first long run of 7.5–9 km (25–30 % of 30 km) — shorter than the run they already do —
+and a longest long run of 10–12 km at the 40-km peak. The share cap was the binding rule in every single week.
+
+**The share is a rule for high volume.** It keeps one run from dominating a big week. At low volume it does the
+opposite of what it is for: it makes the long run a normal run.
+
+| Source | Finding | For us |
+|---|---|---|
+| Daniels 2014 [B], secondary summaries | L ≤ 25 % of the week or 150 min, the smaller; several summaries give 30 % for runners under 40 miles (64 km) per week | The book's own cap is looser at low volume; 64 km is its threshold |
+| Flatow 2013, *Marathon & Beyond* 17(2) | At about 30 miles per week the 25 % cap "just did not seem sufficient"; he capped by time (2.5 h) instead | At low volume the time cap is the one that makes sense |
+| Higdon, *Half Marathon Training*, Novice 1 [B] | 12 weeks, runs of 2–10 miles, longest run 10 miles (16 km) on three to four short runs a week | Beginner plans in practice go far above 30 % |
+| `SAFETY.longRunShareMax` | 0.40, already the ceiling a template may set | The upper end of the ramp; no new limit |
+
+**Rule.**
+
+```text
+share(K_w) = template share                                   K_w ≥ 64 km      // Daniels' 40 miles
+           = 0.40 (SAFETY.longRunShareMax)                    K_w ≤ 32 km
+           = linear in between                                e.g. template 0.25: 36 % at 40 km, 31 % at 52 km
+L_cap(w)   = min(share(K_w) × K_w, max_km × phase_factor, max_minutes × 60 / long_pace_s, day limit)   // rest of 1.2 unchanged
+```
+
+- Only the share moves. The km and minute caps, the +10 % spike rule, the +2 km step and the day limits apply as
+  before, so a runner still gets there step by step from the run they have really done.
+- A template that sets more than the ramp gives keeps its own share (the ramp never lowers it).
+- The rolling base block uses the same ramp on its 25 % (between-blocks.md 2.1): without it a 30-km week has no long
+  run at all (7.5 km is under the base block's 8-km minimum).
+- Effect on the case above: first long run 12 km (their own longest run), longest long run 14.5 km instead of 10 km.
+  That is still under the 21.1 km the plan warns about ("für einen Halbmarathon knapp") — at 40 km per week that
+  warning is honest.
+
+Strength: **convention / design decision.** No study compares long-run shares at low volume; the rule follows the
+books' own exception and the existing safety ceiling.
+
 ---
 
 ## 2. Progression
@@ -103,6 +140,42 @@ schedule a +11 % jump against itself. Against reality the engine re-checks each 
 shortened long runs, the next planned long run is clamped to 1.10 × the real 30-day longest (adaptation.md, trigger
 `missed_key` for the long run). Porto's 16 → 29 km after a recovery week was +11.5 % against the 30-day longest (26 km) —
 inside Frandsen's smallest-risk band but above the proposed cap; the rule would have given 28.5 km.
+
+### 2.3 No run known (2026-11-18)
+
+**What happened.** A new account without a data source has no run in the 30 days before the start. The code read that
+as `longest30 = 0 km`. With `L(0) = min(L_cap(0), longest30)` and the spike rule the long run started at the shortest
+run (5 km) and could only grow 10 % at a time: a runner who told us 30 km per week on five days got five runs of 5 km,
+and the longest long run of a 20-week half-marathon block was 10 km. The base block ("ohne Ziel") had no long run at all.
+
+**Unknown is not zero.** The spike rule protects against a jump over what the runner has *done* (Frandsen 2025 measures
+it against the longest run of the last 30 days). It says nothing about a runner whose runs we cannot see. Books solve
+the same problem with a stated entry requirement ("you should be able to run x km"), which is a self-report.
+
+**Rule.**
+
+```text
+measured = longest run of the 30 days before the start (runs, and planned runs from today)      // 2.2, unchanged
+if measured > 0:                      longest30 = measured            // a measured value always wins
+else if the account has any run:      longest30 = 0                   // a measured break: start carefully (2.2)
+else if profile.longestRunKm != null: longest30 = profile.longestRunKm    // the runner's own answer (onboarding)
+else if weeklyKm and run days known:  longest30 = weeklyKm / run days     // lower bound, see below
+else:                                 longest30 = 0                   // nothing known: start at the shortest run
+```
+
+- **Asked once**: "Längster Lauf der letzten 4 Wochen" in the onboarding profile, optional, at most the weekly km.
+- **Lower bound without an answer**: whoever runs 30 km on five days has run at least 6 km in one of them (the mean
+  run). It never overstates the longest run as long as the weekly km are right, so it needs no evidence of its own.
+- **Goal block**: the value is the draft's input "Längster Lauf (30 Tage vor dem Start)", shown and editable before the
+  plan goes live, like every other input. **Base block**: used for a base that follows no goal block, while the
+  account has no run (between-blocks.md takes the weekly km from the profile for the same base). Its own limits
+  stay: 25 % of the week, no long run under 8 km.
+- **Not used** when runs exist but none in the last 30 days: that is a measured break, and "der Longrun beginnt
+  vorsichtig" stays right (plan-changes.md).
+- **Stale answers**: the profile value is as old as the onboarding. It only stands in while the account has no run; the
+  first imported or synced run ends it, and from then on only measured runs count.
+
+Strength: design decision (no study on self-reported long runs); the lower bound is arithmetic.
 
 ---
 
@@ -150,6 +223,7 @@ Rules
 | Name | Default | Range | Where | Basis |
 |---|---|---|---|---|
 | `week.long_run.share` | M 0.30, HM 0.28, 10k 0.25 | ≤ 0.40 | template (exists) | Daniels 25 %, Pfitz 32 %, Hansons 30 %. **Convention** |
+| `DAY_RULES.lowVolume` | share rises to 0.40 from 64 km down to 32 km per week | fixed | code (1.3) | Daniels' exception under 40 miles, Flatow 2013. **Convention** |
 | `week.long_run.max_km` | M 35, HM 26, 10k 18 | ≤ 42 | template (exists) | Pfitzinger 20–22 mi; Porto 41 as ceiling. **Convention** |
 | `week.long_run.max_minutes` | M 180, HM 130, 10k 100 | ≤ 240 | template (exists) | Coyle 1986 (glycogen ~3 h). **Moderate** for the ceiling, **convention** for the value |
 | `week.long_run.by_phase` | base 0.75, build 0.90, peak 1.0 × max | — | template (new, G-12) | Book progressions. **Convention** |
@@ -207,8 +281,13 @@ Peer-reviewed:
 - Rasmussen CH, Nielsen RO, Juul MS, Rasmussen S (2013). Weekly running volume and risk of running-related injuries among marathon runners. *Int J Sports Phys Ther* 8(2):111–120.
 - Toresdahl BG, Metzl JD, Kinderknecht J, et al. (2023). Training patterns associated with injury in New York City Marathon runners. *Br J Sports Med* 57(3):146–152.
 
-Coaching books (secondary summaries): Daniels 2014; Humphrey, Hanson & Hanson 2012; Lydiard & Gilmour 2000; Pfitzinger &
-Douglas 2019.
+Coaching books (secondary summaries): Daniels 2014; Higdon 2016 (*Hal Higdon's Half Marathon Training*, excerpt at
+us.humankinetics.com/blogs/excerpt/novice-training-programs); Humphrey, Hanson & Hanson 2012; Lydiard & Gilmour 2000;
+Pfitzinger & Douglas 2019.
 
-Not verified: Hansons' "25–30 % of weekly mileage" phrasing for the long run; Daniels' exact wording on 2 h / 2.5 h
+Magazine: Flatow K (2013). In defense of low mileage. *Marathon & Beyond* 17(2), reprinted at
+marathonhandbook.com/mab/in-defense-of-low-mileage/.
+
+Not verified: Daniels' 30 % under 40 miles per week (forum and reader notes only, not the book text); the weekly
+total of Higdon's Novice 1 at its peak; Hansons' "25–30 % of weekly mileage" phrasing for the long run; Daniels' exact wording on 2 h / 2.5 h
 (secondary blog); Pfitzinger's step pattern week by week.

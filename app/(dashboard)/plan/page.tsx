@@ -41,6 +41,9 @@ import type { DatedRun } from '@/lib/plan/pace-check'
 import { EMPTY_ENGINE, withoutRebalance, type EngineState } from '@/lib/plan/engine'
 import { recoveryDay, type WellnessNight } from '@/lib/analytics/recovery-data'
 
+// A plan edit the server refused, with its reason (shown in the editor instead of "Erneut versuchen").
+class Refused extends Error {}
+
 export default function PlanPage() {
   const today = useToday()
 
@@ -81,7 +84,10 @@ export default function PlanPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ overrides: next }),
       })
-      if (!r.ok) throw new Error('Speichern fehlgeschlagen')
+      if (r.ok) return
+      // A refused edit (400) comes with its reason; anything else is a failed save that a retry may fix.
+      const data = r.status === 400 ? await r.json().catch(() => null) : null
+      throw typeof data?.error === 'string' ? new Refused(data.error) : new Error('Speichern fehlgeschlagen')
     },
     onMutate: async (next) => {
       await qc.cancelQueries({ queryKey: ['plan-overrides'] })
@@ -140,6 +146,8 @@ export default function PlanPage() {
   const sessions = useMemo(() => effectiveSessions(overrides, engine.overrides, pauseInput), [overrides, engine.overrides, pauseInput])
   // What manual edits work on: the plan without the engine's 'Ausgleich' km, so moves never carry them.
   const baseSessions = useMemo(() => effectiveSessions(overrides, withoutRebalance(engine), pauseInput), [overrides, engine, pauseInput])
+  // The plan as shown without manual edits: where it differs from the plan file, an edit back at the plan value stays.
+  const autoSessions = useMemo(() => effectiveSessions({}, engine.overrides, pauseInput), [engine.overrides, pauseInput])
   // date → reason of the latest active engine change on that day
   const engineNotes = useMemo(() => {
     const m = new Map<string, string>()
@@ -217,8 +225,8 @@ export default function PlanPage() {
 
       <div className="grid gap-5 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-7"><TrainingSchedule today={today} actuals={actuals} cross={cross} kbDone={kbDone} syncedThrough={syncedThrough} sessions={sessions}
-          overrides={overrides} baseSessions={baseSessions} engineOverrides={engine.overrides} engineNotes={engineNotes} onChange={(next) => save.mutate(next)} saving={save.isPending}
-          saveError={save.isError} onRetry={() => save.variables && save.mutate(save.variables)} /></div>
+          overrides={overrides} baseSessions={baseSessions} autoSessions={autoSessions} engineOverrides={engine.overrides} engineNotes={engineNotes} onChange={(next) => save.mutate(next)} saving={save.isPending}
+          saveError={save.isError} saveMessage={save.error instanceof Refused ? save.error.message : undefined} onRetry={() => save.variables && save.mutate(save.variables)} /></div>
         <div className="min-w-0 lg:col-span-5">{base
           ? <ReadinessCard title="Grundlage" verdict={baseCard.verdict} lines={baseCard.lines} note={BASE_NOTE} />
           : afterRace

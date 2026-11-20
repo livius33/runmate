@@ -15,14 +15,14 @@ import { suggestions } from '@/lib/plan/workshop'
 import type { AthleteProfile } from '@/lib/plan/athlete-profile'
 import type { TrainingBlock } from '@/lib/plan/types'
 
-const LIVIUS: AthleteProfile = {
+const RUNNER: AthleteProfile = {
   v: 1, age: 40, weightKg: 70, heightCm: null, experience: 'advanced', weeklyKm: 64,
   availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 7, qualityDays: [2, 4], kbDays: [], restDay: 5,
   maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: null, fiveKS: null, savedAt: null,
 }
 const hm = EXAMPLE_GOALS.find((g) => g.id === 'hm-2027')!
 const templates = listMethodologies().valid
-const blockFrom = (id: string, profile = LIVIUS, goal: SeasonGoal = hm): TrainingBlock => {
+const blockFrom = (id: string, profile = RUNNER, goal: SeasonGoal = hm): TrainingBlock => {
   const t = templates.find((m) => m.id === id)!.params
   const d = generateDraft({ goal, template: t, start: '2026-11-30', profile,
     measured: { currentKm: 50, currentKmSource: 'recoveryBlock', provenKm: 95.2, longest30Km: 16, longest12mKm: 42.2, recentRace: null } }) as Draft
@@ -81,7 +81,7 @@ describe('Plan anpassen liest die Regeln des Blocks (F11)', () => {
     const week = b.weeks.find((w) => w.start <= today && today <= w.end)!
     // Nothing run this week so far: km are missing.
     return { today, period: { from: week.start, to: week.end, label: 'Woche' }, sessions, manual: {}, actual: new Map<string, number>(),
-      fitness: { tsb: 0, acwr: 1 }, events: [], profile: LIVIUS, recent: null }
+      fitness: { tsb: 0, acwr: 1 }, events: [], profile: RUNNER, recent: null }
   }
   it('Pfitzinger (fehlende km: auslassen) schlägt kein Verteilen vor', () => {
     expect(pfitz.engine!.rebalance).toBe(false)

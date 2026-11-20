@@ -8,7 +8,7 @@ import { deletedUsers } from '@/lib/db/public-schema'
 import { mine, own } from '@/lib/db/owned'
 import { runAsUser } from '@/lib/server/scope'
 import { priceIds, priceInfo, type PriceIds } from './config'
-import type { PaddleSubscription } from './paddle'
+import { verifyCheckoutUser, type PaddleSubscription } from './paddle'
 import type { SubscriptionRow } from './access'
 
 export interface PaddleEvent {
@@ -81,11 +81,12 @@ export function applyPaddleEvent(row: SubState | null, ev: PaddleEvent, ids: Pri
   return null
 }
 
-// The Runmate user an event belongs to: custom_data.userId from the checkout, else the stored Paddle ids.
+// The Runmate user an event belongs to: custom_data.userId from the checkout when the server signed it (the browser
+// sets custom data, so an unsigned id is not trusted), else the stored Paddle ids.
 async function userOf(ev: PaddleEvent): Promise<string | null> {
-  const d = ev.data as { id?: string; subscription_id?: string; customer_id?: string; custom_data?: { userId?: unknown } | null }
+  const d = ev.data as { id?: string; subscription_id?: string; customer_id?: string; custom_data?: { userId?: unknown; userSig?: unknown } | null }
   const claimed = d.custom_data?.userId
-  if (typeof claimed === 'string' && /^[\w-]{1,100}$/.test(claimed)) return claimed
+  if (typeof claimed === 'string' && /^[\w-]{1,100}$/.test(claimed) && verifyCheckoutUser(claimed, d.custom_data?.userSig)) return claimed
   const subId = ev.event_type.startsWith('subscription.') ? d.id : d.subscription_id
   if (!subId && !d.customer_id) return null
   const conds = [subId ? eq(subscription.paddleSubscriptionId, subId) : undefined, d.customer_id ? eq(subscription.paddleCustomerId, d.customer_id) : undefined].filter(Boolean)

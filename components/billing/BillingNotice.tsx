@@ -1,6 +1,6 @@
 'use client'
 
-// One calm line above the page when the plan needs attention (payment open, access ended, trial ending soon).
+// One calm line above the page when the plan needs attention (payment open, trial ending soon). Free has no banner.
 import Link from 'next/link'
 import { stateNotice } from '@/lib/billing/entitlements'
 import { useEntitlements } from './Entitlements'
@@ -11,7 +11,7 @@ export function BillingNotice() {
   const e = useEntitlements()
   if (!e.billing) return null
   const now = Math.floor(Date.now() / 1000)
-  const show = e.state === 'past_due' || e.state === 'expired' || (e.state === 'trial' && e.trialEndsAt != null && e.trialEndsAt - now < SOON_S)
+  const show = e.state === 'past_due' || (e.state === 'trial' && e.trialEndsAt != null && e.trialEndsAt - now < SOON_S)
   const text = show ? stateNotice(e, now) : null
   if (!text) return null
   return (

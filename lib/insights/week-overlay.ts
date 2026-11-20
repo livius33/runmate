@@ -164,6 +164,23 @@ export function weekOverview({ week, today, sessions, runs, fitness, engineLog, 
   return { review, days, plannedRuns, engine, notable, load, next }
 }
 
+// The week in three figures, the first thing the overlay shows: volume against the target, runs against the planned
+// ones, key sessions run against the planned ones. A key session the engine moved away is no longer planned here.
+export interface WeekFigures { km: string; runs: string; runsLabel: string; keys: string | null; keysLabel: string }
+
+export function weekFigures(o: WeekOverview): WeekFigures {
+  const r = o.review
+  const planned = r.keys.filter((k) => k.status !== 'moved')
+  const done = planned.filter((k) => k.status === 'done').length
+  return {
+    km: `${fmtKm(r.km)}/${fmtKm(r.targetKm)}`,
+    runs: `${r.runs}/${o.plannedRuns}`,
+    runsLabel: o.plannedRuns === 1 ? 'Lauf' : 'Läufe',
+    keys: planned.length ? `${done}/${planned.length}` : null,
+    keysLabel: planned.length === 1 ? 'Kerneinheit' : 'Kerneinheiten',
+  }
+}
+
 // Rule-based one-liner for the ACWR figure (the same thresholds the readiness card uses).
 export function acwrText(v: number | null): string {
   if (v == null) return 'noch keine 4 Wochen Daten'

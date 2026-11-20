@@ -27,7 +27,7 @@ type Ctx = { goals: SeasonGoal[]; templates: Template[]; defaultStart: string; p
 type Field = 'currentKm' | 'provenKm' | 'longest30Km' | 'peakKm' | 'goalS'
 
 const DISTANCE: Record<string, string> = { marathon: 'marathon', half: 'half', '10k': '10k' }
-const SOURCE: Record<string, string> = { mean4: 'Schnitt der letzten 4 Wochen', recoveryBlock: 'letzte Woche deines Erholungsblocks', plan: 'geplante Woche vor dem Start', manual: 'von dir gesetzt' }
+const SOURCE: Record<string, string> = { mean4: 'Schnitt der letzten 4 Wochen', recoveryBlock: 'letzte Woche deines Erholungsblocks', plan: 'geplante Woche vor dem Start', manual: 'von dir gesetzt', runs2: 'Schnitt deiner letzten 2 Wochen', return: 'Wiedereinstieg nach der Pause' }
 const PHASE: Record<string, string> = { base: 'Grundlage', build: 'Aufbau', peak: 'Spitze', taper: 'Taper' }
 const longDate = (d: string) => format(parseISO(d), 'EEEEEE. d. MMMM yyyy', { locale: de })
 const dayLabel = (d: string) => format(parseISO(d), 'EEEEEE d.M.', { locale: de })
@@ -209,7 +209,10 @@ function NewPlan() {
               <Input label="Aktueller Umfang" unit="km/Woche" field="currentKm" text={text} setText={setText} draft={draft}
                 hint={draft ? SOURCE[draft.inputs.currentKm.override ? 'manual' : draft.inputs.currentKmSource] : undefined} />
               <Input label="Gehaltener Umfang (52 Wochen)" unit="km/Woche" field="provenKm" text={text} setText={setText} draft={draft} hint="höchster 4-Wochen-Schnitt" />
-              <Input label="Längster Lauf (30 Tage vor dem Start)" unit="km" field="longest30Km" text={text} setText={setText} draft={draft} hint="Läufe und geplante Läufe, ohne Rennen" />
+              <Input label="Längster Lauf (30 Tage vor dem Start)" unit="km" field="longest30Km" text={text} setText={setText} draft={draft}
+                hint={draft && !draft.inputs.longest30Km.override && draft.inputs.longest30Source === 'profile' ? 'noch kein Lauf gemessen: aus deinem Profil'
+                  : draft && !draft.inputs.longest30Km.override && draft.inputs.longest30Source === 'estimate' ? 'noch kein Lauf gemessen: Wochenumfang ÷ Lauftage'
+                    : 'Läufe und geplante Läufe, ohne Rennen'} />
               <Input label="Spitze" unit="km/Woche" field="peakKm" text={text} setText={setText} draft={draft} hint={draft ? `Empfehlung ${km(draft.skeleton.peak.recommendedKm)} km` : undefined} />
               <label className="grid gap-1">
                 <span className="text-muted-foreground">Zielzeit</span>

@@ -56,6 +56,7 @@ Adaptation: trigger → strategy → diff → confirm.
 | 33 | B-races and tune-ups inside a block | [modifiers.md](modifiers.md) §5 | 07-07, 07-08 | answered (convention) |
 | 34 | Post-race recovery, rolling base block, hand-over into a goal block | [between-blocks.md](between-blocks.md) | 07-08, 06-01 | answered (convention) |
 | 39 | Subjective feedback after a run (session RPE, Gefühl, Schmerzen) and the weekly feedback as adaptation inputs | [feedback.md](feedback.md) | 07-25, 07-26 | answered (convention; suggestions and hints only) |
+| 42 | Changes the runner asks for (goal time, race date, method, weekdays, interruption): rebuild from next Monday, base, data check, preview and undo | [plan-changes.md](plan-changes.md) | v1.1 10-02, 10-03 | answered (convention) |
 | **Cross-training** | | | | |
 | 40 | Load of strength, swim, bike and gym sessions (sRPE vs HR-TRIMP, scale 0,2, cycling factor, Porto gate) | [cross-training.md](cross-training.md) | 08-01, 08-04 | answered |
 | **Open** | | | | |

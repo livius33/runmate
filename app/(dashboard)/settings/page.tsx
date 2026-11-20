@@ -31,7 +31,7 @@ export default function SettingsPage() {
       <ProfileCard />
       <CalendarCard />
 
-      <section className="space-y-4">
+      <section id="datenquellen" className="scroll-mt-20 space-y-4">
         <div>
           <h2 className="text-sm font-medium">Datenquellen</h2>
           <p className="text-xs text-muted-foreground">Woher Runmate deine Läufe und Tageswerte bekommt. Mehrere Quellen gleichzeitig sind möglich; doppelte Aktivitäten werden erkannt.</p>

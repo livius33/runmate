@@ -41,7 +41,7 @@ const monday = (d: string) => ymd(startOfWeek(parseISO(d), { weekStartsOn: 1 }))
 const getSetting = getSettingJson
 const setSetting = setSettingJson
 const allActivities = () => db.select().from(activities).where(own(activities))
-const loadDrafts = async () => (await getSetting<Stored>(KEY))?.drafts ?? []
+export const loadDrafts = async () => (await getSetting<Stored>(KEY))?.drafts ?? []
 
 // Base blocks (07-17) fill gaps and give way to a new goal block: the next plan can start after the current goal block,
 // or next Monday when today is in a base block.
@@ -55,7 +55,7 @@ const goalBlockEnd = (today: string) => {
 }
 
 // Everything a draft is generated from, read once per request.
-async function context(today: string) {
+export async function context(today: string) {
   const [rows, plan, profile, season, tuneRow, ownRow] = await Promise.all([allActivities(), loadPlan(), loadProfile(), getSetting<unknown>('season_goals'),
     getSetting<{ v: 1; byTemplate: Record<string, Tuning> }>(TUNE_KEY), getSetting<StoredOwn>(OWN_KEY)])
   const tuning = tuneRow?.byTemplate ?? {}
@@ -94,7 +94,7 @@ async function context(today: string) {
   const defaultStart = ymd(addDays(parseISO(monday(goalBlockEnd(today))), 7))
   return { runs, plan, profile, goals, templates, defaultStart, tuning, own }
 }
-type Ctx = Awaited<ReturnType<typeof context>>
+export type Ctx = Awaited<ReturnType<typeof context>>
 type FieldOut = ReturnType<typeof tuneFields>[number] & { template: number | boolean }
 interface TemplateEntry {
   id: string; name: string; summary: string; distances: string[]; tuning: Tuning; keys: ReturnType<typeof templateKeys>; fields: FieldOut[]
@@ -102,7 +102,7 @@ interface TemplateEntry {
 }
 
 // The template a choice is generated from: a book method with "Mein Ansatz", or the own method (07-19).
-function resolveTemplate(ctx: Ctx, templateId: string, tuning?: Tuning): { ok: true; template: Methodology; label: string } | { ok: false; error: string } {
+export function resolveTemplate(ctx: Ctx, templateId: string, tuning?: Tuning): { ok: true; template: Methodology; label: string } | { ok: false; error: string } {
   if (isOwn(templateId)) {
     const b = listOwnBases().valid.find((m) => m.id === templateId)
     if (!b) return { ok: false, error: `Grundlage „${templateId}“ fehlt oder ist ungültig.` }
@@ -123,7 +123,7 @@ function generate(ctx: Ctx, c: DraftChoiceIn, today: string): DraftResult {
   if (!tuned.ok) return tuned
   const template = tuned.template
   const distance = GOAL_DISTANCE[goal.kind]
-  const measured = measureInputs({ runs: ctx.runs, plan: ctx.plan, weeks: allWeeks(), today, start: c.start, distance: distance ?? 'half' })
+  const measured = measureInputs({ runs: ctx.runs, plan: ctx.plan, weeks: allWeeks(), today, start: c.start, distance: distance ?? 'half', profile: ctx.profile })
   return generateDraft({ goal, template, start: monday(c.start), profile: ctx.profile, measured, overrides: c.overrides })
 }
 
@@ -170,7 +170,7 @@ export async function planStatus(today: string) {
 }
 
 // Freeze a saved draft into a training block and make it part of the live plan.
-// Entitlements (Phase 4): Basic keeps one live plan (finished blocks do not count) and no own method; `code` lets the
+// Entitlements (Phase 4): Free keeps one live plan (finished blocks do not count) and no own method; `code` lets the
 // route answer 402 with the upsell.
 export async function goLive(draftId: string, today: string): Promise<{ error: string; code?: string } | { block: { id: string; planStart: string; end: string } }> {
   const ctx = await context(today)
@@ -181,7 +181,7 @@ export async function goLive(draftId: string, today: string): Promise<{ error: s
   const gate = !e.features.plan ? 'plan' as const
     : running >= e.maxLivePlans ? 'multiPlan' as const
       : isOwn(stored.templateId) && !e.features.ownMethod ? 'ownMethod' as const : null
-  if (gate) return { error: upsellText(gate, e), code: 'plus-required' }
+  if (gate) return { error: upsellText(gate), code: 'plus-required' }
   const result = generate(ctx, stored, today)
   if (!result.ok) return { error: result.error }
   const goal = ctx.goals.find((g) => g.id === stored.goalId)!
@@ -191,7 +191,7 @@ export async function goLive(draftId: string, today: string): Promise<{ error: s
   const entries = await readLiveEntries()
   const err = goLiveError(block, [...builtInBlocks(), ...entries.map((e) => e.block)], today)
   if (err) return { error: err }
-  await setSetting(LIVE_BLOCKS_KEY, { v: 1, blocks: [...entries, { block, draftId, liveAt: new Date().toISOString() }] } satisfies StoredLive)
+  await setSetting(LIVE_BLOCKS_KEY, { v: 1, blocks: [...entries, { block, draftId, liveAt: new Date().toISOString(), choice: { templateId: stored.templateId, overrides: stored.overrides } }] } satisfies StoredLive)
   await ensureLiveBlocks(true)
   return { block: { id: block.id, planStart: block.planStart, end: block.end } }
 }
@@ -199,7 +199,7 @@ export async function goLive(draftId: string, today: string): Promise<{ error: s
 // Save the own method for one distance (empty = the neutral base) and its name; checked like a template file (07-19).
 export async function saveOwn(templateId: string, values: Tuning, name: string): Promise<{ error: string; code?: string } | { ok: true }> {
   const e = await currentEntitlements()
-  if (!e.features.ownMethod) return { error: upsellText('ownMethod', e), code: 'plus-required' }
+  if (!e.features.ownMethod) return { error: upsellText('ownMethod'), code: 'plus-required' }
   const b = listOwnBases().valid.find((m) => m.id === templateId)
   if (!b) return { error: 'Grundlage nicht gefunden.' }
   const r = buildOwn(b.params, values, name)

@@ -1,6 +1,7 @@
 // Reads what the iOS Shortcut sends. Shortcuts hands over numbers as text with German formatting or units
 // ("7.432", "65,4 kg", "52 ms"), so every field is read leniently, by its own kind. Pure.
 import { createHash } from 'crypto'
+import { dayError } from '@/lib/dates'
 import type { ActivitySummary } from '@/lib/sources/types'
 
 export interface HealthDayInput {
@@ -18,9 +19,12 @@ export interface HealthWorkoutInput { id: string; date: string; type: string; st
 // otherwise a run that carries a distance becomes an activity (source 'apple-health', deduplicated on import).
 const RUNNING = /run|lauf|jogg/i
 
+// A whole number. In text, a separator followed by exactly three digits groups thousands ("7.432", "12,345"); any
+// other one is the decimal mark ("512,3 kcal" → 512).
 function int(v: unknown, lo: number, hi: number): number | null {
   if (v == null || v === '') return null
-  const n = typeof v === 'number' ? Math.round(v) : Number(String(v).replace(/[^\d-]/g, ''))
+  const t = typeof v === 'number' ? null : String(v).match(/-?\d[\d.,]*/)?.[0].replace(/[.,](?=\d{3}(\D|$))/g, '').replace(',', '.')
+  const n = typeof v === 'number' ? Math.round(v) : t ? Math.round(Number(t)) : NaN
   return Number.isFinite(n) && n >= lo && n <= hi ? n : null
 }
 function dec(v: unknown, lo: number, hi: number): number | null {
@@ -29,7 +33,8 @@ function dec(v: unknown, lo: number, hi: number): number | null {
   return Number.isFinite(t) && t >= lo && t <= hi ? Math.round(t * 10) / 10 : null
 }
 
-// 'YYYY-MM-DD', 'DD.MM.YYYY', 'DD.MM.YY' or an ISO date-time → 'YYYY-MM-DD'.
+// 'YYYY-MM-DD', 'DD.MM.YYYY', 'DD.MM.YY' or an ISO date-time → 'YYYY-MM-DD'. The shape only: whether that day exists
+// and may be stored is dayError's (lib/dates.ts).
 export function parseDay(v: unknown): string | null {
   const t = String(v ?? '').trim()
   let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -64,12 +69,21 @@ function runSummary(w: Record<string, unknown>, id: string, start: string, date:
   }
 }
 
-export function parseHealth(body: unknown, fallbackDate: string, opts: { keepRuns?: boolean } = {}):
+// Workouts in one upload. The Shortcut sends a day, at most a few: more is a Shortcut gone wrong (a whole history in
+// one request) and is refused as a whole. A list cut short would be stored as the days' full list, and saveHealth
+// would remove the stored workouts that were cut.
+export const MAX_WORKOUTS = 200
+
+// `latest`: the last day accepted, for the day itself and for every workout (the route passes tomorrow).
+export function parseHealth(body: unknown, fallbackDate: string, opts: { keepRuns?: boolean; latest?: string } = {}):
   { ok: true; day: HealthDayInput; workouts: HealthWorkoutInput[] | null; runs: ActivitySummary[]; skipped: number } | { ok: false; error: string } {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, error: 'JSON-Objekt erwartet' }
   const b = body as Record<string, unknown>
   const date = b.date == null || b.date === '' ? fallbackDate : parseDay(b.date)
   if (!date) return { ok: false, error: 'date: als JJJJ-MM-TT oder TT.MM.JJJJ' }
+  const latest = opts.latest ?? '9999-12-31'
+  const badDay = dayError(date, latest)
+  if (badDay) return { ok: false, error: `date: ${badDay}` }
   const sleepH = dec(b.sleepHours, 0, 24)
   const day: HealthDayInput = {
     date,
@@ -84,6 +98,7 @@ export function parseHealth(body: unknown, fallbackDate: string, opts: { keepRun
   const runs: ActivitySummary[] = []
   let skipped = 0
   if (Array.isArray(b.workouts)) {
+    if (b.workouts.length > MAX_WORKOUTS) return { ok: false, error: `workouts: höchstens ${MAX_WORKOUTS} pro Upload` }
     workouts = []
     for (const w of b.workouts as Record<string, unknown>[]) {
       const type = String(w?.type ?? '').trim().slice(0, 60)
@@ -91,6 +106,7 @@ export function parseHealth(body: unknown, fallbackDate: string, opts: { keepRun
       if (!type || minutes == null) { skipped++; continue }
       const start = String(w?.start ?? '').trim().slice(0, 40) || date
       const wDate = parseDay(start) ?? date
+      if (dayError(wDate, latest)) { skipped++; continue }      // a start on a day that cannot be: not stored under it
       const id = createHash('sha256').update(`${wDate}|${start}|${type}`).digest('hex').slice(0, 32)
       const kcal = int(w?.kcal, 0, 10000), avgHr = int(w?.avgHr, 30, 230)
       if (RUNNING.test(type)) {

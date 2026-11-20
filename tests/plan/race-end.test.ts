@@ -8,7 +8,7 @@ import { EXAMPLE_GOALS } from '@/examples/porto-2026/season'
 import { generateDraft, type Draft } from '@/lib/plan/generator/draft'
 import type { AthleteProfile } from '@/lib/plan/athlete-profile'
 
-const LIVIUS: AthleteProfile = {
+const RUNNER: AthleteProfile = {
   v: 1, age: 40, weightKg: 70, heightCm: null, experience: 'advanced', weeklyKm: 64,
   availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, qualityDays: [2, 4], kbDays: [], restDay: 5,
   maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: null, fiveKS: null, savedAt: null,
@@ -16,7 +16,7 @@ const LIVIUS: AthleteProfile = {
 const hm = EXAMPLE_GOALS.find((g) => g.id === 'hm-2027')!
 const day = (d: string, n: number) => format(addDays(parseISO(d), n), 'yyyy-MM-dd')
 const templates = listMethodologies().valid
-const draftFor = (id: string, goal: SeasonGoal, profile = LIVIUS) => {
+const draftFor = (id: string, goal: SeasonGoal, profile = RUNNER) => {
   const t = templates.find((m) => m.id === id)!.params
   return generateDraft({ goal, template: t, start: '2026-11-30', profile,
     measured: { currentKm: 50, currentKmSource: 'recoveryBlock', provenKm: 95.2, longest30Km: 16, longest12mKm: 42.2, recentRace: null } }) as Draft
@@ -28,7 +28,7 @@ describe('Letzte Tage vor dem Rennen, jeder Wochentag (F10)', () => {
     for (const m of templates.filter((x) => x.params.distances.includes('half'))) {
       for (const longRunDay of [6, 7] as const) {
         it(`${m.id}, Rennen ${date}, Longrun-Tag ${longRunDay}`, () => {
-          const d = draftFor(m.id, { ...hm, date }, { ...LIVIUS, longRunDay })
+          const d = draftFor(m.id, { ...hm, date }, { ...RUNNER, longRunDay })
           expect('ok' in d ? d.ok : true).not.toBe(false)
           const last6 = d.workouts.sessions.filter((s) => s.date >= day(date, -6) && s.date < date)
           expect(last6.filter((s) => s.type === 'long').map((s) => s.date)).toEqual([])

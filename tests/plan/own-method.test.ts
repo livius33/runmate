@@ -15,7 +15,7 @@ import { checkSkeleton } from './skeleton-check'
 import { checkDays } from './days-check'
 import { checkWorkouts } from './workouts-check'
 
-const LIVIUS: AthleteProfile = {
+const RUNNER: AthleteProfile = {
   v: 1, age: 40, weightKg: 70, heightCm: null, experience: 'advanced', weeklyKm: 64,
   availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, qualityDays: [2, 4], kbDays: [], restDay: 5,
   maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: null, fiveKS: null, savedAt: null,
@@ -31,12 +31,12 @@ const base = (d: Distance) => BASES.valid.find((m) => m.params.distances[0] === 
 const draftFor = (d: Distance, values: Tuning, start = '2026-11-30') => {
   const r = buildOwn(base(d), values)
   if (!r.ok) throw new Error(r.errors.join('; '))
-  return { template: r.template, draft: generateDraft({ goal: GOALS[d], template: r.template, start, profile: LIVIUS, measured }) }
+  return { template: r.template, draft: generateDraft({ goal: GOALS[d], template: r.template, start, profile: RUNNER, measured }) }
 }
 // Every check the generator's own tests use, on one draft.
 function checks(d: Draft, template: ReturnType<typeof base>, distance: Distance, start: string) {
   const goal = GOALS[distance]
-  const io = { template, distance, raceDate: goal.date, raceName: goal.name, profile: LIVIUS, goalS: goal.goalS!, recentRace: null }
+  const io = { template, distance, raceDate: goal.date, raceName: goal.name, profile: RUNNER, goalS: goal.goalS!, recentRace: null }
   return [
     ...checkSkeleton(d.skeleton, { ...io, start, currentKm: measured.currentKm, currentKmSource: measured.currentKmSource, provenKm: measured.provenKm, experience: 'advanced', age: 40 }),
     ...checkDays({ ...d.days, sessions: d.workouts.sessions }, d.skeleton, { ...io, racePaceS: d.paces.racePaceS, longest30Km: measured.longest30Km, longest12mKm: measured.longest12mKm }),
@@ -102,7 +102,7 @@ describe('Neutrale Grundlage (AC-1)', () => {
     const ok = buildOwn(base('marathon'), { ...values, 'paces.offsets.threshold': -1 })
     expect(ok.ok).toBe(true)
     if (!ok.ok) return
-    const draft = generateDraft({ goal: GOALS.marathon, template: ok.template, start: '2027-02-28', profile: LIVIUS, measured })
+    const draft = generateDraft({ goal: GOALS.marathon, template: ok.template, start: '2027-02-28', profile: RUNNER, measured })
     expect(draft.ok).toBe(true)
     if (!draft.ok) return
     expect(checks(draft, ok.template, 'marathon', draft.skeleton.weeks[0].start)).toEqual([])
@@ -162,7 +162,7 @@ describe('Gleiche Pipeline wie eine Buchvorlage (AC-2)', () => {
         if (!r.ok) return
         const goal = GOALS[d]
         const start = new Date(Date.parse(goal.date) - c.weeks * 7 * 864e5).toISOString().slice(0, 10)
-        const draft = generateDraft({ goal, template: r.template, start, profile: LIVIUS, measured })
+        const draft = generateDraft({ goal, template: r.template, start, profile: RUNNER, measured })
         if (!draft.ok) { expect(draft.error).toMatch(/\S/); return }        // a German reason, never a throw
         generated++
         const monday = draft.skeleton.weeks[0].start

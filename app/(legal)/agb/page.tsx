@@ -6,12 +6,12 @@ import { TRIAL_DAYS } from '@/lib/billing/entitlements'
 
 export const metadata: Metadata = { title: 'AGB – Runmate' }
 
-// Template (Phase 4): terms of use for the hosted subscription, trial, withdrawal right (model text of Anlage 1 zu
+// Template (Phase 4): terms of use for the hosted version (free use and the Plus subscription), trial, withdrawal right (model text of Anlage 1 zu
 // Art. 246a § 1 EGBGB, adapted for a service) with the model withdrawal form (Anlage 2), cancellation. Paddle is the
 // merchant of record, so the purchase itself also follows Paddle's buyer terms.
 export default function AgbPage() {
   return (
-    <LegalPage title="Allgemeine Geschäftsbedingungen" updated="02.11.2026">
+    <LegalPage title="Allgemeine Geschäftsbedingungen" updated="18.11.2026">
       <h2>§ 1 Geltungsbereich und Anbieter</h2>
       <p>
         Diese Bedingungen gelten für die Nutzung der gehosteten Version von Runmate (<Ph>Domain</Ph>), angeboten von{' '}
@@ -21,10 +21,11 @@ export default function AgbPage() {
       </p>
 
       <h2>§ 2 Leistungen</h2>
-      <p>Runmate wertet Lauftraining aus und erstellt und pflegt einen Trainingsplan. Es gibt zwei Tarife:</p>
+      <p>Runmate wertet Lauftraining aus und erstellt und pflegt einen Trainingsplan. Die Nutzung ist kostenlos; der
+        einzige kostenpflichtige Tarif ist Plus:</p>
       <ul>
-        <li><b>Basic:</b> Synchronisierung und Import von Aktivitäten, Analyse, Hinweise und ein erstellter Trainingsplan; Planänderungen der Regel-Engine als Vorschläge.</li>
-        <li><b>Plus:</b> alles aus Basic, dazu automatische Planänderungen (Verschieben, Ermüdungsschutz, Ausgleich), mehrere Pläne und Rennen gleichzeitig, eine eigene Methode und Renntag-Werkzeuge.</li>
+        <li><b>Kostenlos:</b> Synchronisierung und Import von Aktivitäten, Analyse, Hinweise und ein erstellter Trainingsplan; Planänderungen der Regel-Engine als Vorschläge.</li>
+        <li><b>Plus (Abo):</b> alles aus Kostenlos, dazu automatische Planänderungen (Verschieben, Ermüdungsschutz, Ausgleich), der Neuaufbau des ganzen Plans bei neuem Ziel oder Termin, mehrere Pläne und Rennen gleichzeitig, eine eigene Methode, Renntag-Werkzeuge sowie Schlaf- und HRV-Werte in der Plananpassung.</li>
       </ul>
       <p>
         Datenquellen Dritter (z. B. Garmin Connect über die Anmeldung mit deinen Zugangsdaten) sind keine offiziellen
@@ -38,16 +39,16 @@ export default function AgbPage() {
       <h2>§ 4 Konto und Testphase</h2>
       <p>
         Für die Nutzung ist ein Konto nötig. Mit der ersten Anmeldung beginnt eine kostenlose Testphase von {TRIAL_DAYS} Tagen
-        mit allen Funktionen. Sie braucht keine Zahlungsdaten und endet automatisch; es entsteht kein Abo und keine
-        Zahlungspflicht. Danach bleiben deine Daten lesbar, exportierbar und löschbar; neue Daten und Pläne gibt es mit einem
-        Abo.
+        mit allen Funktionen von Plus. Sie braucht keine Zahlungsdaten und endet automatisch; es entsteht kein Abo und keine
+        Zahlungspflicht. Danach nutzt du Runmate kostenlos weiter (§ 2): Daten, Synchronisierung, Analyse und ein
+        Trainingsplan bleiben, die Funktionen von Plus gibt es mit einem Abo.
       </p>
 
       <h2>§ 5 Vertragsschluss, Preise, Zahlung</h2>
       <p>
-        Das Abo kommt zustande, wenn du im Bezahlfenster von Paddle die Bestellung mit „zahlungspflichtig bestellen“ (oder
-        gleichwertig) abschließt. Es gelten die dort angezeigten Preise einschließlich Umsatzsteuer: Basic{' '}
-        <Ph>Preis</Ph> pro Monat oder <Ph>Preis</Ph> pro Jahr, Plus <Ph>Preis</Ph> pro Monat oder <Ph>Preis</Ph> pro Jahr.
+        Die kostenlose Nutzung begründet keine Zahlungspflicht. Das Plus-Abo kommt zustande, wenn du im Bezahlfenster von
+        Paddle die Bestellung mit „zahlungspflichtig bestellen“ (oder gleichwertig) abschließt. Es gelten die dort
+        angezeigten Preise einschließlich Umsatzsteuer: Plus <Ph>Preis</Ph> pro Monat oder <Ph>Preis</Ph> pro Jahr.
         Die Zahlung erfolgt im Voraus für den jeweiligen Abrechnungszeitraum über Paddle.
       </p>
 
@@ -63,7 +64,7 @@ export default function AgbPage() {
           Du kannst jederzeit zum Ende des laufenden Abrechnungszeitraums kündigen, ohne Angabe von Gründen: über die
           Schaltfläche <Link href="/kuendigen" className="underline">„Verträge hier kündigen“</Link> (auch ohne Anmeldung
           erreichbar), in den Einstellungen unter „Abo“ oder per E-Mail an <Ph>E-Mail-Adresse</Ph>. Bis zum Ende des bezahlten
-          Zeitraums bleibt alles nutzbar. Das Recht zur außerordentlichen Kündigung aus wichtigem Grund bleibt unberührt.
+          Zeitraums bleibt alles nutzbar; danach läuft dein Konto kostenlos weiter (§ 2). Das Recht zur außerordentlichen Kündigung aus wichtigem Grund bleibt unberührt.
         </li>
         <li>Löschst du dein Konto, kündigen wir ein laufendes Abo sofort mit.</li>
       </ul>

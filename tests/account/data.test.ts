@@ -92,7 +92,7 @@ describe('Export (Art. 20)', () => {
   })
 
   it('auch ohne aktives Abo erreichbar (nie gesperrt)', async () => {
-    process.env.BILLING_ENABLED = '1'                                   // no subscription row → expired
+    process.env.BILLING_ENABLED = '1'                                   // no subscription row → free
     const { GET } = await import('@/app/api/account/export/route')
     const res = await GET()
     expect(res.status).toBe(200)

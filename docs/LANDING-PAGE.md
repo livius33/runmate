@@ -1,6 +1,6 @@
 # Landing page plan: Runmate (runmate.dev)
 
-Updated 2026-11-01 with the decisions: AGPL-3.0, Paddle, Basic 6 € + Plus ~10 €, 30-day trial, Garmin (official API) + Apple Health first.
+Updated 2026-11-18 with the decisions: AGPL-3.0, Paddle, Free + Plus (9 €/month, 79 €/year), 30-day Plus trial without a card, Garmin (official API) + Apple Health first.
 
 ## 1. Positioning
 
@@ -24,7 +24,7 @@ Updated 2026-11-01 with the decisions: AGPL-3.0, Paddle, Basic 6 € + Plus ~10 
 | 5 | Adaptive engine | „Verpasst? Krank? Müde? Der Plan reagiert – und sagt dir warum." | `PlanChanges` log (before → after, rule, undo), `PauseControl`, the fatigue-guard notice |
 | 6 | Insights | „Sieh, ob dein Block wirkt." | `ProgressSection` panels (Blockfortschritt, Longrun-Aufbau, Tempo in Zone 2, Renntempo-Blöcke), `WeekReview`, `LoadBySport` |
 | 7 | Race week & race day | „Bis zur Startlinie geplant." | `RaceWeekCard` (carb grams), `RaceStrategy` splits, Plan A/B |
-| 8 | Pricing | „Selbst hosten oder loslegen." Two columns: **Self-host** 0 € (AGPL-3.0, your Neon/Vercel or Docker, docs) · **Runmate** Basic 6 €/month (59 €/year) · Plus ~10 €/month (99 €/year) · 30-day trial without a card | Plain table; a feature checkmark row shared by both columns |
+| 8 | Pricing | „Selbst hosten oder loslegen." Two columns: **Self-host** 0 € (AGPL-3.0, your Neon/Vercel or Docker, docs) · **Runmate** Free 0 € · Plus 9 €/month (79 €/year) · 30-day Plus trial without a card, then Free | Plain table; a feature checkmark row shared by both columns |
 | 9 | FAQ | Wie kommen meine Garmin-Daten rein? · Ist das offiziell von Garmin? (official Garmin Connect API; Apple Health via the Runmate shortcut, later the iOS app) · Wo liegen meine Daten? (EU region, export, deletion) · Ersetzt das einen Coach? · Halbmarathon? · Kündigung? | Text only |
 | 10 | Final CTA | „Dein nächster Block beginnt Montag." | Week strip filling with teal "done" bars |
 | 11 | Footer | Impressum · Datenschutz · GitHub · Methoden · Changelog · DE/EN | — |
@@ -91,7 +91,7 @@ Updated 2026-11-01 with the decisions: AGPL-3.0, Paddle, Basic 6 € + Plus ~10 
 ├──────────────────────────────────────────────────────────────────────┤
 │ Bis zur Startlinie geplant. │ Rennwoche (Carbs g) │ Splits Plan A/B  │
 ├──────────────────────────────────────────────────────────────────────┤
-│        Selbst hosten  0 €        │   Runmate  ab 6 €/Monat · 30 Tage   │
+│        Selbst hosten  0 €        │   Runmate  Free 0 € · Plus 9 €/Mon. │
 │        AGPL-3.0, eigene DB            │   gehostet, Sync, Updates [Testen]│
 ├──────────────────────────────────────────────────────────────────────┤
 │ FAQ ▸ Garmin-Daten ▸ Datenschutz ▸ Coach? ▸ Halbmarathon ▸ Kündigung │

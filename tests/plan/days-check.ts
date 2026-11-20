@@ -2,7 +2,7 @@
 // Sources: methodologies/research/week-layout.md (1.2, 2.2), long-run.md (1.2, 2.2), phases-and-taper.md 2.3 rules 2, 4, 5.
 import { addDays, differenceInCalendarDays, format, getISODay, parseISO } from 'date-fns'
 import { SAFETY } from '@/lib/plan/methodology/safety'
-import { DAY_RULES, availableRunDays, type DaysInput, type DaysPlan } from '@/lib/plan/generator/days'
+import { DAY_RULES, availableRunDays, longShare, type DaysInput, type DaysPlan } from '@/lib/plan/generator/days'
 import type { Skeleton } from '@/lib/plan/generator/skeleton'
 import type { PlanSession } from '@/lib/plan/types'
 
@@ -44,6 +44,15 @@ export function checkDays(plan: DaysPlan, sk: Skeleton, input: DaysInput): strin
     if (km > 0 && km < R.minRunKm && s.title !== 'Shakeout') out.push(`${s.date}: ${km} km unter ${R.minRunKm} km`)
   }
 
+  // No run longer than the long run: this week's or the longest of the 30 days before it (week-layout.md 1.3).
+  const longRuns = days.filter((s) => s.type === 'long')
+  for (const w of sk.weeks) {
+    const end = ymd(addDays(parseISO(w.start), 6))
+    const from = ymd(addDays(parseISO(end), -36))
+    const bound = Math.max(R.minRunKm, from < first ? input.longest30Km : 0, ...longRuns.filter((s) => s.date > from && s.date <= end).map((s) => s.km ?? 0))
+    for (const s of days) if (s.date >= w.start && s.date <= end && s.type !== 'long' && !s.anchor && runKm(s) > bound + 1e-9) out.push(`${s.date}: ${runKm(s)} km länger als der Longrun (${bound} km)`)
+  }
+
   // Weeks: km = skeleton km (lower only with a warning); long run day; hard days and spacing.
   let lastLoadLong: number | null = null
   let lastPeakLong: number | null = null
@@ -58,7 +67,7 @@ export function checkDays(plan: DaysPlan, sk: Skeleton, input: DaysInput): strin
     const km = week.reduce((a, s) => a + runKm(s), 0)
     const kw = `KW ${w.kw}`
     if (km > w.km + 1e-9) out.push(`${kw}: ${km} km über dem Gerüst (${w.km} km)`)
-    if (km < w.km - 1e-9 && !plan.warnings.some((x) => x.includes(kw))) out.push(`${kw}: ${km} statt ${w.km} km ohne Hinweis`)
+    if (km < w.km - 1e-9 && !plan.warnings.some((x) => x.includes(kw) || x.startsWith('Kein Lauf ist länger als der Longrun'))) out.push(`${kw}: ${km} statt ${w.km} km ohne Hinweis`)
     const long = week.find((s) => s?.type === 'long')
     if (i === raceIdx) { if (long) out.push(`${kw}: Longrun in der Rennwoche`); continue }
     if (profile.longRunDay && avail.has(profile.longRunDay) && long && getISODay(parseISO(long.date)) !== profile.longRunDay) {
@@ -69,7 +78,7 @@ export function checkDays(plan: DaysPlan, sk: Skeleton, input: DaysInput): strin
     if (long) {
       const L = long.km ?? 0
       const factor = R.phaseFactor[w.phase]
-      let c = Math.min(t.week.long_run.share * w.km, t.week.long_run.max_km * factor, (t.week.long_run.max_minutes * 60) / longPace,
+      let c = Math.min(longShare(t.week.long_run.share, w.km) * w.km, t.week.long_run.max_km * factor, (t.week.long_run.max_minutes * 60) / longPace,
         cap(long.date), SAFETY.longRunKmMax)
       if (input.distance === 'marathon') {
         if ((input.longest12mKm ?? 0) < R.marathon.bigKm) c = Math.min(c, R.marathon.bigKm - 0.5)

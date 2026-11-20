@@ -95,7 +95,7 @@ export function weekReview({ week, today, sessions, runs, fitness, engineLog }: 
   } else if (easyPct != null && easyPct < EASY_TARGET * 100) {
     focus = `Locker wirklich locker: nur ${easyPct} % in Z1+Z2, Ziel 80 %.`
   } else if (!running && km < week.km * VOLUME_MIN) {
-    focus = `Umfang: ${fmtKm(km)} von ${week.km} km. Nicht nachholen, einfach den Plan laufen.`
+    focus = `Umfang: ${fmtKm(km)} von ${fmtKm(week.km)} km. Nicht nachholen, einfach den Plan laufen.`
   } else if (tsbEnd != null && tsbEnd < rulesFor(week.start).tsbRed) {
     focus = `Erholung zuerst: Form TSB ${String(Math.round(tsbEnd)).replace('-', '−')}.`
   } else if (next) {

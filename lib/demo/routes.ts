@@ -21,6 +21,7 @@ const ROUTES: [pattern: string, load: () => Promise<unknown>][] = [
   ['running/plan-engine', () => import('@/app/api/running/plan-engine/route')],
   ['running/plan-overrides', () => import('@/app/api/running/plan-overrides/route')],
   ['running/plan-pauses', () => import('@/app/api/running/plan-pauses/route')],
+  ['running/plan-rebuild', () => import('@/app/api/running/plan-rebuild/route')],
   ['running/profile', () => import('@/app/api/running/profile/route')],
   ['running/progress', () => import('@/app/api/running/progress/route')],
   ['running/race-analysis', () => import('@/app/api/running/race-analysis/route')],

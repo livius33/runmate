@@ -1,6 +1,6 @@
 // Plan edits: moving sessions between days, carrying over unrun km, and rebalancing a week
 // so it still reaches its target. Pure functions — used by the page and by the API routes.
-import { addDays, format, getDay, parseISO } from 'date-fns'
+import { addDays, differenceInCalendarDays, format, getDay, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { type PlanSession, type PlanWeek } from './types'
 import { WEEKDAY_NAME, allSessions, allWeeks, firstPlanStart, raceOf, recoveryWeekday } from './blocks'
@@ -9,7 +9,7 @@ import { athlete } from '@/lib/athlete'
 import { fitSession, formatNotes, parseStructure, rescale } from './structure'
 import { rulesFor } from './rules'
 import { pauseLayer, type PauseInput } from './pause'
-import { KB, withStrength } from './strength'
+import { KB, isKeyDay, withStrength } from './strength'
 
 // date → replacement session for that day (type 'rest' clears the day)
 export type Overrides = Record<string, PlanSession>
@@ -18,14 +18,37 @@ export type ActualKm = Map<string, number>
 
 const r1 = (n: number) => Math.round(n * 10) / 10
 
+// Manual edits of the session itself. An entry that only sets the kettlebell marker (`strengthOnly`) is none: the day
+// keeps following the plan and the engine, and the engine may still change it.
+export const dayEdits = (overrides: Overrides): Overrides =>
+  Object.fromEntries(Object.entries(overrides).filter(([, s]) => !s.strengthOnly))
+
+// Whose change a day shows (`entry` = the day's manual edit, `engine` = the engine changed the day). A manual edit of
+// the session lies on top of an engine change, so the day is the runner's. A marker-only entry changes no session: the
+// day stays the engine's where the engine changed it, and nobody's otherwise.
+export function changedBy(entry: PlanSession | undefined, engine: boolean): 'manual' | 'engine' | null {
+  return entry && !entry.strengthOnly ? 'manual' : engine ? 'engine' : null
+}
+
+// The same as the line under a session (`engineReason` = the reason of the engine change on that day, if any).
+export function changeWhy(entry: PlanSession | undefined, engineReason?: string): string[] {
+  const by = changedBy(entry, !!engineReason)
+  return by === 'manual' ? ['Von dir angepasst.'] : by === 'engine' ? [`Automatisch: ${engineReason}`] : []
+}
+
 // Layers: plan → engine → return caps after a pause → manual edits → paused days (Krank beats everything but anchors).
+// A marker-only entry sets the kettlebell marker on the day as the layers below show it.
 export function effectiveSessions(overrides: Overrides, engine: Overrides = {}, pause?: PauseInput): PlanSession[] {
-  const byDate = new Map(allSessions().map((s) => [s.date, s]))
+  const plan = new Map(allSessions().map((s) => [s.date, s]))
+  const byDate = new Map(plan)
   // A stale engine change never covers a fixed day (a minor race added later, 07-16).
   for (const [date, s] of Object.entries(engine)) if (!byDate.get(date)?.anchor) byDate.set(date, { ...s, date })
-  const layer = pause?.pauses.length ? pauseLayer(byDate, pause) : null
+  const layer = pause?.pauses.length ? pauseLayer(byDate, pause, plan) : null
   if (layer) for (const [date, s] of Object.entries(layer.caps)) byDate.set(date, s)
-  for (const [date, s] of Object.entries(overrides)) byDate.set(date, { ...s, date })
+  for (const [date, s] of Object.entries(overrides)) {
+    if (!s.strengthOnly) byDate.set(date, { ...s, date })
+    else if (byDate.has(date)) byDate.set(date, withStrength(byDate.get(date)!, s.strength))
+  }
   if (layer) for (const [date, s] of Object.entries(layer.paused)) byDate.set(date, s)
   // One rule for every layer: the workout text always matches the day's km.
   return [...byDate.values()].map(fitSession).sort((a, b) => a.date.localeCompare(b.date))
@@ -102,6 +125,7 @@ export function moveModes(from: string, to: string, today: string, sessions: Pla
   const dst = dayState(to, today, sessions, actual)
   if (src.session?.type === 'race' || src.session?.anchor || dst.session?.anchor) return []   // events stay put
   if (dst.actualKm > 0) return []                                // that day is already run
+  if (dst.session?.paused) return []                             // Krank/Pause wins there: the session would vanish
   // Partly run: swap the whole session with a planned day (the run was really a different session),
   // or add the rest on top of that day.
   if (src.status === 'partial') return isRun(dst.session) ? ['swap', 'merge'] : ['merge']
@@ -110,9 +134,20 @@ export function moveModes(from: string, to: string, today: string, sessions: Pla
   return []
 }
 
+// Where the editor offers to move a day: today until the end of next week, on days of the plan's weeks only. A day
+// before the plan's first week or after its last one is shown by no week: a session moved there would vanish from
+// the editor.
+export function moveTargets(from: string, today: string, sessions: PlanSession[], actual: ActualKm, weeks = planWeeks()) {
+  const shown = new Set(weeks.flatMap(weekDates))
+  return Array.from({ length: 14 }, (_, i) => format(addDays(parseISO(today), i), 'yyyy-MM-dd'))
+    .filter((d) => shown.has(d))
+    .map((d) => ({ date: d, modes: moveModes(from, d, today, sessions, actual), state: dayState(d, today, sessions, actual) }))
+    .filter((t) => t.modes.length)
+}
+
 export function applyMove(
   overrides: Overrides, from: string, to: string, mode: MoveMode,
-  today: string, sessions: PlanSession[], actual: ActualKm,
+  today: string, sessions: PlanSession[], actual: ActualKm, auto?: PlanSession[],
 ): Overrides {
   if (!moveModes(from, to, today, sessions, actual).includes(mode)) return overrides
   const src = dayState(from, today, sessions, actual)
@@ -129,7 +164,8 @@ export function applyMove(
   // Whole session. A missed day keeps what was run (nothing) and gives up its km.
   const moving = { ...S, km: src.status === 'missed' ? src.openKm : S.km }
   if (mode === 'move') {
-    next[to] = { ...moving, date: to }
+    // A kettlebell marker set on the free day stays with that day; a key day itself takes none (strength.ts).
+    next[to] = withStrength({ ...moving, date: to }, moving.strength ?? (isKeyDay(moving) ? null : dst.session?.strength))
     next[from] = restDay(from, `verschoben auf ${dayLabel(to)}`)
   } else if (mode === 'swap') {
     next[to] = { ...moving, date: to }
@@ -137,6 +173,13 @@ export function applyMove(
   } else {
     next[to] = mergeSessions(dst.session!, moving, to)
     next[from] = restDay(from, `zusammengelegt mit ${dayLabel(to)}`)
+  }
+  // Moved or swapped back: a day that is at its plan again carries no edit. Where the engine or a return cap changes
+  // the day (`auto` = the plan as shown without manual edits) the edit stays, so nothing reappears under it.
+  for (const d of [from, to]) {
+    const s = next[d]
+    const same = (o?: PlanSession) => (isRun(s) || isRun(o) ? !!o && sameSession(s, o) : true)
+    if (same(allSessions().find((x) => x.date === d)) && (!auto || same(auto.find((x) => x.date === d)))) delete next[d]
   }
   return next
 }
@@ -147,7 +190,7 @@ export function restDay(date: string, notes: string): PlanSession {
 
 function addKm(target: PlanSession | undefined, date: string, km: number, note: string): PlanSession {
   if (isRun(target)) return { ...target, date, km: r1(target.km + km), notes: join(target.notes, note) }
-  return { date, type: 'easy', km, title: 'Nachholen', notes: join('Locker, Zone 2', note) }
+  return withStrength({ date, type: 'easy', km, title: 'Nachholen', notes: join('Locker, Zone 2', note) }, target?.strength)   // the free day's kettlebell marker stays
 }
 
 function mergeSessions(a: PlanSession, b: PlanSession, date: string): PlanSession {
@@ -171,21 +214,84 @@ export function parseKm(input: string): number | null {
   return km >= 0 && km <= 60 ? r1(km) : null
 }
 
+// The workout text counts as the plan shows it (fitted to the km): the plan file's own wording is not an edit.
 function sameSession(a: PlanSession, b: PlanSession) {
   return a.type === b.type && (a.km ?? 0) === (b.km ?? 0) && a.title === b.title &&
-    (a.notes ?? '') === (b.notes ?? '') && (a.pace ?? '') === (b.pace ?? '') && !!a.key === !!b.key &&
+    (fitSession(a).notes ?? '') === (fitSession(b).notes ?? '') && (a.pace ?? '') === (b.pace ?? '') && !!a.key === !!b.key &&
     JSON.stringify(a.strength ?? null) === JSON.stringify(b.strength ?? null)
+}
+
+// An edit back at the plan file's value is only dropped when the day then shows it: with an engine change or a return
+// cap on that day (`auto` = the plan as shown without manual edits) the edit stays, or it would do nothing.
+function showsWithout(next: PlanSession, date: string, auto?: PlanSession[]) {
+  const shown = auto?.find((x) => x.date === date)
+  return !shown || sameSession(next, shown)
 }
 
 // ─── Zone 2 or pace ───────────────────────────────────────────────────────────
 
+// ─── The two days of a swap or a move ─────────────────────────────────────────
+
+// The same session wherever it sits and whatever its km (a session switched to Zone 2 is still that session).
+const sameKind = (a?: PlanSession, b?: PlanSession) => isRun(a) && isRun(b) && a.type === b.type && a.title === b.title && (a.pace ?? '') === (b.pace ?? '')
+const kindOf = (s?: PlanSession) => (s?.strengthOnly ? undefined : s?.was ?? s)   // a marker-only entry moves no session
+const planDay = (date: string) => allSessions().find((x) => x.date === date)
+const inReach = (a: string, b: string) => a !== b && Math.abs(differenceInCalendarDays(parseISO(a), parseISO(b))) < 14   // a move reaches two weeks
+
+// The plan day's pace session already sits on another day (swapped or moved there): a session like it in reach, on a
+// day whose own plan session is a different one.
+function sitsElsewhere(original: PlanSession, date: string, sessions: PlanSession[]) {
+  return sessions.some((x) => inReach(x.date, date) && sameKind(kindOf(x), original) && !sameKind(planDay(x.date), original))
+}
+
+// The other half of the swap or move an edited day belongs to: the day its plan session went to, or the day the session
+// it shows came from. The kind ignores km, so two sessions of one kind in reach (two easy runs titled alike) leave a
+// choice: then the km decide. A swap of two such sessions is told apart by its km alone, and of several days that fit
+// by kind, the one whose km went along with the session is the partner (a move keeps the km; one edited since still
+// pairs by kind when it is the only one).
+function pairedDays(overrides: Overrides, date: string, planOf = planDay): string[] {
+  const here = kindOf(overrides[date]), plan = planOf(date)
+  if (!here) return []
+  const sameKm = (a?: PlanSession, b?: PlanSession) => (a?.km ?? 0) === (b?.km ?? 0)
+  const fits = Object.keys(overrides).flatMap((d) => {
+    if (!inReach(d, date)) return []
+    const there = kindOf(overrides[d]), planThere = planOf(d)
+    const wentThere = sameKind(there, plan) && !sameKind(planThere, plan) && !sameKind(here, plan)
+    const cameFromThere = sameKind(here, planThere) && !sameKind(plan, planThere) && !sameKind(there, planThere)
+    const swappedAlike = sameKind(plan, planThere) && sameKind(here, plan) && sameKind(there, plan) &&
+      !sameKm(plan, planThere) && sameKm(here, planThere) && sameKm(there, plan)
+    if (swappedAlike) return [{ d, km: true }]
+    if (wentThere || cameFromThere) return [{ d, km: wentThere ? sameKm(there, plan) : sameKm(here, planThere) }]
+    return []
+  })
+  const byKm = fits.filter((f) => f.km)
+  return (byKm.length ? byKm : fits).map((f) => f.d)
+}
+
+// The edits on `dates` taken out of the map — together with the other half of a swap or a move: one day alone would
+// fall back to the plan while the other keeps the session, which then shows twice (or, the other way round, not at all).
+// `plan` = the plan the edits were made for, where it is no longer the registered one (a rebuild taken back).
+export function splitPairs(overrides: Overrides, dates: string[], plan?: PlanSession[]): { kept: Overrides; removed: Overrides } {
+  const planOf = (d: string) => plan?.find((x) => x.date === d) ?? planDay(d)
+  const drop = new Set(dates.flatMap((d) => [d, ...pairedDays(overrides, d, planOf)]))
+  const part = (out: boolean) => Object.fromEntries(Object.entries(overrides).filter(([d]) => drop.has(d) === out))
+  return { kept: part(false), removed: part(true) }
+}
+
+// Days back to their plan ("Original wiederherstellen", "Woche zurücksetzen").
+const dropEdits = (overrides: Overrides, dates: string[]) => splitPairs(overrides, dates).kept
+
+export const restoreDay = (overrides: Overrides, date: string) => dropEdits(overrides, [date])
+
 // A day that can be switched: a run with pace (tempo, intervals, long run with pace, a test) or one already switched.
-export function z2State(s: PlanSession | undefined, date: string): 'pace' | 'z2' | null {
+// Without a kept session (`was`) the plan file's day is the fallback — not when its pace session was swapped or moved
+// to another day (`sessions` = the plan as shown): switching back would show that session twice.
+export function z2State(s: PlanSession | undefined, date: string, sessions?: PlanSession[]): 'pace' | 'z2' | null {
   if (!s || s.type === 'race' || s.type === 'rest' || !(s.km ?? 0)) return null
   if (s.was) return isHard(s.was) ? 'z2' : null
   if (isHard(s)) return 'pace'
   const base = allSessions().find((x) => x.date === date)
-  return base && isHard(base) && base.type !== 'race' ? 'z2' : null
+  return base && isHard(base) && base.type !== 'race' && !(sessions && sitsElsewhere(base, date, sessions)) ? 'z2' : null
 }
 
 // Pace run → easy Zone 2 run with the same km; the event flag stays; the pace session is kept in `was`.
@@ -202,32 +308,42 @@ export function setZone2(overrides: Overrides, date: string, sessions: PlanSessi
 }
 
 // Back to the pace session: the kept one, or the original plan day. Same as the original plan → the edit is dropped.
-export function setPace(overrides: Overrides, date: string, sessions: PlanSession[]): Overrides {
+export function setPace(overrides: Overrides, date: string, sessions: PlanSession[], auto?: PlanSession[]): Overrides {
   const s = sessions.find((x) => x.date === date)
-  if (z2State(s, date) !== 'z2') return overrides
+  if (z2State(s, date, sessions) !== 'z2') return overrides
   const original = allSessions().find((x) => x.date === date)
   const kept = s!.was ?? original
   // Event and test flags come from the plan day when the kept session lost them.
   const restored = kept && original ? { ...kept, anchor: kept.anchor ?? original.anchor, test: kept.test ?? original.test } : kept
   const back = restored && withStrength(restored, s!.strength)   // the day's kettlebell marker as it is now
   const out = { ...overrides }
-  if (!back || (original && sameSession(back, original) && !!back.anchor === !!original.anchor && back.test === original.test)) delete out[date]
+  const atPlan = !!back && !!original && sameSession(back, original) && !!back.anchor === !!original.anchor && back.test === original.test
+  if (!back || (atPlan && showsWithout(back, date, auto))) delete out[date]
   else out[date] = { ...back, date }
   return out
 }
 
-// Kettlebell on/off for one day, as a manual edit of that day; back to the plan → the edit is dropped.
-// Never on race day or a paused day. A marker added by hand is a regular one (30–40 Min.).
+// Kettlebell on/off for one day. Never on race day or a paused day. A marker added by hand is a regular one (30–40 Min.).
+// On a day whose session was edited by hand the marker is part of that edit; back at the plan → the edit is dropped.
+// Otherwise only the marker is stored (`strengthOnly`; the session in the entry is the day as shown at that moment and
+// is not read): the day keeps following the plan and the engine. Back at what the day shows without it (`auto` = the
+// plan as shown without manual edits) → the entry is dropped.
 export const strengthEditable = (s: PlanSession | undefined, date: string) =>
   !!s && s.type !== 'race' && !s.paused && date >= firstPlanStart()
-export function toggleStrength(overrides: Overrides, date: string, sessions: PlanSession[]): Overrides {
+export function toggleStrength(overrides: Overrides, date: string, sessions: PlanSession[], auto?: PlanSession[]): Overrides {
   const s = sessions.find((x) => x.date === date)
   if (!s || !strengthEditable(s, date)) return overrides
   const next = withStrength(s, s.strength ? null : KB.regular)
   const original = allSessions().find((x) => x.date === date)
   const out = { ...overrides }
-  if (original && sameSession(next, original) && !next.was) delete out[date]
-  else out[date] = next
+  if (overrides[date] && !overrides[date].strengthOnly) {
+    if (original && sameSession(next, original) && !next.was && showsWithout(next, date, auto)) delete out[date]
+    else out[date] = next
+    return out
+  }
+  const under = (auto?.find((x) => x.date === date) ?? original)?.strength
+  if (JSON.stringify(next.strength ?? null) === JSON.stringify(under ?? null)) delete out[date]
+  else out[date] = { ...next, strengthOnly: true }
   return out
 }
 
@@ -245,7 +361,7 @@ export function kmEditEffect(session: PlanSession | undefined, km: number): { ki
 // Structured sessions keep their block and adapt warm-up/cool-down; a block that no longer fits
 // is shortened (same rule as fitSession). Back to the original plan → the override is dropped.
 // Race day stays as it is. (`shortenBlock` is kept for old callers; shortening always applies.)
-export function setDayKm(overrides: Overrides, date: string, km: number, sessions: PlanSession[], _opts: { shortenBlock?: boolean } = {}): Overrides {
+export function setDayKm(overrides: Overrides, date: string, km: number, sessions: PlanSession[], _opts: { shortenBlock?: boolean } = {}, auto?: PlanSession[]): Overrides {
   const session = sessions.find((s) => s.date === date)
   if (session?.type === 'race') return overrides
   km = r1(Math.min(60, Math.max(0, km)))
@@ -253,10 +369,10 @@ export function setDayKm(overrides: Overrides, date: string, km: number, session
   const notes = effect ? effect.notes : session?.notes
   const next: PlanSession = km === 0 ? restDay(date, 'auf 0 km gesetzt')
     : isRun(session) ? { ...session, date, km, notes }
-    : { date, type: 'easy', km, title: 'Locker', notes: 'Locker, Zone 2' }
+    : withStrength({ date, type: 'easy', km, title: 'Locker', notes: 'Locker, Zone 2' }, session?.strength)   // the free day's kettlebell marker stays
   const original = allSessions().find((s) => s.date === date)
   const out = { ...overrides }
-  if (original && sameSession(next, original)) delete out[date]
+  if (original && sameSession(next, original) && showsWithout(next, date, auto)) delete out[date]
   else out[date] = next
   return out
 }
@@ -349,8 +465,7 @@ export function balanceWeek(summary: WeekSummary, today: string, overrides: Over
 }
 
 export function resetWeek(week: PlanWeek, overrides: Overrides): Overrides {
-  const dates = new Set(weekDates(week))
-  return Object.fromEntries(Object.entries(overrides).filter(([d]) => !dates.has(d)))
+  return dropEdits(overrides, weekDates(week))
 }
 
 // Called at use time: live blocks register after this module is imported (logic audit 2026-10-26, finding 1).
@@ -378,7 +493,7 @@ export function weekBreakdown(week: PlanWeek, today: string, manual: Overrides, 
   const reasons = new Set<string>()
   for (const d of dates) {
     planKm += km(base, d)
-    if (manual[d]) manualKm += km(eff, d) - km(base, d)
+    if (manual[d] && !manual[d].strengthOnly) manualKm += km(eff, d) - km(base, d)
     else {
       engineKm += km(withEngine, d) - km(base, d)
       if (engine[d] && engineReasons.has(d)) reasons.add(engineReasons.get(d)!)

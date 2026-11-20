@@ -1,7 +1,7 @@
 // The onboarding's profile step (Phase 5) → the two stored profiles: the HR model / time zone (lib/profile.ts, table
 // user_profile) and the training profile the generator reads (lib/plan/athlete-profile.ts, settings 'athlete_profile').
-// Pure. "Weiß ich nicht" for HFmax: estimated from the age (research paces.md §2.2); for the resting HR: left empty,
-// so the example default applies and is marked as such.
+// Pure. HFmax "weiß ich nicht" or left empty: estimated from the age (research paces.md §2.2), never the example value
+// in silence; for the resting HR: left empty, so the example default applies and is marked as such.
 import { validateProfile, type UserProfile } from '@/lib/profile'
 import { RANGES, THRESHOLD_FROM_RACE_S, validProfile, type AthleteProfile, type Experience, type Weekday } from '@/lib/plan/athlete-profile'
 
@@ -18,6 +18,7 @@ export interface ProfileInput {
   weightKg: number | null
   timezone: string | null        // the browser's, editable
   weeklyKm: number | null
+  longestRunKm?: number | null   // longest run of the last 4 weeks; stands in while no run is known (long-run.md 2.3)
   experience: Experience | null
   runDays: Weekday[]
   longRunDay: Weekday | null
@@ -42,10 +43,19 @@ export function buildProfiles(i: ProfileInput, existing: AthleteProfile | null =
   const notes: string[] = []
   if (i.age != null && (!Number.isFinite(i.age) || i.age < RANGES.age[0] || i.age > RANGES.age[1])) return { ok: false, error: 'Alter: bitte 10–100.' }
   let hrMax = i.hrMax
-  if (i.hrMaxUnknown) {
-    if (i.age == null || i.age < HRMAX_AGE[0] || i.age > HRMAX_AGE[1]) return { ok: false, error: `Für die Schätzung der HFmax brauchen wir dein Alter (${HRMAX_AGE[0]}–${HRMAX_AGE[1]}).` }
+  if (i.hrMaxUnknown || hrMax == null) {
+    if (i.age == null || i.age < HRMAX_AGE[0] || i.age > HRMAX_AGE[1]) {
+      return { ok: false, error: i.hrMaxUnknown ? `Für die Schätzung der HFmax brauchen wir dein Alter (${HRMAX_AGE[0]}–${HRMAX_AGE[1]}).`
+        : `HFmax fehlt: trag sie ein – oder dein Alter (${HRMAX_AGE[0]}–${HRMAX_AGE[1]}), dann schätzen wir sie.` }
+    }
     hrMax = estimateHrMax(i.age)
     notes.push(HRMAX_ESTIMATE_NOTE)
+  }
+  const longest = i.longestRunKm === undefined ? existing?.longestRunKm ?? null : i.longestRunKm
+  if (longest != null) {
+    const [lo, hi] = RANGES.longestRunKm
+    if (!Number.isFinite(longest) || longest < lo || longest > hi) return { ok: false, error: `Längster Lauf: bitte ${lo}–${hi} km oder leer lassen.` }
+    if (i.weeklyKm != null && longest > i.weeklyKm) return { ok: false, error: 'Längster Lauf: nicht länger als deine Kilometer pro Woche.' }
   }
 
   // Best or recent race: the marathon is the profile's PB; any race sets the threshold pace (or the 5 km time).
@@ -79,7 +89,7 @@ export function buildProfiles(i: ProfileInput, existing: AthleteProfile | null =
   }
   const athlete: AthleteProfile = {
     v: 1, age: i.age, weightKg: i.weightKg, heightCm: existing?.heightCm ?? null, experience: i.experience,
-    weeklyKm: i.weeklyKm, availableDays: runDays, longRunDay, qualityDays, kbDays: existing?.kbDays ?? [],
+    weeklyKm: i.weeklyKm, longestRunKm: longest, availableDays: runDays, longRunDay, qualityDays, kbDays: existing?.kbDays ?? [],
     restDay: ([1, 2, 3, 4, 5, 6, 7] as Weekday[]).find((d) => !runDays.includes(d) && d !== afterLong) ?? null,
     maxKmWeekday: existing?.maxKmWeekday ?? null, maxKmWeekend: existing?.maxKmWeekend ?? null,
     ...fitness, savedAt: null,

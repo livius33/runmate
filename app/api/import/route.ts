@@ -30,7 +30,9 @@ export const POST = withUser(async (req: Request) => {
   const report = await importFiles(files)
   report.files += tooBig.length
   report.errors.push(...tooBig)
-  if (new URL(req.url).searchParams.get('final') === '1' && report.inserted > 0) {
+  // Every stored change feeds the engine: a new run, a run replaced by the richer file (other distance, pace, heart
+  // rate) and a run that only now got its detail data.
+  if (new URL(req.url).searchParams.get('final') === '1' && report.inserted + report.replaced + report.repaired > 0) {
     await runAndSaveEngine().catch((err) => console.error('[import] plan engine failed:', err?.message))
   }
   return NextResponse.json({ ok: true, ...report })

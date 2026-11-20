@@ -60,7 +60,7 @@ export const PLUS_REQUIRED = 'plus-required'
 
 // The 402 a gated route answers with: German message, the feature and the state (for the upsell in the UI).
 export function featureResponse(feature: Feature, e: Entitlements) {
-  return NextResponse.json({ error: upsellText(feature, e), code: PLUS_REQUIRED, feature, state: e.state }, { status: 402 })
+  return NextResponse.json({ error: upsellText(feature), code: PLUS_REQUIRED, feature, state: e.state }, { status: 402 })
 }
 
 // null when allowed, otherwise the 402 response.

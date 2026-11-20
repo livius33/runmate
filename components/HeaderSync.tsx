@@ -3,7 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { RefreshCw } from 'lucide-react'
+import Link from 'next/link'
+import { Link2, RefreshCw } from 'lucide-react'
 import type { SourcesResponse } from '@/lib/sources/types'
 import { AFTER_SYNC } from '@/components/settings/GarminSource'
 import { cn } from '@/lib/utils'
@@ -35,6 +36,19 @@ export function HeaderSync() {
     : sync.isError ? 'Sync fehlgeschlagen'
       : last ? `${sync.isSuccess ? `${sync.data.inserted} neu · ` : ''}vor ${formatDistanceToNow(new Date(last.at), { locale: de })}`
         : 'Noch nie synchronisiert'
+
+  // Nothing to synchronise by hand (no pull source): the button leads to where one is connected or files are
+  // uploaded. The file import always counts as connected, so it does not decide this. With a push source
+  // (Apple Health) the data arrives by itself and the header stays empty.
+  if (status && status.canSync === false) {
+    if (status.sources.some((s) => s.id !== 'file' && s.status.connected)) return null
+    return (
+      <Link href="/settings#datenquellen" className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-secondary">
+        <Link2 className="h-3.5 w-3.5" />
+        <span className="max-w-[9rem] truncate sm:max-w-none">Datenquelle verbinden</span>
+      </Link>
+    )
+  }
 
   return (
     <button onClick={() => sync.mutate()} disabled={!online || sync.isPending || status?.canSync === false}

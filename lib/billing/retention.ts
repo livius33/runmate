@@ -1,6 +1,7 @@
-// Retention of expired accounts (Phase 5, decided by Livius): an account whose plan has expired is deleted after
-// 12 months without activity, with a reminder 30 days before. "Activity" = a dashboard visit (subscription.last_seen_at,
-// stamped at most once a day by lib/billing/access.ts); the clock starts no earlier than the day the plan ended.
+// Retention of free accounts (Phase 5, decided by Livius; Free + Plus since Phase 9): a free account (trial over or
+// Plus ended) is deleted after 12 months without activity, with a reminder 30 days before. "Activity" = a dashboard
+// visit (subscription.last_seen_at, stamped at most once a day by lib/billing/access.ts); the clock starts no earlier
+// than the day the trial or Plus ended.
 // `dueForDeletion` is pure; the cron route (app/api/cron/expired-accounts) sends the reminder and deletes.
 // Paying, trialing and past_due accounts are never touched, and self-hosted installs (no billing) have no rows.
 import { planState, type SubscriptionLike } from './entitlements'
@@ -33,7 +34,7 @@ export const lastActivity = (r: RetentionRow) => Math.max(r.lastSeenAt ?? 0, end
 const noticeValid = (r: RetentionRow) => r.noticeSentAt != null && (r.lastSeenAt == null || r.lastSeenAt <= r.noticeSentAt)
 
 export function dueForDeletion(r: RetentionRow, nowS: number): RetentionDecision {
-  if (planState(r, nowS, true) !== 'expired') return 'keep'
+  if (planState(r, nowS, true) !== 'free') return 'keep'
   const idle = nowS - lastActivity(r)
   if (noticeValid(r)) {
     // Deleted only with a reminder at least 30 days old and 12 months idle; never without a reminder.

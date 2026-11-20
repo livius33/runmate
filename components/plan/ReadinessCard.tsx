@@ -16,6 +16,7 @@ const VERDICT_TONE: Record<ReadinessVerdict | RecoveryVerdict | BaseVerdict, str
   'Auf Kurs': 'bg-teal-soft text-teal',
   'Mit Fragezeichen': 'bg-amber-50 text-amber-700',
   Kritisch: 'bg-brand-soft text-brand',
+  'Noch offen': 'bg-secondary text-muted-foreground',
   'Erholung läuft': 'bg-teal-soft text-teal',
   'Etwas zu viel': 'bg-amber-50 text-amber-700',
   'Erholung beendet': 'bg-secondary text-muted-foreground',

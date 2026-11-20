@@ -36,6 +36,23 @@ describe('Rechtstexte', () => {
     for (const s of ['30 Tagen', 'Widerrufsrecht', 'Muster-Widerrufsformular', 'Verträge hier kündigen', 'vierzehn Tage', DISCLAIMER_TEXT.slice(0, 60)]) expect(html).toContain(s)
   })
 
+  // AC-7 (Phase 9): Plus is the only paid plan; the trial and a cancelled subscription fall back to free use.
+  it('AGB und Kündigungsseite: nur Plus kostet etwas, danach geht es kostenlos weiter', async () => {
+    const agb = renderToStaticMarkup(createElement(pages.agb))
+    for (const s of ['<b>Kostenlos:</b>', '<b>Plus (Abo):</b>', 'einzige kostenpflichtige Tarif ist Plus', 'Das Plus-Abo kommt zustande', 'kostenlos weiter']) expect(agb).toContain(s)
+    expect(agb).not.toMatch(/Basic/)
+
+    process.env.BILLING_ENABLED = '1'
+    try {
+      const Kuendigen = (await import('@/app/(legal)/kuendigen/page')).default
+      const html = renderToStaticMarkup(await Kuendigen())
+      for (const s of ['Abo von Runmate Plus', 'läuft dein Konto kostenlos weiter', 'Export und Löschen gehen jederzeit']) expect(html).toContain(s)
+      expect(html).not.toMatch(/Basic|abgelaufen/)
+    } finally {
+      delete process.env.BILLING_ENABLED
+    }
+  })
+
   it('öffentlich: Middleware lässt die Seiten, die Kündigung und die Webhooks ohne Anmeldung durch', () => {
     const mw = readFileSync(join(ROOT, 'middleware.ts'), 'utf8')
     for (const p of ['/impressum', '/datenschutz', '/agb', '/kuendigen', '/api/billing/webhook', '/api/billing/cancel-request', '/api/webhooks/(.*)']) expect(mw).toContain(`'${p}'`)

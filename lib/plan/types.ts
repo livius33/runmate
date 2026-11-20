@@ -16,6 +16,9 @@ export interface PlanSession {
   paused?: 'krank' | 'pause'   // a day inside a Krank/Pause period (07-08, lib/plan/pause.ts)
   // Kettlebell after the run (lib/plan/strength.ts): a marker only — no km, no load, never key or hard.
   strength?: { minMin: number; maxMin: number; optional?: boolean }
+  // A saved manual edit of the kettlebell marker alone (toggleStrength): the day keeps following the plan and the engine,
+  // only `strength` is taken from the entry. Never set on a shown session.
+  strengthOnly?: boolean
 }
 
 export interface PlanWeek {

@@ -34,7 +34,7 @@ import type { AthleteProfile } from '@/lib/plan/athlete-profile'
 import type { TrainingBlock } from '@/lib/plan/types'
 import type { DatedRun } from '@/lib/plan/pace-check'
 
-const LIVIUS: AthleteProfile = {
+const RUNNER: AthleteProfile = {
   v: 1, age: 40, weightKg: 70, heightCm: null, experience: 'advanced', weeklyKm: 64,
   availableDays: [1, 2, 3, 4, 6, 7], longRunDay: 6, qualityDays: [2, 4], kbDays: [], restDay: 5,
   maxKmWeekday: null, maxKmWeekend: null, fitnessMethod: 'threshold', thresholdPaceS: 255, fiveKS: null, savedAt: null,
@@ -42,7 +42,7 @@ const LIVIUS: AthleteProfile = {
 const hmGoal = EXAMPLE_GOALS.find((g) => g.id === 'hm-2027')!
 const blockFrom = (id: string): TrainingBlock => {
   const t = listMethodologies().valid.find((m) => m.id === id)!.params
-  const d = generateDraft({ goal: hmGoal, template: t, start: '2026-11-30', profile: LIVIUS,
+  const d = generateDraft({ goal: hmGoal, template: t, start: '2026-11-30', profile: RUNNER,
     measured: { currentKm: 50, currentKmSource: 'recoveryBlock', provenKm: 95.2, longest30Km: 16, longest12mKm: 42.2, recentRace: null } }) as Draft
   return freezeDraft(d, hmGoal, t.name, t)
 }

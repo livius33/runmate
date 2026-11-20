@@ -82,12 +82,18 @@ function cutTo(days: (PlanSession & { km: number })[], total: number): Map<strin
   return km
 }
 
-// `byDate` = the plan after the engine, before manual edits. Pauses must not overlap (the API refuses it).
-export function pauseLayer(byDate: Map<string, PlanSession>, { pauses, today }: PauseInput): PauseLayer {
+// `byDate` = the plan after the engine, before manual edits; `plan` = the same before the engine. Pauses must not
+// overlap (the API refuses it).
+export function pauseLayer(byDate: Map<string, PlanSession>, { pauses, today }: PauseInput, plan = byDate): PauseLayer {
   const caps: Record<string, PlanSession> = {}
   const paused: Record<string, PlanSession> = {}
   const windows: PauseWindow[] = []
   const at = (d: string) => caps[d] ?? byDate.get(d)
+  // A day the engine has lowered (fatigue guard) goes into the week's cut with its km from before the engine and keeps
+  // the lower of the two. The km the engine took off are gone; as free budget the cut would hand them to another day,
+  // a past one included, and that day would change with no entry in the engine's log (08-02).
+  const share = new Map<string, number>()
+  const planned = (d: string) => { const s = caps[d] ?? plan.get(d); return isRunDay(s) ? s : null }
 
   for (const p of [...pauses].sort((a, b) => a.from.localeCompare(b.from))) {
     const end = pauseEnd(p, today)
@@ -118,11 +124,13 @@ export function pauseLayer(byDate: Map<string, PlanSession>, { pauses, today }: 
       const s = at(d)
       if (!isRunDay(s) || fixed(s) || paused[d]) continue
       const strides = /Steigerung/.test(`${s.title} ${s.notes ?? ''}`) && d >= day(R, RETURN_RULES.stridesFromDay)
+      share.set(d, Math.min(Math.max(s.km, planned(d)?.km ?? 0), maxRun))
       w1.push({ date: d, type: 'easy', km: Math.min(s.km, maxRun), title: strides ? 'Lockerer Lauf mit Steigerungen' : 'Lockerer Lauf',
         notes: strides ? 'Nach der Pause: locker, mit 4 Steigerungen.' : 'Nach der Pause: locker, Zone 2.' })
     }
     // Week 2: race pace → threshold (or every quality session → easy with strides), long run capped, total ≤ 90 %.
     const w2: (PlanSession & { km: number })[] = []
+    const longCap = (s: PlanSession & { km: number }) => (s.type === 'long' && longKm > 0 && s.km > longKm ? Math.max(RETURN_RULES.minRunKm, longKm) : s.km)
     for (const d of week2) {
       const s = at(d)
       if (!isRunDay(s) || fixed(s) || paused[d]) continue
@@ -133,15 +141,17 @@ export function pauseLayer(byDate: Map<string, PlanSession>, { pauses, today }: 
         next = { ...next, title: 'Schwelle statt Renntempo', pace: threshold, test: undefined,
           notes: (s.notes ?? '').replaceAll(`@ ${racePace}`, `@ ${threshold}`) + ' Nach der Pause: Schwelle vor Renntempo.' }
       }
-      if (s.type === 'long' && longKm > 0 && s.km > longKm) next = { ...next, km: Math.max(RETURN_RULES.minRunKm, longKm) }
+      next = { ...next, km: longCap(s) }
+      const before = planned(d)
+      share.set(d, Math.max(next.km, before ? longCap(before) : 0))
       w2.push(next)
     }
     const week1Km = half(RR.week1Share * loadKm)
     const week2Km = half(RR.week2Share * loadKm)
     for (const [list, total] of [[w1, week1Km], [w2, week2Km]] as const) {
-      const km = cutTo(list, total)
+      const km = cutTo(list.map((s) => ({ ...s, km: share.get(s.date) ?? s.km })), total)
       for (const s of list) {
-        const k = km.get(s.date) ?? s.km
+        const k = Math.min(s.km, km.get(s.date) ?? s.km)
         caps[s.date] = k > 0 ? { ...s, km: k } : { date: s.date, type: 'rest', title: 'Ruhetag', notes: 'Nach der Pause: Umfang reduziert.' }
       }
     }
@@ -178,14 +188,17 @@ export function returnText(w: PauseWindow): string {
 const ISO = /^\d{4}-\d{2}-\d{2}$/
 export const MAX_BACKDATE_DAYS = 14
 
-// German error, or null when the pause may be saved next to the others.
-export function pauseError(p: Pause, others: Pause[], today: string): string | null {
+// German error, or null when the pause may be saved next to the others. `stored` = a pause that is already saved and
+// only gets its end: the backdate limit is for entering a new one, and the 90 days count from today once it has begun
+// (an open pause may have run longer and must still take its end).
+export function pauseError(p: Pause, others: Pause[], today: string, stored = false): string | null {
   if (p.kind !== 'krank' && p.kind !== 'pause') return 'Bitte Krank oder Pause wählen.'
   if (!ISO.test(p.from) || Number.isNaN(parseISO(p.from).getTime())) return 'Das Startdatum ist ungültig.'
   if (p.to != null && (!ISO.test(p.to) || Number.isNaN(parseISO(p.to).getTime()))) return 'Das Enddatum ist ungültig.'
-  if (p.from < day(today, -MAX_BACKDATE_DAYS)) return `Höchstens ${MAX_BACKDATE_DAYS} Tage rückwirkend.`
+  if (!stored && p.from < day(today, -MAX_BACKDATE_DAYS)) return `Höchstens ${MAX_BACKDATE_DAYS} Tage rückwirkend.`
   if (p.to != null && p.to < p.from) return 'Das Ende liegt vor dem Start.'
-  if (p.to != null && differenceInCalendarDays(parseISO(p.to), parseISO(p.from)) > 90) return 'Höchstens 90 Tage am Stück.'
+  const countFrom = stored && today > p.from ? today : p.from
+  if (p.to != null && differenceInCalendarDays(parseISO(p.to), parseISO(countFrom)) > 90) return 'Höchstens 90 Tage am Stück.'
   const end = (x: Pause) => x.to ?? '9999-12-31'
   const clash = others.find((o) => o.id !== p.id && p.from <= end(o) && o.from <= end(p))
   if (clash) return `Überschneidet sich mit ${PAUSE_LABEL[clash.kind]} ab ${dm(clash.from)}.`

@@ -35,13 +35,15 @@ function usePauseMutation() {
     onSuccess: (pauses) => {
       qc.setQueryData(['plan-pauses'], pauses)
       qc.invalidateQueries({ queryKey: ['plan-engine'] })
+      qc.invalidateQueries({ queryKey: ['plan-rebuild'] })
     },
   })
 }
 
 const dm = (d: string) => format(parseISO(d), 'EEEEEE d.M.', { locale: de })
 
-export function PauseControl({ today, compact = false }: { today: string; compact?: boolean }) {
+// `rebuildLink`: false on „Plan anpassen“, where the rebuild sits next to this control.
+export function PauseControl({ today, compact = false, rebuildLink = true }: { today: string; compact?: boolean; rebuildLink?: boolean }) {
   const { data: pauses = [] } = usePauses()
   const m = usePauseMutation()
   const [form, setForm] = useState(false)
@@ -69,8 +71,8 @@ export function PauseControl({ today, compact = false }: { today: string; compac
         </div>
         {!running || current.to ? <p className="mt-1.5 leading-snug">{returnText(window)}</p>
           : <p className="mt-1.5 leading-snug">Alle Einheiten bis heute fallen aus. Sag Bescheid, ab wann du wieder läufst – dann plant Runmate den Wiedereinstieg.</p>}
-        {window.replan && generated && (
-          <Link href={`/plan/neu?goal=${activeBlock(today).goalId}`} className="mt-1.5 inline-block font-medium underline underline-offset-2">Block neu planen →</Link>
+        {window.replan && generated && rebuildLink && (
+          <Link href="/plan/anpassen" className="mt-1.5 inline-block font-medium underline underline-offset-2">Plan neu aufbauen →</Link>
         )}
         <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
           {running && !current.to && (
