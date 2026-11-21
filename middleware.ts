@@ -1,5 +1,6 @@
 import { clerkClient, clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { authorizedParties, foreignOrigin } from '@/lib/server/origin'
 
 // Self-hosting: ALLOWED_EMAILS is a comma-separated list of who may sign in (case-insensitive). Empty or unset = any
 // signed-in Clerk user. With a list set, the email comes from the session token's `email` claim, or — when the token has
@@ -30,6 +31,8 @@ export default clerkMiddleware(async (auth, req) => {
     return
   }
   if (isPublicRoute(req)) return
+  // A browser posting from another site (APP_HOST set only; lib/server/origin.ts).
+  if (foreignOrigin(req)) return NextResponse.json({ error: 'Anfrage von fremder Herkunft abgelehnt' }, { status: 403 })
 
   const { userId, sessionClaims } = await auth.protect()
   if (!ALLOWED_EMAILS.length) return
@@ -44,6 +47,9 @@ export default clerkMiddleware(async (auth, req) => {
     signInUrl.searchParams.set('error', 'unauthorized')
     return NextResponse.redirect(signInUrl)
   }
+}, (req) => {
+  const parties = authorizedParties(req.nextUrl.origin)
+  return parties ? { authorizedParties: parties } : {}
 })
 
 export const config = {

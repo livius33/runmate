@@ -48,7 +48,7 @@ the daily sync at 06:00 UTC. Environment variables, Production:
 | `CLERK_WEBHOOK_SECRET` | from step 2 | A |
 | `ENCRYPTION_KEY` | `openssl rand -base64 32` — new, never reused from another project; losing it makes stored Garmin logins unreadable | A |
 | `CRON_SECRET` | `openssl rand -hex 32` | A |
-| `APP_HOST` | `runmate.dev` | A |
+| `APP_HOST` | `runmate.dev` (also pins Clerk's authorized parties and refuses cross-site writes to signed-in routes) | A |
 | `NEXT_PUBLIC_SITE_URL` | `https://runmate.dev` | A |
 | `REQUIRE_HEALTH_CONSENT` | `1` | A (not needed in B) |
 | `ALLOWED_EMAILS` | comma-separated, while the instance is invite-only; unset = anyone can sign up | A, optional |
