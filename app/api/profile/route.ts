@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server'
 import { hrZones, raceHr } from '@/lib/analytics/hr'
-import { resolveProfile, validateProfile } from '@/lib/profile'
+import { HEALTH_PROFILE_FIELDS, resolveProfile, validateProfile } from '@/lib/profile'
 import { loadOwnProfile, saveUserProfile } from '@/lib/profile-store'
 import { withUser } from '@/lib/server/scope'
-import { consentBlocked, given } from '@/lib/legal/intake'
+import { consentBlocked, newHealthData } from '@/lib/legal/intake'
 
 export const runtime = 'nodejs'
-
-// Health data in the profile (Art. 9): heart rates, VO2max and weight. Time zone, language, paces and PB times are not.
-const HEALTH_FIELDS = ['hrMax', 'hrRest', 'lthr', 'pbHr', 'vo2max', 'weightKg'] as const
 
 // What was stored (empty fields = defaults), what applies, and the zones and race caps that follow from it.
 function view(stored: Awaited<ReturnType<typeof loadOwnProfile>>) {
@@ -22,7 +19,8 @@ export const GET = withUser(async () => NextResponse.json(view(await loadOwnProf
 export const PUT = withUser(async (req: Request) => {
   const parsed = validateProfile(await req.json().catch(() => null))
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
-  const blocked = await consentBlocked(HEALTH_FIELDS.some((k) => given(parsed.profile[k])))
+  // The form sends the whole profile: health values already stored pass without consent, new or changed ones need it.
+  const blocked = await consentBlocked(newHealthData({ ...parsed.profile }, await loadOwnProfile() as Record<string, unknown> | null, HEALTH_PROFILE_FIELDS))
   if (blocked) return blocked
   await saveUserProfile(parsed.profile)
   return NextResponse.json(view(parsed.profile))

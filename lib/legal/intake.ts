@@ -21,6 +21,15 @@ export async function consentBlocked(carriesHealthData = true): Promise<Response
 // A value that would be stored (null clears a field, undefined leaves it).
 export const given = (v: unknown) => v !== undefined && v !== null
 
+// Does a save bring in health data that is not stored yet? A new or changed value under one of `keys` does; a value
+// that is already stored (a whole-object save sending it back) and clearing do not.
+export function newHealthData(next: Record<string, unknown>, stored: Record<string, unknown> | null | undefined, keys: Iterable<string>): boolean {
+  for (const k of keys) {
+    if (given(next[k]) && JSON.stringify(next[k]) !== JSON.stringify(stored?.[k] ?? null)) return true
+  }
+  return false
+}
+
 export async function intakeBlocked(): Promise<Response | null> {
   const blocked = await consentBlocked()
   if (blocked) return blocked

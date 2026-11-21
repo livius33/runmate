@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSettingJson, setSettingJson } from '@/lib/db/settings'
 import { PROFILE_QUESTIONS, parseAnswers, type ProfileAnswers } from '@/lib/runner-profile-questions'
 import { withUser } from '@/lib/server/scope'
-import { consentBlocked, given } from '@/lib/legal/intake'
+import { consentBlocked, newHealthData } from '@/lib/legal/intake'
 
 const PROFILE_KEY = 'runner_profile'
 
@@ -13,9 +13,11 @@ async function answers(req: Request) {
 }
 const bad = (error: string) => NextResponse.json({ error }, { status: 400 })
 
-// Answers that are health data (Art. 9): body, injuries, heart rate, recovery, supplements, sleep.
-const HEALTH_IDS = new Set([...PROFILE_QUESTIONS.filter((q) => q.category === 'Körper & Gesundheit').map((q) => q.id), 'avg_sleep'])
-const healthBlocked = (a: ProfileAnswers) => consentBlocked(Object.entries(a).some(([k, v]) => HEALTH_IDS.has(k) && given(v)))
+// Answers that are health data (Art. 9): body, injuries, heart rate, recovery, supplements, sleep. Answers already
+// stored pass without consent (the form sends them back); new or changed ones need it.
+const HEALTH_IDS = [...PROFILE_QUESTIONS.filter((q) => q.category === 'Körper & Gesundheit').map((q) => q.id), 'avg_sleep']
+const healthBlocked = async (a: ProfileAnswers) =>
+  consentBlocked(newHealthData(a, await getSettingJson<ProfileAnswers>(PROFILE_KEY), HEALTH_IDS))
 
 export const GET = withUser(async () => {
   return NextResponse.json((await getSettingJson<ProfileAnswers>(PROFILE_KEY)) ?? {})

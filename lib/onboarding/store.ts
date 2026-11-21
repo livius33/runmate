@@ -8,6 +8,8 @@ import { own } from '@/lib/db/owned'
 import { getSetting, getSettingJson, getSettings, setSetting, setSettingJson } from '@/lib/db/settings'
 import { todayLocal } from '@/lib/dates'
 import { hasHealthConsent } from '@/lib/legal/consent'
+import { newHealthData } from '@/lib/legal/intake'
+import { HEALTH_PROFILE_FIELDS } from '@/lib/profile'
 import { healthConsentRequired } from '@/lib/billing/config'
 import { loadOwnProfile, saveUserProfile } from '@/lib/profile-store'
 import { loadProfile, saveProfile } from '@/lib/plan/workshop-store'
@@ -76,10 +78,13 @@ export async function applyOnboarding(req: OnboardingRequest): Promise<{ error: 
     if (req.step === 'consent' && !(await hasHealthConsent())) return { error: 'Bitte zuerst einwilligen – ohne Einwilligung kann Runmate keine Gesundheitsdaten verarbeiten.' }
     if (req.step === 'profile') {
       if (!req.profile) return { error: 'Profil fehlt.' }
-      // Heart rate and weight are health data: the consent step comes first, and a revoked consent stops it too (12-04).
-      if (!(await hasHealthConsent())) return { error: 'Bitte zuerst einwilligen – ohne Einwilligung kann Runmate keine Gesundheitsdaten verarbeiten.' }
       const built = buildProfiles(req.profile, await loadProfile())
       if (!built.ok) return { error: built.error }
+      // Heart rate and weight are health data: the consent step comes first, and a revoked consent stops new or changed
+      // values too (12-04); saving the step again with what is stored passes.
+      if (newHealthData({ ...built.user }, await loadOwnProfile() as Record<string, unknown> | null, HEALTH_PROFILE_FIELDS) && !(await hasHealthConsent())) {
+        return { error: 'Bitte zuerst einwilligen – ohne Einwilligung kann Runmate keine Gesundheitsdaten verarbeiten.' }
+      }
       // Only check the step order before writing anything.
       const check = apply(s, req, list, nowIso())
       if (!check.ok) return { error: check.error }

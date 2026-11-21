@@ -30,6 +30,10 @@ export interface UserProfile {
 
 export type ProfileField = keyof UserProfile
 
+// Health data (Art. 9; consent on hosted instances, 12-04): heart rates, VO2max and weight. Time zone, language, paces
+// and PB times are not.
+export const HEALTH_PROFILE_FIELDS = ['hrMax', 'hrRest', 'lthr', 'pbHr', 'vo2max', 'weightKg'] as const satisfies readonly ProfileField[]
+
 // Every field filled (LTHR stays optional: the 'lthr' model falls back to 'hrmax' without it).
 export type FilledProfile = { [K in Exclude<ProfileField, 'lthr'>]: NonNullable<UserProfile[K]> } & { lthr: number | null }
 

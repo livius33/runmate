@@ -2,23 +2,29 @@
 // in by the user answer 403 consent-required and write nothing; data without health content, reading, export and
 // deletion still work.
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { activities, consents } from '@/lib/db/schema'
+import { activities, consents, userProfile } from '@/lib/db/schema'
 import { HEALTH_CONSENT_VERSION } from '@/lib/legal/consent-text'
 import { useFakeDb, rowOf } from '../scope/fake-db'
 
 vi.mock('@clerk/nextjs/server', () => ({ auth: async () => ({ userId: 'user-c' }) }))
 
 const RUN = { id: 'run-1', source: 'garmin', type: 'running', sportType: 'running', name: 'Lauf', distanceM: 10000, durationS: 3000, elapsedTimeS: 3000, date: '2026-05-10' }
-const state = { consent: null as null | { version: string; revokedAt: number | null } }
+const state = {
+  consent: null as null | { version: string; revokedAt: number | null },
+  profile: null as null | Record<string, unknown>,          // the stored user_profile row
+  answers: null as null | Record<string, unknown>,          // the stored runner questionnaire (settings)
+}
 const fake = useFakeDb((q) => {
   if (/^select .* from "consents"/.test(q.sql) && state.consent) return [rowOf(consents, { userId: 'user-c', kind: 'health', grantedAt: 1_800_000_000, ...state.consent })]
+  if (/^select .* from "user_profile"/.test(q.sql) && state.profile) return [rowOf(userProfile, { userId: 'user-c', updatedAt: 0, ...state.profile })]
+  if (/^select .* from "settings"/.test(q.sql) && state.answers) return [[JSON.stringify(state.answers)]]
   if (/^select .* from "activities"/.test(q.sql)) {
     return [rowOf(activities, q.params.includes('manual-1') ? { ...RUN, id: 'manual-1', source: 'manual', type: 'Strength', distanceM: 0 } : RUN)]
   }
   return []
 })
 afterAll(() => fake.restore())
-beforeEach(() => { fake.log.length = 0; state.consent = null; process.env.REQUIRE_HEALTH_CONSENT = '1' })
+beforeEach(() => { fake.log.length = 0; state.consent = null; state.profile = null; state.answers = null; process.env.REQUIRE_HEALTH_CONSENT = '1' })
 afterEach(() => { delete process.env.REQUIRE_HEALTH_CONSENT })
 
 const profile = await import('@/app/api/profile/route')
@@ -74,6 +80,23 @@ describe('Gesundheitsdaten schreiben nur mit Einwilligung', () => {
     expect((await run.PATCH(body('PATCH', { note: null }), id('run-1'))).status).not.toBe(403)          // clearing
     expect((await runner.POST(body('POST', { runs_per_week: '5', best_days: ['Samstag'] }))).status).toBe(200)
     expect((await runner.PATCH(body('PATCH', { weight_kg: null }))).status).toBe(200)
+  })
+
+  it('ganzes Profil zurückgeschickt: gespeicherte Werte gehen durch, neue oder geänderte brauchen die Einwilligung', async () => {
+    state.profile = { hrMax: 190, weightKg: 70, timezone: 'Europe/Berlin' }
+    const put = (b: unknown) => profile.PUT(body('PUT', b))
+    expect((await put({ hrMax: 190, weightKg: 70, timezone: 'Europe/London' })).status).toBe(200)   // only the time zone
+    expect((await put({ hrMax: 190, weightKg: null, timezone: 'Europe/London' })).status).toBe(200)   // clearing
+    expect((await put({ hrMax: 191, weightKg: 70 })).status).toBe(403)                                // changed
+    expect((await put({ hrMax: 190, weightKg: 70, hrRest: 50 })).status).toBe(403)                   // new
+  })
+
+  it('Fragebogen: gespeicherte Gesundheitsantworten gehen durch (POST und PATCH), neue oder geänderte nicht', async () => {
+    state.answers = { resting_hr: 48, supplements: ['Magnesium'], runs_per_week: '4' }
+    expect((await runner.POST(body('POST', { resting_hr: 48, supplements: ['Magnesium'], runs_per_week: '5' }))).status).toBe(200)
+    expect((await runner.PATCH(body('PATCH', { resting_hr: 48, runs_per_week: '5' }))).status).toBe(200)
+    expect((await runner.PATCH(body('PATCH', { resting_hr: 50 }))).status).toBe(403)
+    expect((await runner.POST(body('POST', { resting_hr: 48, supplements: ['Magnesium', 'Eisen'] }))).status).toBe(403)
   })
 
   it('Lesen, Export und Löschen gehen weiter', async () => {
