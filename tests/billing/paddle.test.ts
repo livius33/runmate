@@ -160,7 +160,7 @@ describe('Zustandsübergänge (rein)', () => {
   })
 
   it('transaction.completed vor dem Abo-Ereignis: verknüpft und aktiviert; danach nur noch die Kundenkennung', () => {
-    const trial: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null }
+    const trial: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null, otherSubscriptionIds: null }
     const tx = { event_id: 'txn', event_type: 'transaction.completed', occurred_at: iso(T0), data: { subscription_id: 'sub_9', customer_id: 'ctm_9', items: [{ price: { id: 'pri_py' } }] } }
     const row = applyPaddleEvent(trial, tx, IDS)
     expect(row).toMatchObject({ status: 'active', tier: 'plus', interval: 'year', paddleSubscriptionId: 'sub_9', trialEndsAt: T0 + 86_400 })
@@ -169,7 +169,7 @@ describe('Zustandsübergänge (rein)', () => {
   })
 
   it('nach der Kündigung lebt die Testphase nicht wieder auf', () => {
-    const trialRow: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 20 * 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null }
+    const trialRow: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 20 * 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null, otherSubscriptionIds: null }
     const row = step(trialRow, subEvent('subscription.canceled', T0 + 86_400, { status: 'canceled' }))
     expect(state(row, T0 + 2 * 86_400)).toBe('free')
   })

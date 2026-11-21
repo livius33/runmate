@@ -43,6 +43,13 @@
       "when": 1793819866838,
       "tag": "0005_wellness_days",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795284593694,
+      "tag": "0006_second_subscription",
+      "breakpoints": true
     }
   ]
 }

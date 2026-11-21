@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { billingEnabled, paddleEnv, priceIds, PRICE_LABEL } from '@/lib/billing/config'
 import { currentEntitlements, ensureSubscription } from '@/lib/billing/access'
 import { toClient } from '@/lib/billing/entitlements'
-import { signCheckoutUser } from '@/lib/billing/paddle'
+import { checkoutBlock, type CheckoutBlock } from '@/lib/billing/checkout'
 import { cancellationInfo, type StoredCancellation } from '@/lib/billing/cancel-form'
 import { withUser } from '@/lib/server/scope'
 
@@ -14,17 +14,15 @@ export interface BillingInfo {
   entitlements: ReturnType<typeof toClient>
   subscription: { status: string; tier: string | null; interval: string | null; trialEndsAt: number | null; periodEnd: number | null; cancelAtPeriodEnd: boolean; paddle: boolean } | null
   checkout: { env: 'sandbox' | 'production'; clientToken: string | null; prices: { tier: 'plus'; interval: 'month' | 'year'; priceId: string; label: string }[] } | null
-  userId: string
-  userSig: string | null            // the server's signature over userId, sent along as checkout custom data
+  checkoutBlocked: CheckoutBlock | null   // 12-05: no checkout now (live subscription, or one started < 15 min ago)
   cancellation: Pick<StoredCancellation, 'at' | 'endsAt' | 'viaForm'> | null      // the cancellation on record (not taken back)
   heldRequests: { at: number; kind: 'ordentlich' | 'ausserordentlich' }[]          // form requests held after a take-back
 }
 
 // Settings → Abo: status, dates and what the browser needs for Paddle.js (client token and price ids are public).
 export const GET = withUser(async () => {
-  const { uid } = await import('@/lib/db/owned')
   const e = toClient(await currentEntitlements())
-  if (!billingEnabled()) return NextResponse.json({ billing: false, entitlements: e, subscription: null, checkout: null, userId: uid(), userSig: null, cancellation: null, heldRequests: [] } satisfies BillingInfo)
+  if (!billingEnabled()) return NextResponse.json({ billing: false, entitlements: e, subscription: null, checkout: null, checkoutBlocked: null, cancellation: null, heldRequests: [] } satisfies BillingInfo)
   const [row, { cancellation, held }] = await Promise.all([ensureSubscription(), cancellationInfo()])
   const ids = priceIds()
   // Plus is the only paid plan: one price per interval, as far as configured.
@@ -38,8 +36,8 @@ export const GET = withUser(async () => {
       cancelAtPeriodEnd: row.cancelAtPeriodEnd, paddle: !!row.paddleSubscriptionId,
     },
     checkout: { env: paddleEnv(), clientToken: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || null, prices },
-    userId: uid(),
-    userSig: signCheckoutUser(uid()),
+    // The signed user id for the checkout comes from POST /api/billing/checkout, which refuses while this is set.
+    checkoutBlocked: checkoutBlock(row, Math.floor(Date.now() / 1000)),
     cancellation: cancellation && { at: cancellation.at, endsAt: cancellation.endsAt, viaForm: !!cancellation.viaForm },
     heldRequests: held,
   } satisfies BillingInfo)

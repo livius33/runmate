@@ -18,8 +18,14 @@ export interface PaddleEvent {
   data: Record<string, unknown>
 }
 
-// Retention stamps (Phase 5) are not Paddle's business: lib/billing/access.ts and the retention cron write them.
-export type SubState = Omit<SubscriptionRow, 'userId' | 'updatedAt' | 'lastSeenAt' | 'noticeSentAt'>
+// Retention stamps (Phase 5) and the checkout lock (12-05) are not Paddle's business: lib/billing/access.ts, the
+// retention cron and lib/billing/checkout.ts write them.
+export type SubState = Omit<SubscriptionRow, 'userId' | 'updatedAt' | 'lastSeenAt' | 'noticeSentAt' | 'checkoutStartedAt'>
+
+export function subState(r: SubscriptionRow): SubState {
+  const { userId: _u, updatedAt: _t, lastSeenAt: _s, noticeSentAt: _n, checkoutStartedAt: _c, ...row } = r
+  return row
+}
 
 const SUBSCRIPTION_EVENTS = new Set([
   'subscription.created', 'subscription.updated', 'subscription.activated', 'subscription.canceled',
@@ -35,7 +41,26 @@ const secs = (iso: unknown): number | null => {
 
 const EMPTY: SubState = {
   status: 'trialing', tier: null, interval: null, trialEndsAt: null, paddleCustomerId: null, paddleSubscriptionId: null,
-  priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null,
+  priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null, otherSubscriptionIds: null,
+}
+
+const live = (row: SubState | null): row is SubState => !!row?.paddleSubscriptionId && row.status !== 'canceled'
+const ending = (s: PaddleSubscription) => s.status === 'canceled' || s.scheduled_change?.action === 'cancel'
+
+// An event for a subscription that is not the stored live one (12-05, finding 7: a second checkout went through).
+// It never replaces the row; a live one is kept in `otherSubscriptionIds` (so cancel and deletion stop it too), an
+// ended or cancel-scheduled one is dropped from there. null = nothing to change.
+export function otherSubscription(row: SubState, s: PaddleSubscription): SubState | null {
+  const others = row.otherSubscriptionIds ?? []
+  const has = others.includes(s.id)
+  if (ending(s)) return has ? { ...row, otherSubscriptionIds: others.filter((x) => x !== s.id) } : null
+  return has ? null : { ...row, otherSubscriptionIds: [...others, s.id] }
+}
+
+// True when the event is about a second subscription next to the stored live one (logged by the caller).
+export function isOtherSubscription(row: SubState | null, ev: PaddleEvent): boolean {
+  const id = (ev.data as { id?: unknown }).id
+  return SUBSCRIPTION_EVENTS.has(ev.event_type) && live(row) && typeof id === 'string' && id !== row.paddleSubscriptionId
 }
 
 // The row after a subscription entity (from a webhook or from a cancel call). Unknown price → null (not ours).
@@ -50,6 +75,7 @@ export function fromPaddleSubscription(row: SubState | null, s: PaddleSubscripti
     interval: plan.interval,
     paddleCustomerId: s.customer_id ?? row?.paddleCustomerId ?? null,
     paddleSubscriptionId: s.id,
+    otherSubscriptionIds: row?.otherSubscriptionIds?.filter((x) => x !== s.id) ?? null,
     priceId,
     currentPeriodEnd: secs(s.current_billing_period?.ends_at) ?? row?.currentPeriodEnd ?? null,
     cancelAtPeriodEnd: s.scheduled_change?.action === 'cancel',
@@ -62,6 +88,7 @@ export function fromPaddleSubscription(row: SubState | null, s: PaddleSubscripti
 export function applyPaddleEvent(row: SubState | null, ev: PaddleEvent, ids: PriceIds = priceIds()): SubState | null {
   const at = secs(ev.occurred_at)
   if (SUBSCRIPTION_EVENTS.has(ev.event_type)) {
+    if (row && isOtherSubscription(row, ev)) return otherSubscription(row, ev.data as unknown as PaddleSubscription)
     if (row?.eventAt != null && at != null && at < row.eventAt) return null          // stale: a newer event already applied
     return fromPaddleSubscription(row, ev.data as unknown as PaddleSubscription, at, ids)
   }
@@ -114,8 +141,11 @@ export async function handlePaddleEvent(ev: PaddleEvent): Promise<WebhookResult>
   if (await isDeleted(userId)) return 'deleted-user'
   return runAsUser(userId, async () => {
     const [current] = await db.select().from(subscription).where(own(subscription)).limit(1)
-    const { userId: _u, updatedAt: _t, lastSeenAt: _s, noticeSentAt: _n, ...row } = current ?? ({} as SubscriptionRow)
-    const next = applyPaddleEvent(current ? row : null, ev)
+    const row = current ? subState(current) : null
+    if (isOtherSubscription(row, ev)) {
+      console.error('[billing/webhook] second subscription for user=%s: stored=%s event=%s (%s, %s)', userId, row!.paddleSubscriptionId, (ev.data as { id?: string }).id, ev.event_type, ev.event_id)
+    }
+    const next = applyPaddleEvent(row, ev)
     if (next) {
       const values = { ...next, updatedAt: Math.floor(Date.now() / 1000) }
       await db.insert(subscription).values(mine(values)).onConflictDoUpdate({ target: subscription.userId, set: values })
@@ -130,7 +160,7 @@ export async function handlePaddleEvent(ev: PaddleEvent): Promise<WebhookResult>
 export async function saveCancelled(s: PaddleSubscription) {
   const [current] = await db.select().from(subscription).where(own(subscription)).limit(1)
   if (!current) return null
-  const { userId: _u, updatedAt: _t, lastSeenAt: _s, noticeSentAt: _n, ...row } = current
+  const row = subState(current)
   const next = fromPaddleSubscription(row, s, row.eventAt)
   if (!next) return null
   const values = { ...next, updatedAt: Math.floor(Date.now() / 1000) }
