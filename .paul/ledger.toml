@@ -271,3 +271,10 @@ phase = 12
 plan = "12-05"
 at = "2026-11-21T19:50:00Z"
 note = "PR #9 open, not merged; AC-8 not built (decision); summary written"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-02"
+at = "2026-11-21T20:10:00Z"
+note = "Livius approved tasks 1 and 2; branch design/12-02-design-md pushed; rollout waits for the checkpoint"
