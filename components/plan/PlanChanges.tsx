@@ -18,7 +18,7 @@ export function PlanChanges({ log, onUndo, busy, error, className }: {
 }) {
   const entries = [...log].reverse()
   return (
-    <Card title="Plan-Anpassungen" aside="automatisch, nach festen Regeln" className={cn('h-full', className)}>
+    <Card title="Plan-Anpassungen" aside="automatisch, nach festen Regeln" className={className}>
       {entries.length === 0 ? (
         <p className="text-body-sm text-muted-foreground">Noch keine automatischen Anpassungen.</p>
       ) : (

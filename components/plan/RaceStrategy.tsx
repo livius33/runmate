@@ -15,7 +15,7 @@ export function RaceStrategy({ course, race: RACE }: { course: Course | null; ra
   const rows = plan.map((s) => ({ ...s, at: elapsedAt(plan, s.to) }))
 
   return (
-    <Card title="Rennstrategie" className="h-full">
+    <Card title="Rennstrategie">
       <div className="grid grid-cols-2 gap-3 rounded-card bg-secondary p-3 sm:p-4">
         <Fact icon={Route} label="Distanz" value={`${fmtKm(Math.round(RACE.distanceKm * 10) / 10)} km`} />
         <Fact icon={Mountain} label="Höhenmeter" value={course?.gainM != null ? `ca. ${course.gainM} m` : '–'} />

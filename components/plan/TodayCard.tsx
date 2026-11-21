@@ -14,7 +14,7 @@ import { TypeTag } from './tags'
 export function TodayCard({ today, insight, className, children }: { today: string; insight: TodayInsight; className?: string; children?: React.ReactNode }) {
   const s = insight.session
   return (
-    <Card className={cn('relative h-full overflow-hidden', className)}>
+    <Card className={cn('relative overflow-hidden', className)}>
       <span className="absolute inset-y-0 left-0 w-1 bg-brand" aria-hidden />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-brand">

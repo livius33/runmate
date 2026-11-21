@@ -38,7 +38,7 @@ export function PaceCard({ today, sessions, actuals }: { today: string; sessions
   const olderOnTarget = older.filter((r) => r.c.verdict === 'im Ziel').length
 
   return (
-    <Card title="Tempo: Plan vs. Ist" className="h-full" aside={done > 0 && <span className="tabular-nums">{onTarget} von {done} im Ziel</span>}>
+    <Card title="Tempo: Plan vs. Ist" aside={done > 0 && <span className="tabular-nums">{onTarget} von {done} im Ziel</span>}>
       {rows.length === 0 ? (
         <p className="text-body-sm text-muted-foreground">Noch keine absolvierten Einheiten im Plan.</p>
       ) : (

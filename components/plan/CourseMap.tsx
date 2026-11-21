@@ -10,7 +10,7 @@ const MARKER_KM = [5, 10, 15, 20, 25, 30, 35, 40]
 
 export function CourseMap({ course, status, race: RACE }: { course: Course | null; status: 'loading' | 'missing' | 'ready'; race: RaceInfo }) {
   return (
-    <Card title="Strecke" className="h-full" aside={course && (
+    <Card title="Strecke" aside={course && (
       <span className="tabular-nums">{RACE.courseLabel ? `${RACE.courseLabel} · ` : ''}{course.distanceKm.toFixed(1).replace('.', ',')} km</span>
     )}>
       {status === 'ready' && course ? <LeafletCourse course={course} /> : (

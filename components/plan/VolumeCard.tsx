@@ -26,7 +26,7 @@ export function VolumeCard({ today, actuals }: { today: string; actuals: Map<str
   })
 
   return (
-    <Card title="Wochenumfang" className="h-full" aside={
+    <Card title="Wochenumfang" aside={
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px] border-[1.5px]" style={{ borderColor: PLAN }} />Plan</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: BRAND }} />Gelaufen</span>

@@ -103,7 +103,7 @@ export function WeekReview({ today, sessions, runs, fitness, engineLog, classNam
   const stored: WeekFeedbackEntry | undefined = feedback.byWeek[week.start]
 
   return (
-    <Card title="Wochenrückblick" className={cn('h-full', className)} aside={
+    <Card title="Wochenrückblick" className={className} aside={
       <div className="flex items-center gap-1">
         <NavButton label="Vorherige Woche" disabled={idx === 0} onClick={() => setIdx(idx - 1)}><ChevronLeft className="h-4 w-4" /></NavButton>
         <span className="text-caption tabular-nums text-muted-foreground">

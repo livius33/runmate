@@ -35,7 +35,7 @@ export function ReadinessCard({ verdict, lines, title = 'Rennbereitschaft', note
   className?: string
 }) {
   return (
-    <Card title={title} aside={<Chip tone={VERDICT_TONE[verdict]}>{verdict}</Chip>} className={cn('h-full', className)}>
+    <Card title={title} aside={<Chip tone={VERDICT_TONE[verdict]}>{verdict}</Chip>} className={className}>
       <ul className="grid gap-2 text-body-sm">
         {lines.map((l) => {
           const { icon: Icon, tone } = ICON[l.tone]

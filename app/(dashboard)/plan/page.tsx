@@ -212,50 +212,54 @@ export default function PlanPage() {
     </div>
   )
 
-  // Layout (12-02): one 12-column grid from lg up. Today and the readiness verdict share the first row; the plan with
-  // the week strip spans the full width, so nothing leaves a blank column beside it; the remaining cards pair 7 + 5
-  // (a card without its partner spans the row). On phones the cards follow in reading order.
+  // Layout (12-02): Today and the plan with the week strip span the full width. Below them two independent columns
+  // from lg up (7 / 5), every card at its natural height, nothing stretched to a neighbour; the right column starts
+  // with the readiness verdict. On phones the column wrappers dissolve (`contents`) and `order` keeps the reading order.
   const showPrediction = !afterRace && !base
+  const col = 'contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4'
   return (
     <div className="flex flex-col gap-4 pb-10">
       <PlanHeader today={today} />
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <TodayCard today={today} insight={insight} className="lg:col-span-7 lg:row-start-1">
-          <TodayFeedback today={today} sessions={sessions} runs={runs} pauses={pauseInput} />
-          <PauseControl today={today} />
-          <CrossTrainingToday today={today} />
-        </TodayCard>
-        <NextPlanCard today={today} className="lg:col-span-12" />
-        <RaceWeekCard today={today} className="lg:col-span-12" />
+      <TodayCard today={today} insight={insight}>
+        <TodayFeedback today={today} sessions={sessions} runs={runs} pauses={pauseInput} />
+        <PauseControl today={today} />
+        <CrossTrainingToday today={today} />
+      </TodayCard>
+      <NextPlanCard today={today} />
+      <RaceWeekCard today={today} />
 
-        <TrainingSchedule className="lg:col-span-12" today={today} actuals={actuals} cross={cross} kbDone={kbDone} syncedThrough={syncedThrough} sessions={sessions}
-          overrides={overrides} baseSessions={baseSessions} autoSessions={autoSessions} engineOverrides={engine.overrides} engineNotes={engineNotes} onChange={(next) => save.mutate(next)} saving={save.isPending}
-          saveError={save.isError} saveMessage={save.error instanceof Refused ? save.error.message : undefined} onRetry={() => save.variables && save.mutate(save.variables)} />
-        {base
-          ? <ReadinessCard className="lg:col-span-5 lg:col-start-8 lg:row-start-1" title="Grundlage" verdict={baseCard.verdict} lines={baseCard.lines} note={BASE_NOTE} />
-          : afterRace
-          ? <ReadinessCard className="lg:col-span-5 lg:col-start-8 lg:row-start-1" title="Erholung" verdict={recovery.verdict} lines={recovery.lines}
-              note={recovery.note} />
-          : <ReadinessCard className="lg:col-span-5 lg:col-start-8 lg:row-start-1" verdict={readiness.verdict} lines={readiness.lines} note={readiness.note} />}
+      <TrainingSchedule today={today} actuals={actuals} cross={cross} kbDone={kbDone} syncedThrough={syncedThrough} sessions={sessions}
+        overrides={overrides} baseSessions={baseSessions} autoSessions={autoSessions} engineOverrides={engine.overrides} engineNotes={engineNotes} onChange={(next) => save.mutate(next)} saving={save.isPending}
+        saveError={save.isError} saveMessage={save.error instanceof Refused ? save.error.message : undefined} onRetry={() => save.variables && save.mutate(save.variables)} />
 
-        {withCourse && <><div className="min-w-0 lg:col-span-7"><CourseMap race={race} course={course ?? null} status={courseLoading ? 'loading' : course ? 'ready' : 'missing'} /></div>
-        <div className="min-w-0 lg:col-span-5">{afterRace
-          ? <Card title={`Rennanalyse ${race.shortName}`} className="h-full">
-              <p className="text-body-sm text-muted-foreground">Dein Rennen gegen den Pacing-Plan, Abschnitt für Abschnitt.</p>
-              <Link href="/race" className="mt-3 inline-block text-body-sm font-medium text-brand hover:underline">Zur Rennanalyse →</Link>
-            </Card>
-          : <RaceStrategy race={race} course={course ?? null} />}</div></>}
-        <div className="min-w-0 lg:col-span-7"><VolumeCard today={today} actuals={actuals} /></div>
-        <div className="min-w-0 lg:col-span-5"><PaceCard today={today} sessions={sessions} actuals={actuals} /></div>
-        {!!engine.suggestions?.length && <div className="min-w-0 lg:col-span-12"><EngineSuggestions suggestions={engine.suggestions}
-          onDecide={(key, decline) => decide.mutate({ key, decline })} busy={decide.isPending}
-          error={decide.isError ? (decide.error as Error).message : null} /></div>}
-        <PlanChanges className={cn('min-w-0', showPrediction ? 'lg:col-span-7' : 'lg:col-span-12')} log={engine.log} onUndo={(id) => undo.mutate(id)} busy={undo.isPending}
-          error={undo.isError ? (undo.error as Error).message : null} />
-        {showPrediction && <div className="min-w-0 lg:col-span-5"><PredictionCard prediction={prediction} today={today} /></div>}
-        <WeekReview className="min-w-0 lg:col-span-7" today={today} sessions={sessions} runs={runs} fitness={fitness} engineLog={engine.log} />
-        <div className="min-w-0 lg:col-span-5"><RulesCard today={today} /></div>
+      <div className="grid items-start gap-4 lg:grid-cols-12">
+        <div className={cn(col, 'lg:col-span-7')}>
+          {!!engine.suggestions?.length && <div className="min-w-0 max-lg:order-6"><EngineSuggestions suggestions={engine.suggestions}
+            onDecide={(key, decline) => decide.mutate({ key, decline })} busy={decide.isPending}
+            error={decide.isError ? (decide.error as Error).message : null} /></div>}
+          {withCourse && <div className="min-w-0 max-lg:order-2"><CourseMap race={race} course={course ?? null} status={courseLoading ? 'loading' : course ? 'ready' : 'missing'} /></div>}
+          <div className="min-w-0 max-lg:order-4"><VolumeCard today={today} actuals={actuals} /></div>
+          <div className="min-w-0 max-lg:order-5"><PaceCard today={today} sessions={sessions} actuals={actuals} /></div>
+          <PlanChanges className="min-w-0 max-lg:order-7" log={engine.log} onUndo={(id) => undo.mutate(id)} busy={undo.isPending}
+            error={undo.isError ? (undo.error as Error).message : null} />
+          <WeekReview className="min-w-0 max-lg:order-9" today={today} sessions={sessions} runs={runs} fitness={fitness} engineLog={engine.log} />
+        </div>
+        <div className={cn(col, 'lg:col-span-5')}>
+          {base
+            ? <ReadinessCard className="max-lg:order-1" title="Grundlage" verdict={baseCard.verdict} lines={baseCard.lines} note={BASE_NOTE} />
+            : afterRace
+            ? <ReadinessCard className="max-lg:order-1" title="Erholung" verdict={recovery.verdict} lines={recovery.lines} note={recovery.note} />
+            : <ReadinessCard className="max-lg:order-1" verdict={readiness.verdict} lines={readiness.lines} note={readiness.note} />}
+          {withCourse && <div className="min-w-0 max-lg:order-3">{afterRace
+            ? <Card title={`Rennanalyse ${race.shortName}`}>
+                <p className="text-body-sm text-muted-foreground">Dein Rennen gegen den Pacing-Plan, Abschnitt für Abschnitt.</p>
+                <Link href="/race" className="mt-3 inline-block text-body-sm font-medium text-brand hover:underline">Zur Rennanalyse →</Link>
+              </Card>
+            : <RaceStrategy race={race} course={course ?? null} />}</div>}
+          {showPrediction && <div className="min-w-0 max-lg:order-8"><PredictionCard prediction={prediction} today={today} /></div>}
+          <div className="min-w-0 max-lg:order-10"><RulesCard today={today} /></div>
+        </div>
       </div>
     </div>
   )

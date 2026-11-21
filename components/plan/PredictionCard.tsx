@@ -14,7 +14,7 @@ export function PredictionCard({ prediction, today }: { prediction: RacePredicti
   const p = prediction
   const race = raceOf(today)
   return (
-    <Card title="Zielzeit-Prognose" aside="aus Renntempo-Blöcken" className="h-full">
+    <Card title="Zielzeit-Prognose" aside="aus Renntempo-Blöcken">
       {p.timeS == null ? (
         <p className="text-body-sm text-muted-foreground">Noch kein Renntempo-Block in den letzten 6 Wochen.</p>
       ) : (
