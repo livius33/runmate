@@ -4,6 +4,8 @@
 // user's scope.
 // 12-05: Paddle is asked again when the cancellation fails; if it still fails, the subscription and customer ids are
 // logged and kept with the tombstone, and the daily reconcile job (app/api/cron/billing-reconcile) cancels them later.
+// The tombstone is written before the data is deleted (only the Paddle webhook reads it; deleteUserData does not).
+import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { deletedUsers } from '@/lib/db/public-schema'
 import { mine, uid } from '@/lib/db/owned'
@@ -44,10 +46,18 @@ export async function deleteAccount(opts: DeleteOptions): Promise<{ ok: true; ta
         userId, unpaid.paddleCustomerId ?? '-', r.failed.join(',') || '-')
     }
   }
-  const tables = await deleteUserData()
+  // The tombstone first (review 2): from here on a late webhook cannot recreate a row, and the Paddle ids are stored
+  // before anything is deleted, so a failure below loses nothing. A repeated deletion keeps the ids already there.
   const at = Math.floor(Date.now() / 1000)
-  const tomb = { deletedAt: at, ...(unpaid ?? {}) }
-  await db.insert(deletedUsers).values(mine(tomb)).onConflictDoUpdate({ target: deletedUsers.userId, set: tomb })
+  await db.insert(deletedUsers).values(mine({ deletedAt: at, ...(unpaid ?? {}) })).onConflictDoUpdate({
+    target: deletedUsers.userId,
+    set: {
+      deletedAt: at,
+      paddleCustomerId: sql`coalesce(excluded.paddle_customer_id, ${deletedUsers.paddleCustomerId})`,
+      paddleSubscriptionIds: sql`(select array_agg(distinct x) from unnest(coalesce(${deletedUsers.paddleSubscriptionIds}, '{}'::text[]) || coalesce(excluded.paddle_subscription_ids, '{}'::text[])) as x)`,
+    },
+  })
+  const tables = await deleteUserData()
   if (opts.deleteClerkUser) {
     const { clerkClient } = await import('@clerk/nextjs/server')
     await (await clerkClient()).users.deleteUser(userId)

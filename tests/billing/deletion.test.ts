@@ -11,8 +11,9 @@ const clerk = vi.hoisted(() => ({ userId: 'user-d' as string | null }))
 vi.mock('@clerk/nextjs/server', () => ({ auth: async () => ({ userId: clerk.userId }) }))
 
 const env = { BILLING_ENABLED: '1', PADDLE_WEBHOOK_SECRET: 'whsec', PADDLE_API_KEY: 'pdl_sdbx_apikey_test', PADDLE_ENV: 'sandbox', PADDLE_PRICE_PLUS_MONTH: 'pri_pm' }
-const db = { sub: null as Record<string, unknown> | null }
+const db = { sub: null as Record<string, unknown> | null, failDelete: false }
 const fake = useFakeDb((q) => {
+  if (db.failDelete && q.sql.startsWith('delete from')) throw new Error('db down')
   if (/^select .* from "subscription"/.test(q.sql) && db.sub) return [rowOf(subscription, db.sub)]
   if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
   return []
@@ -25,6 +26,7 @@ const saved = [...CANCEL_RETRY_MS]
 beforeEach(() => {
   Object.assign(process.env, env)
   fake.log.length = 0
+  db.failDelete = false
   calls = 0
   CANCEL_RETRY_MS.splice(0, CANCEL_RETRY_MS.length, 1, 1)          // keep the test fast; the count is what matters
   db.sub = { userId: 'user-d', status: 'active', tier: 'plus', interval: 'month', paddleSubscriptionId: 'sub_1', paddleCustomerId: 'ctm_1', priceId: 'pri_pm', currentPeriodEnd: 1, cancelAtPeriodEnd: false, eventAt: 1, updatedAt: 0 }
@@ -85,6 +87,30 @@ describe('Kontolöschung, wenn Paddle nicht kündigt', () => {
     expect(calls).toBe(3)
     expect(fake.log.some((q) => q.sql.startsWith('delete'))).toBe(false)
     expect(tombstone()).toBeUndefined()
+  })
+
+  // 12-05 review 2
+  it('der Grabstein (mit den Kennungen) steht, bevor Daten gelöscht werden; scheitert das Löschen, bleiben sie dort', async () => {
+    fails.left = 99
+    db.failDelete = true
+    const err = quiet()
+    try {
+      await expect(del(false)).rejects.toThrow('db down')
+    } finally { err.mockRestore() }
+    const i = fake.log.findIndex((q) => q.sql.startsWith('insert into "deleted_users"'))
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(i).toBeLessThan(fake.log.findIndex((q) => q.sql.startsWith('delete from')))
+    expect(fake.log[i].params).toEqual(expect.arrayContaining(['user-d', 'ctm_1', '{"sub_1"}']))
+  })
+
+  it('erneutes Löschen behält frühere Kennungen am Grabstein (zusammengeführt, nicht ersetzt)', async () => {
+    fails.left = 99
+    const err = quiet()
+    try { await del(false) } finally { err.mockRestore() }
+    const sql = tombstone()!.sql
+    expect(sql).toMatch(/on conflict \("user_id"\) do update set/)
+    expect(sql).toContain('coalesce(excluded.paddle_customer_id, "deleted_users"."paddle_customer_id")')
+    expect(sql).toContain(`unnest(coalesce("deleted_users"."paddle_subscription_ids", '{}'::text[]) || coalesce(excluded.paddle_subscription_ids, '{}'::text[]))`)
   })
 
   it('der Grabstein hat keine Spalte für eine E-Mail-Adresse', () => {
