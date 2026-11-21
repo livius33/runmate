@@ -9,7 +9,10 @@ import { useFakeDb, rowOf } from '../scope/fake-db'
 const clerk = vi.hoisted(() => ({ userId: 'user-c' as string | null }))
 vi.mock('@clerk/nextjs/server', () => ({
   auth: async () => ({ userId: clerk.userId }),
-  clerkClient: async () => ({ users: { getUserList: async ({ emailAddress }: { emailAddress: string[] }) => ({ data: emailAddress[0] === 'owner@example.com' ? [{ id: 'user-c' }] : [] }) } }),
+  clerkClient: async () => ({ users: { getUserList: async ({ emailAddress }: { emailAddress: string[] }) => {
+    if (emailAddress[0] === 'boom@example.com') throw Object.assign(new Error(`email_address ${emailAddress[0]} is invalid`), { name: 'ClerkAPIResponseError', status: 422 })
+    return { data: emailAddress[0] === 'owner@example.com' ? [{ id: 'user-c' }] : [] }
+  } } }),
 }))
 
 const env = { BILLING_ENABLED: '1', PADDLE_WEBHOOK_SECRET: 'whsec', PADDLE_API_KEY: 'pdl_sdbx_apikey_test', PADDLE_ENV: 'sandbox', PADDLE_PRICE_PLUS_MONTH: 'pri_pm', PADDLE_PRICE_PLUS_YEAR: 'pri_py', NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: 'test_tok' }
@@ -166,6 +169,16 @@ describe('Kündigungsformular (öffentlich)', () => {
       expect(line).not.toContain('owner@example.com')
       expect(line).not.toContain('Erika')
     } finally { info.mockRestore() }
+  })
+
+  it('Clerk-Fehler, dessen Meldung die Adresse enthält: 502, im Log nur Name und Status', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect((await form('boom@example.com')).status).toBe(502)
+      const line = err.mock.calls.map((c) => c.map(String).join(' ')).find((l) => l.includes('[billing/cancel-request]'))!
+      expect(line).toContain('ClerkAPIResponseError 422')
+      expect(line).not.toContain('boom@example.com')
+    } finally { err.mockRestore() }
   })
 
   it('Paddle-Fehler: 502, und der nächste Versuch wird nicht von der Sperre geschluckt', async () => {

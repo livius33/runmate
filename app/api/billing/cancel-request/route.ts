@@ -37,7 +37,9 @@ export async function POST(req: Request) {
     }
   } catch (err: any) {
     outcome = 'failed'
-    console.error('[billing/cancel-request] user=%s failed: %s', userId ?? '-', err?.message)
+    // Name and status only: a Clerk error or a fetch failure can echo the queried address, a database error the
+    // statement's parameters (name, reason).
+    console.error('[billing/cancel-request] user=%s failed: %s %s', userId ?? '-', err?.name ?? 'Error', err?.status ?? err?.code ?? '')
   }
   // Ids only, never the address or the name.
   console.info('[billing/cancel-request] user=%s subscription=%s outcome=%s', userId ?? '-', subscriptionId ?? '-', outcome)

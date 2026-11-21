@@ -125,7 +125,7 @@ export function BillingCard() {
       {notice && <p className="mt-2 text-xs text-muted-foreground">{notice}</p>}
       {paid && e.cancelAtPeriodEnd && (
         <div className="mt-3 rounded-xl border border-border p-3 text-sm">
-          <p>Dein Plus endet am <b>{fmtDate(e.periodEnd)}</b>.{data.cancellation?.viaForm ? ` Die Kündigung kam am ${fmtDate(data.cancellation.at)} über das Kündigungsformular.` : ''}</p>
+          <p>{e.periodEnd ? <>Dein Plus endet am <b>{fmtDate(e.periodEnd)}</b>.</> : 'Dein Plus endet mit dem bezahlten Zeitraum.'}{data.cancellation?.viaForm ? ` Die Kündigung kam am ${fmtDate(data.cancellation.at)} über das Kündigungsformular.` : ''}</p>
           <p className="mt-1 text-xs text-muted-foreground">Warst du das nicht, oder hast du es dir anders überlegt? Dann nimm die Kündigung zurück; das Abo läuft weiter wie bisher.</p>
           <button onClick={() => undo.mutate()} disabled={undo.isPending} className="mt-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-60">Kündigung zurücknehmen</button>
           {undo.isError && <p className="mt-2 text-xs text-red-600">{(undo.error as Error).message}</p>}
