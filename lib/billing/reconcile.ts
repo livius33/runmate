@@ -57,19 +57,19 @@ async function reconcileRow(row: SubscriptionRow): Promise<boolean> {
 
 // A tombstone's leftover subscriptions: cancelled at once unless Paddle already ended them.
 async function settleTombstone(t: { userId: string; paddleSubscriptionIds: string[] | null }): Promise<number> {
-  const left: string[] = []
   let cancelled = 0
   for (const id of t.paddleSubscriptionIds ?? []) {
     try {
       const s = await getSubscription(id)
       if (s.status !== 'canceled') await cancelSubscription(id, 'immediately')
       cancelled++
+      // Removed one by one in SQL: an id the webhook appends meanwhile stays.
+      await db.update(deletedUsers).set({ paddleSubscriptionIds: sql`nullif(array_remove(${deletedUsers.paddleSubscriptionIds}, ${id}::text), '{}'::text[])` })
+        .where(eq(deletedUsers.userId, t.userId))
     } catch (err: any) {
-      left.push(id)
       console.error('[billing/reconcile] deleted user=%s subscription=%s still running: %s', t.userId, id, err?.message)
     }
   }
-  await db.update(deletedUsers).set({ paddleSubscriptionIds: left.length ? left : null }).where(eq(deletedUsers.userId, t.userId))
   return cancelled
 }
 

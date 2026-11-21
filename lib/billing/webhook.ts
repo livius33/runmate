@@ -1,7 +1,7 @@
 // Paddle webhook events → the user's subscription row (Phase 4). `applyPaddleEvent` is pure (the state transitions);
 // `handlePaddleEvent` resolves the user, skips events already processed (billing_events, by Paddle's event id) and
 // saves. Paddle may deliver late, twice or out of order: duplicates are skipped and older events never overwrite newer.
-import { eq, or } from 'drizzle-orm'
+import { and, eq, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { billingEvents, subscription } from '@/lib/db/schema'
 import { deletedUsers } from '@/lib/db/public-schema'
@@ -179,11 +179,28 @@ async function userOf(ev: PaddleEvent): Promise<string | null> {
 
 export type WebhookResult = 'applied' | 'unchanged' | 'duplicate' | 'ignored' | 'unknown-user' | 'deleted-user'
 
-// A deleted account (Phase 5 tombstone): its events are dropped without writing anything for that user id.
+// A deleted account (Phase 5 tombstone): its events write nothing for that user id (a live subscription's id is kept on
+// the tombstone, keepOnTombstone).
 async function isDeleted(userId: string): Promise<boolean> {
   // cross-user: the webhook has no session; the tombstone is looked up by the id the event names
   const [row] = await db.select({ id: deletedUsers.userId }).from(deletedUsers).where(eq(deletedUsers.userId, userId)).limit(1)
   return !!row
+}
+
+// A subscription that runs for a deleted account (bought during or after the deletion, review 1): nothing is written for
+// the user, but its id goes onto the tombstone, where the reconcile job cancels it. Idempotent (appended once).
+async function keepOnTombstone(userId: string, ev: PaddleEvent) {
+  const d = ev.data as { id?: unknown; status?: unknown; subscription_id?: unknown; customer_id?: unknown }
+  const isSub = SUBSCRIPTION_EVENTS.has(ev.event_type)
+  const subId = isSub ? d.id : d.subscription_id
+  if (typeof subId !== 'string' || (isSub && d.status === 'canceled')) return
+  const customer = typeof d.customer_id === 'string' ? d.customer_id : null
+  const ids = sql`coalesce(${deletedUsers.paddleSubscriptionIds}, '{}'::text[])`
+  const added = await db.update(deletedUsers).set({
+    paddleSubscriptionIds: sql`array_append(${ids}, ${subId}::text)`,
+    paddleCustomerId: sql`coalesce(${deletedUsers.paddleCustomerId}, ${customer}::text)`,
+  }).where(and(eq(deletedUsers.userId, userId), sql`not (${subId}::text = any(${ids}))`)).returning({ userId: deletedUsers.userId })
+  if (added.length) console.error('[billing/webhook] subscription for deleted user=%s: subscription=%s customer=%s (%s, %s); kept on the tombstone for the reconcile job', userId, subId, customer ?? '-', ev.event_type, ev.event_id)
 }
 
 export async function handlePaddleEvent(ev: PaddleEvent): Promise<WebhookResult> {
@@ -193,7 +210,10 @@ export async function handlePaddleEvent(ev: PaddleEvent): Promise<WebhookResult>
   if (seen) return 'duplicate'
   const userId = await userOf(ev)
   if (!userId) return 'unknown-user'
-  if (await isDeleted(userId)) return 'deleted-user'
+  if (await isDeleted(userId)) {
+    await keepOnTombstone(userId, ev)
+    return 'deleted-user'
+  }
   return runAsUser(userId, async () => {
     let second: string | null = null
     const next = await updateSubscription((row) => {

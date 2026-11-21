@@ -19,7 +19,8 @@ const T0 = 1_800_000_000
 const END = T0 + 30 * 86_400
 const iso = (s: number) => new Date(s * 1000).toISOString()
 
-const db = { sub: null as Record<string, unknown> | null, rows: [] as Record<string, unknown>[], tombs: [] as unknown[][] }
+// tombs: deleted user id → Paddle ids still to cancel (the deleted_users table, stateful).
+const db = { sub: null as Record<string, unknown> | null, rows: [] as Record<string, unknown>[], tombs: new Map<string, { ids: string[] | null; customer: string | null }>() }
 const fake = useFakeDb((q) => {
   if (/^select .* from "subscription" where \(\(\("subscription"."paddle_subscription_id" is not null/.test(q.sql)) {
     const after = String(q.params[q.params.length - 2])
@@ -27,7 +28,21 @@ const fake = useFakeDb((q) => {
     return db.rows.filter((r) => String(r.userId) > after).slice(0, limit).map((r) => rowOf(subscription, r))
   }
   if (/^select .* from "subscription"/.test(q.sql) && db.sub) return [rowOf(subscription, db.sub)]
-  if (/^select .* from "deleted_users"/.test(q.sql)) return db.tombs
+  if (/^select "user_id" from "deleted_users" where "deleted_users"."user_id" = \$1/.test(q.sql)) return db.tombs.has(String(q.params[0])) ? [[q.params[0]]] : []
+  if (/^select "user_id", "paddle_subscription_ids" from "deleted_users"/.test(q.sql)) return [...db.tombs].filter(([, t]) => t.ids?.length).map(([u, t]) => [u, t.ids])
+  if (/^update "deleted_users" set "paddle_customer_id" = coalesce/.test(q.sql)) {        // keepOnTombstone: append once
+    const [customer, id, user] = q.params as string[]
+    const t = db.tombs.get(user)
+    if (!t || t.ids?.includes(id)) return []
+    db.tombs.set(user, { ids: [...(t.ids ?? []), id], customer: t.customer ?? customer })
+    return [[user]]
+  }
+  if (/^update "deleted_users" set "paddle_subscription_ids" = nullif\(array_remove/.test(q.sql)) {
+    const [id, user] = q.params as string[]
+    const t = db.tombs.get(user)
+    if (t) { const left = (t.ids ?? []).filter((x) => x !== id); db.tombs.set(user, { ...t, ids: left.length ? left : null }) }
+    return []
+  }
   if (/^select .* from "subscription" where "subscription"."user_id" = \$1/.test(q.sql)) {
     const r = db.rows.find((x) => x.userId === q.params[0])
     return r ? [rowOf(subscription, r)] : []
@@ -43,7 +58,7 @@ beforeEach(() => {
   fake.log.length = 0
   db.sub = null
   db.rows = []
-  db.tombs = []
+  db.tombs.clear()
   paddle.byId = {}
   paddle.calls = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
@@ -171,7 +186,7 @@ describe('Täglicher Abgleich (Cron)', async () => {
     db.rows = Array.from({ length: n }, (_, i) => live(i))
     for (let i = 0; i < n; i++) paddle.byId[`sub_${i}`] = { status: 'active', current_billing_period: { starts_at: iso(T0), ends_at: iso(END) }, scheduled_change: null, updated_at: iso(T0 + 10) }
     paddle.byId.sub_7 = { ...paddle.byId.sub_7, scheduled_change: { action: 'cancel', effective_at: iso(END) } }     // missed webhook
-    db.tombs = [['user-gone', ['sub_gone']]]
+    db.tombs.set('user-gone', { ids: ['sub_gone'], customer: 'ctm_gone' })
     paddle.byId.sub_gone = { status: 'active' }
     const info = vi.spyOn(console, 'info').mockImplementation(() => {})
     try {
@@ -185,8 +200,36 @@ describe('Täglicher Abgleich (Cron)', async () => {
     expect(updates).toHaveLength(1)
     expect(updates[0].params).toContain('user-0007')
     expect(paddle.calls).toContain('POST /subscriptions/sub_gone/cancel')
-    const tomb = fake.log.find((q) => q.sql.startsWith('update "deleted_users"'))!
-    expect(tomb.params).toEqual([null, 'user-gone'])
+    expect(db.tombs.get('user-gone')).toEqual({ ids: null, customer: 'ctm_gone' })
+  })
+
+  // 12-05 review 1: a subscription bought during or after the deletion.
+  it('Abo für ein gelöschtes Konto: ID an den Grabstein (einmal), Fehler-Log, der Abgleich kündigt es', async () => {
+    const { POST: webhook } = await import('@/app/api/billing/webhook/route')
+    const { signCheckoutUser } = await import('@/lib/billing/paddle')
+    db.tombs.set('user-gone', { ids: null, customer: null })
+    const post = (id: string, data: Record<string, unknown>) => {
+      const raw = JSON.stringify({ event_id: id, event_type: 'subscription.created', occurred_at: iso(T0), data: { id: 'sub_late', status: 'active', customer_id: 'ctm_late', items: [{ price: { id: 'pri_pm' } }], custom_data: { userId: 'user-gone', userSig: signCheckoutUser('user-gone', SECRET) }, ...data } })
+      return webhook(new Request('http://localhost/api/billing/webhook', { method: 'POST', body: raw, headers: { 'paddle-signature': signPaddle(raw, SECRET) } }))
+    }
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    try {
+      expect(await (await post('evt_late_1', {})).json()).toEqual({ ok: true, result: 'deleted-user' })
+      expect(await (await post('evt_late_2', {})).json()).toEqual({ ok: true, result: 'deleted-user' })        // a second event: still once
+      await post('evt_late_3', { id: 'sub_old', status: 'canceled' })                                             // an ended one is not kept
+      expect(db.tombs.get('user-gone')).toEqual({ ids: ['sub_late'], customer: 'ctm_late' })
+      const lines = err.mock.calls.map((c) => c.map(String).join(' ')).filter((l) => l.includes('deleted user'))
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toContain('user-gone')
+      expect(lines[0]).toContain('sub_late')
+      expect(fake.log.some((q) => /^(insert|update) "subscription"/.test(q.sql) || q.sql.startsWith('insert into "billing_events"'))).toBe(false)
+
+      paddle.byId.sub_late = { status: 'active' }
+      expect(await (await run()).json()).toMatchObject({ tombstones: 1, cancelled: 1, complete: true })
+    } finally { err.mockRestore(); info.mockRestore() }
+    expect(paddle.calls).toContain('POST /subscriptions/sub_late/cancel')
+    expect(db.tombs.get('user-gone')!.ids).toBeNull()
   })
 
   it('Billing aus: nichts gelesen', async () => {
