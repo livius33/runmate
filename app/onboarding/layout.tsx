@@ -4,7 +4,7 @@ import { Providers } from '@/components/providers'
 import { ScopeReady, UserScope } from '@/components/UserScope'
 import { EntitlementsProvider } from '@/components/billing/Entitlements'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
-import { currentScope, UnauthorizedError } from '@/lib/scope'
+import { currentScope, NotAllowedError, UnauthorizedError } from '@/lib/scope'
 import { getUserId, runAsUser } from '@/lib/server/scope'
 import { currentEntitlements, ensureSubscription } from '@/lib/billing/access'
 import { toClient } from '@/lib/billing/entitlements'
@@ -21,6 +21,7 @@ export default async function OnboardingLayout({ children }: { children: React.R
     userId = await getUserId()
   } catch (err) {
     if (err instanceof UnauthorizedError) redirect('/sign-in')
+    if (err instanceof NotAllowedError) redirect('/sign-in?error=unauthorized')
     throw err
   }
   const r = await runAsUser(userId, async () => {

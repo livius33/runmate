@@ -3,7 +3,7 @@
 // Node only (async_hooks): a client bundle importing it fails the build.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { NextResponse } from 'next/server'
-import { UnauthorizedError, createScope, installScopeResolver, type Scope, type ScopeFlags } from '@/lib/scope'
+import { NotAllowedError, UnauthorizedError, createScope, installScopeResolver, type Scope, type ScopeFlags } from '@/lib/scope'
 import type { ResolvedProfile, UserProfile } from '@/lib/profile'
 
 const als = new AsyncLocalStorage<Scope>()
@@ -23,17 +23,21 @@ export async function runAsUser<T>(userId: string, fn: () => Promise<T>, opts: R
   return als.run(createScope(userId, profile, [], { readOnly: opts.readOnly || !!outer?.readOnly, demo: opts.demo }), fn)
 }
 
-// The Clerk user of this request (or of the scope already entered); throws UnauthorizedError without a session.
+// The Clerk user of this request (or of the scope already entered); throws UnauthorizedError without a session and
+// NotAllowedError when ALLOWED_EMAILS is set and the user is not on it. A scope already entered (the demo dispatcher,
+// the cron, the token routes) was established by its own check and is not asked again.
 export async function getUserId(): Promise<string> {
   const inScope = als.getStore()?.userId
   if (inScope) return inScope
   const { auth } = await import('@clerk/nextjs/server')
-  const { userId } = await auth()
+  const { userId, sessionClaims } = await auth()
   if (!userId) throw new UnauthorizedError()
+  const { userAllowed } = await import('./allowlist')
+  if (!(await userAllowed(userId, sessionClaims?.email))) throw new NotAllowedError()
   return userId
 }
 
-// Route handler wrapper: 401 without a session, otherwise the handler runs as the signed-in user.
+// Route handler wrapper: 401 without a session, 403 off the allowlist, otherwise the handler runs as the signed-in user.
 export function withUser<A extends unknown[]>(handler: (...args: A) => Promise<Response> | Response) {
   return async (...args: A): Promise<Response> => {
     let userId: string
@@ -41,6 +45,7 @@ export function withUser<A extends unknown[]>(handler: (...args: A) => Promise<R
       userId = await getUserId()
     } catch (err) {
       if (err instanceof UnauthorizedError) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
+      if (err instanceof NotAllowedError) return NextResponse.json({ error: 'Dieses Konto hat keinen Zugang.' }, { status: 403 })
       throw err
     }
     // Already running as this user (the demo's dispatcher, lib/demo/serve.ts): keep that scope and its flags.
