@@ -6,7 +6,13 @@ import { subscription } from '@/lib/db/schema'
 import { signCheckoutUser, signPaddle } from '@/lib/billing/paddle'
 import type { LiveEntry } from '@/lib/plan/live-blocks'
 import type { TrainingBlock } from '@/lib/plan/types'
+import { getTableColumns } from 'drizzle-orm'
 import { useFakeDb, rowOf } from '../scope/fake-db'
+
+// SQL column name → schema key, so the fake applies exactly what a statement writes (and nothing it does not).
+const KEY = Object.fromEntries(Object.entries(getTableColumns(subscription)).map(([k, c]) => [c.name, k]))
+const assignments = (sql: string, params: unknown[]) => Object.fromEntries(
+  [...sql.slice(sql.indexOf(' set ') + 5, sql.indexOf(' where ')).matchAll(/"(\w+)" = \$(\d+)/g)].map(([, col, n]) => [KEY[col], params[Number(n) - 1]]))
 
 const clerk = vi.hoisted(() => ({ userId: 'user-k' as string | null }))
 vi.mock('@clerk/nextjs/server', () => ({ auth: async () => ({ userId: clerk.userId }) }))
@@ -17,7 +23,7 @@ const T0 = 1_800_000_000
 const iso = (s: number) => new Date(s * 1000).toISOString()
 
 // The subscription row with a version, and a hook that runs "the other request" right before our write is checked.
-const st = { sub: null as Record<string, unknown> | null, before: null as null | (() => void), settings: new Map<string, string>(), beforeSetting: null as null | (() => void) }
+const st = { sub: null as Record<string, unknown> | null, before: null as null | (() => void), settings: new Map<string, string>(), beforeSetting: null as null | (() => void), inserts: 0 }
 const fake = useFakeDb((q) => {
   const p = q.params
   if (/^select .* from "billing_events"/.test(q.sql) || /^select .* from "deleted_users"/.test(q.sql)) return []
@@ -26,7 +32,16 @@ const fake = useFakeDb((q) => {
     if (st.before) { const f = st.before; st.before = null; f() }
     const expected = p[p.length - 1]
     if (!st.sub || st.sub.version !== expected) return []
-    st.sub = { ...st.sub, status: p[0], cancelAtPeriodEnd: p.includes(true), version: (st.sub.version as number) + 1 }
+    st.sub = { ...st.sub, ...assignments(q.sql, p) }
+    return [[st.sub.userId]]
+  }
+  if (/^insert into "subscription"/.test(q.sql) && /on conflict do nothing/.test(q.sql)) {
+    if (st.before) { const f = st.before; st.before = null; f() }
+    if (st.sub) return []
+    const cols = q.sql.slice(q.sql.indexOf('(') + 1, q.sql.indexOf(')')).split(', ').map((c) => c.replace(/"/g, ''))
+    const vals = q.sql.slice(q.sql.indexOf('values (') + 8).split(')')[0].split(', ')
+    st.sub = { version: 0, ...Object.fromEntries(cols.flatMap((c, i) => (/^\$\d+$/.test(vals[i]) ? [[KEY[c], p[Number(vals[i].slice(1)) - 1]]] : []))) }
+    st.inserts++
     return [[st.sub.userId]]
   }
   if (/^select "value" from "settings"/.test(q.sql)) return st.settings.has(String(p[1])) ? [[st.settings.get(String(p[1]))]] : []
@@ -53,6 +68,7 @@ beforeEach(() => {
   st.before = null
   st.beforeSetting = null
   st.settings.clear()
+  st.inserts = 0
   st.sub = { userId: 'user-k', status: 'active', tier: 'plus', interval: 'month', paddleSubscriptionId: 'sub_1', paddleCustomerId: 'ctm_1', priceId: 'pri_pm', currentPeriodEnd: T0 + 30 * 86_400, cancelAtPeriodEnd: false, eventAt: T0, updatedAt: 0, version: 4 }
 })
 afterEach(() => { for (const k of Object.keys(env)) delete process.env[k as keyof typeof env] })
@@ -77,11 +93,25 @@ describe('Webhook: lesen, ändern, schreiben ohne Sperre', async () => {
   })
 
   it('ein anderes Ereignis landet dazwischen: neu gelesen, beide Änderungen bleiben', async () => {
-    st.before = () => { st.sub = { ...st.sub, paddleCustomerId: 'ctm_1', eventAt: T0 + 50, version: 5 } }
+    // The other request records a second subscription (a field our event does not touch). The fake applies exactly the
+    // columns each UPDATE sets, so the second list survives only if our retry re-read the row.
+    st.before = () => { st.sub = { ...st.sub, otherSubscriptionIds: '{"sub_2"}', eventAt: T0 + 50, version: 5 } }
     const res = await post(T0 + 100, { scheduled_change: { action: 'cancel', effective_at: iso(T0 + 30 * 86_400) } })
     expect(await res.json()).toEqual({ ok: true, result: 'applied' })
-    expect(st.sub).toMatchObject({ cancelAtPeriodEnd: true, version: 6 })
+    expect(st.sub).toMatchObject({ cancelAtPeriodEnd: true, eventAt: T0 + 100, version: 6, otherSubscriptionIds: '{"sub_2"}' })
     expect(fake.log.filter((q) => q.sql.startsWith('update "subscription"'))).toHaveLength(2)
+  })
+
+  it('noch keine Zeile, zwei erste Ereignisse gleichzeitig: eines legt an, das andere liest neu und ändert', async () => {
+    st.sub = null
+    const [a, b] = await Promise.all([
+      post(T0, {}),
+      post(T0 + 10, { scheduled_change: { action: 'cancel', effective_at: iso(T0 + 30 * 86_400) } }),
+    ])
+    expect([(await a.json()).result, (await b.json()).result].sort()).toEqual(['applied', 'applied'])
+    expect(fake.log.filter((q) => q.sql.startsWith('insert into "subscription"'))).toHaveLength(2)      // both tried …
+    expect(st.inserts).toBe(1)                                                                          // … one landed
+    expect(st.sub).toMatchObject({ paddleSubscriptionId: 'sub_1', cancelAtPeriodEnd: true, eventAt: T0 + 10, version: 1 })
   })
 
   it('die Zeile ändert sich ständig: 500, Paddle stellt erneut zu', async () => {
