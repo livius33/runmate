@@ -188,3 +188,16 @@ phase = 8
 plan = "08-02"
 at = "2026-11-19T10:00:00Z"
 note = "third pass: remaining small findings fixed (15 commits)"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-03"
+at = "2026-11-21T17:00:00Z"
+note = "security review: no exposed secrets, tenant isolation holds; 15 findings"
+
+[[entry]]
+action = "plan"
+phase = 13
+plan = "13-01"
+at = "2026-11-21T17:00:00Z"

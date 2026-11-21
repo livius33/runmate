@@ -29,7 +29,8 @@ that changes the whole plan, an onboarding that works for a new runner, and its 
 | 9 | Free + Plus | 09-01 | ✅ 2026-11-18 |
 | 10 | Plan anpassen | 10-01 … 10-03 | ✅ 2026-11-18 |
 | 11 | Onboarding & Polish | 11-01, 11-02 | ✅ 2026-11-18 (11-02: reading to confirm) |
-| 12 | Launch | 12-01, 12-02 | 🚧 12-01 prepared (docs/launch/DEPLOY.md); the rest needs Livius |
+| 12 | Launch | 12-01 … 12-03 | 🚧 repo public, PR #4 merged; deployment needs Livius; 12-03 security fixes open |
+| 13 | Instagram | 13-01 | 📝 planned, five decisions open |
 
 ### Phase 8: Test Sweep & Fixes
 **Goal:** every feature does what it says, including the paths nobody clicks every day.
@@ -65,6 +66,11 @@ that changes the whole plan, an onboarding that works for a new runner, and its 
 - 12-01 Deployment: own Vercel project, env, cron, domain move, Clerk production (incl. Google/Apple sign-in),
   Paddle prices, legal placeholders, secret scan, repo public, announcement. Steps with secrets are Livius'
 - 12-02 Design pass: discussed with Livius first, then built
+- 12-03 Security review before launch: findings of 2026-11-21 and their fixes
+
+### Phase 13: Instagram
+**Goal:** an Instagram account that posts four times a week from sourced material, with Livius approving, not writing.
+- 13-01 Account, content pipeline (planner, fact check, renderer, approval, publisher, insights)
 
 ## Later
 

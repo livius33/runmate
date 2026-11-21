@@ -17,9 +17,9 @@ See: .paul/PROJECT.md (updated 2026-11-18)
 
 Milestone: v1.1 Shipping-ready (v1.1.0)
 Phase: 12 (Launch)
-Plan: 12-01 in APPLY — Claude's part done (clean-up, runbook, build check); waits for Livius (PR, keys, domain)
-Status: Phases 8–11 complete on `feature/ship-v1.1`, one PR to `main`
-Last activity: 2026-11-18 — browser walkthrough closed (08-03), summaries written, launch plans and runbook
+Plan: 12-01 in APPLY — repo public (2026-11-19), PR #4 merged (2026-11-20), Vercel project `runmate` prepared; waits for Livius (keys, GitHub access for Vercel, domain). 12-03 (security fixes) and 13-01 (Instagram) planned
+Status: Phases 8–11 on `main`; runmate.dev still serves the personal dashboard (404 for visitors)
+Last activity: 2026-11-21 — security review (secrets, auth, billing, dependencies), plans 12-03 and 13-01, SECURITY.md
 Progress:
 - v1.1 Shipping-ready: [████████░░] 80%
 
@@ -53,8 +53,11 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - Glitch activities stored before the plausibility filter stay in the data: clean them up once, or leave them?
 - Base block for an unknown runner shows the example easy pace; undated onboarding race time as a recent race?
 - Retention of idle Free accounts (12 months) and the § 312k confirmation through Paddle (09-01 SUMMARY)
+- Mail provider: unblocks the waitlist and the confirmed cancellation (12-03, finding 3)
+- Instagram (13-01): handle, language, approval mode, private repo for the pipeline, start date
 
 ### Blockers
 
-- Deployment needs Livius: Clerk key swap on the dashboard project, new Vercel project with secrets, domain move
+- Deployment needs Livius: Vercel's GitHub app needs access to this repo, secrets into the Vercel project `runmate`, then the domain move
+- Dependency updates (12-03 task 1) must be merged before the first deployment
 - Stage B (billing) needs the business registration, Paddle verification and the filled AGB
