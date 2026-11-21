@@ -29,7 +29,7 @@ that changes the whole plan, an onboarding that works for a new runner, and its 
 | 9 | Free + Plus | 09-01 | ✅ 2026-11-18 |
 | 10 | Plan anpassen | 10-01 … 10-03 | ✅ 2026-11-18 |
 | 11 | Onboarding & Polish | 11-01, 11-02 | ✅ 2026-11-18 (11-02: reading to confirm) |
-| 12 | Launch | 12-01 … 12-07 | 🚧 repo public, PR #4 merged; deployment needs Livius; 12-04 and 12-05 in APPLY, 12-06 after their merge, 12-07 waits for decisions |
+| 12 | Launch | 12-01 … 12-07 | 🚧 repo public, PR #4 merged; deployment needs Livius; 12-04 in PR #8, 12-05 in APPLY, 12-06 after their merge, 12-07 waits for decisions; 12-02 (redesign) planned |
 | 13 | Instagram | 13-01 | 🚧 tasks 2–4 (dry run without an account) in APPLY with defaults; handle and account are Livius' part |
 
 ### Phase 8: Test Sweep & Fixes
@@ -65,7 +65,7 @@ that changes the whole plan, an onboarding that works for a new runner, and its 
 **Goal:** runmate.dev serves this repo, and the repo is public.
 - 12-01 Deployment: own Vercel project, env, cron, domain move, Clerk production (incl. Google/Apple sign-in),
   Paddle prices, legal placeholders, secret scan, repo public, announcement. Steps with secrets are Livius'
-- 12-02 Design pass: discussed with Livius first, then built
+- 12-02 Redesign after `DESIGN.md`: tokens, shared primitives, every page; checkpoint after three reference screens
 - 12-03 Security review before launch: findings of 2026-11-21 and their fixes
 - 12-04 Hardening before the first deployment (sign-up route, headers, allowlist, consent, throttles)
 - 12-05 Billing hardening before stage B (cancellation form, second subscription, deletion, reconciliation)

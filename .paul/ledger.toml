@@ -250,3 +250,17 @@ phase = 13
 plan = "13-01"
 at = "2026-11-21T19:05:00Z"
 note = "tasks 2-4 with defaults, local repo"
+
+[[entry]]
+action = "unify"
+phase = 12
+plan = "12-04"
+at = "2026-11-21T19:40:00Z"
+note = "PR #8 open, not merged; summary written"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-02"
+at = "2026-11-21T19:40:00Z"
+note = "redesign after DESIGN.md; replaces the checkpoint-only plan"
