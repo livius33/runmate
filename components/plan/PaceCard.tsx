@@ -79,7 +79,7 @@ function Row({ s, c, ranOn }: { s: PlanSession; c: PaceCheck; ranOn: string | nu
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <TypeTag type={s.type} />
-          <span className={cn('truncate', s.key && 'font-medium')}>{s.title}</span>
+          <span className={cn('min-w-0 truncate', s.key && 'font-medium')}>{s.title}</span>
         </div>
         <div className="mt-0.5 text-caption text-muted-foreground">
           Ziel {fmtPace(c.targetS)} · Ist {c.actualS != null ? fmtPace(c.actualS) : '–'}

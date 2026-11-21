@@ -5,7 +5,7 @@ import defaultTheme from 'tailwindcss/defaultTheme'
 //
 // Type scale — one place for the mapping. Named steps, so a migrated file never mixes them with Tailwind's own sizes
 // (tests/design/tokens.test.ts holds migrated files to these names):
-//   text-caption   12 / 16  ·  0         typography.caption (with font-mono: caption-mono, technical labels)
+//   text-caption   12 / 16  ·  0         typography.caption (with font-mono + uppercase: caption-mono eyebrows)
 //   text-body-sm   14 / 20  · −0.28 px   typography.body-sm (font-medium: body-sm-strong, button-md)
 //   text-body      16 / 24  ·  0         typography.body-md (font-medium: body-md-strong, button-lg)
 //   text-title-sm  20 / 28  · −0.6 px  · 600   typography.display-sm
@@ -68,7 +68,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        // DESIGN.md typography: Geist for text, Geist Mono for technical labels (app/layout.tsx loads both)
+        // DESIGN.md typography: Geist for text, Geist Mono only for uppercase eyebrow labels (app/layout.tsx loads both)
         sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
         mono: ['var(--font-mono)', ...defaultTheme.fontFamily.mono],
         display: ['var(--font-display)', 'var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],

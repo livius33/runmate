@@ -53,7 +53,7 @@ export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough,
   return (
     <Card
       title="Trainingsplan"
-      aside={week && <Chip className="font-mono tabular-nums">KW {week.kw} · {week.km} km</Chip>}
+      aside={week && <Chip className="tabular-nums">KW {week.kw} · {fmtKm(week.km)} km</Chip>}
       className={className}
     >
       <div className="grid gap-3 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
@@ -64,7 +64,7 @@ export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough,
           {after.map((s) => (
             <li key={s.date} className="rounded-card px-3 py-2.5 shadow-hairline">
               <div className="flex items-center justify-between gap-3">
-                <span className="truncate text-body-sm font-medium">{s.title}</span>
+                <span className="min-w-0 truncate text-body-sm font-medium">{s.title}</span>
                 <span className="flex items-center gap-1 text-caption text-muted-foreground shrink-0">
                   <CalendarDays className="h-3.5 w-3.5" />{relativeDay(s.date, today)}
                 </span>
@@ -89,8 +89,8 @@ function NextSession({ session, today, why }: { session: PlanSession; today: str
   return (
     <div className="rounded-card bg-card p-4 shadow-raised">
       <div className="text-caption text-muted-foreground">Nächste Einheit</div>
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <h3 className="text-title-sm">{session.title}</h3>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h3 className="min-w-0 text-title-sm">{session.title}</h3>
         {session.key && <Chip tone="solid">Kerneinheit</Chip>}
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">

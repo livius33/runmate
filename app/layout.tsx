@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 
-// DESIGN.md typography (12-02): Geist for text, Geist Mono for small technical labels (`font-mono`). Both SIL OFL.
+// DESIGN.md typography (12-02): Geist for text, Geist Mono only for uppercase eyebrow labels (`font-mono`: sidebar group heading, weekdays). Both SIL OFL.
 const sans = Geist({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
 const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' })
 

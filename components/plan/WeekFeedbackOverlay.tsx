@@ -52,7 +52,7 @@ export function WeekFeedbackOverlay({ overview, saved, feel, saving, error, onLa
   // The close button is "Später" (the week is offered again on the next visit), so the footer holds one action only.
   return (
     <DialogShell onOpenChange={(open) => { if (!open) onLater() }} closeLabel="Später"
-      title={<>Wochenrückblick <span className="font-mono font-normal text-muted-foreground">KW {r.week.kw}</span></>}
+      title={`Wochenrückblick KW ${r.week.kw}`}
       description={`${range} · ${r.week.focus}`}
       footer={
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
@@ -213,7 +213,7 @@ function ScoreRow({ label, value, labels, onChange, disabled }: {
     <div>
       <div className="flex items-baseline justify-between gap-2 text-body-sm">
         <span className="font-medium">{label}</span>
-        <span className="truncate text-caption text-muted-foreground">{value != null ? labels[value] : `1 = ${labels[1]} · 5 = ${labels[5]}`}</span>
+        <span className="min-w-0 truncate text-caption text-muted-foreground">{value != null ? labels[value] : `1 = ${labels[1]} · 5 = ${labels[5]}`}</span>
       </div>
       <div className="mt-1.5 grid grid-cols-5 gap-1.5" role="group" aria-label={label}>
         {SCORES.map((s) => (

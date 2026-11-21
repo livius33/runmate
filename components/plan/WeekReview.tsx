@@ -107,7 +107,7 @@ export function WeekReview({ today, sessions, runs, fitness, engineLog, classNam
       <div className="flex items-center gap-1">
         <NavButton label="Vorherige Woche" disabled={idx === 0} onClick={() => setIdx(idx - 1)}><ChevronLeft className="h-4 w-4" /></NavButton>
         <span className="text-caption tabular-nums text-muted-foreground">
-          <span className="font-mono">KW {r.week.kw}</span> · {format(parseISO(r.week.start), 'd.M.')}–{format(parseISO(r.week.end), 'd.M.')}
+          KW {r.week.kw} · {format(parseISO(r.week.start), 'd.M.')}–{format(parseISO(r.week.end), 'd.M.')}
         </span>
         <NavButton label="Nächste Woche" disabled={idx === started.length - 1} onClick={() => setIdx(idx + 1)}><ChevronRight className="h-4 w-4" /></NavButton>
       </div>
