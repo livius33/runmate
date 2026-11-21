@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { importFiles } from '@/lib/sources/file/import'
-import { MAX_FILE_BYTES, MAX_FILES_PER_REQUEST } from '@/lib/sources/file'
+import { MAX_FILE_BYTES, MAX_FILES_PER_REQUEST, MAX_IMPORT_BODY_BYTES } from '@/lib/sources/file'
+import { readForm, tooLargeResponse } from '@/lib/server/body'
 import { runAndSaveEngine } from '@/lib/plan/engine-store'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { withUser } from '@/lib/server/scope'
@@ -15,7 +16,9 @@ export const maxDuration = 60
 export const POST = withUser(async (req: Request) => {
   const blocked = await intakeBlocked()
   if (blocked) return blocked
-  const form = await req.formData().catch(() => null)
+  const read = await readForm(req, MAX_IMPORT_BODY_BYTES)
+  if (!read.ok) return tooLargeResponse(MAX_IMPORT_BODY_BYTES)
+  const form = read.value
   if (!form) return NextResponse.json({ error: 'Dateien als multipart/form-data im Feld „file“ senden.' }, { status: 400 })
   const entries = form.getAll('file').filter((f): f is File => typeof f === 'object' && 'arrayBuffer' in f)
   if (!entries.length) return NextResponse.json({ error: 'Keine Datei erhalten.' }, { status: 400 })

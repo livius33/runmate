@@ -10,6 +10,7 @@ import { runAndSaveEngine } from '@/lib/plan/engine-store'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { runAsUser } from '@/lib/server/scope'
 import { intakeBlocked } from '@/lib/legal/intake'
+import { HEALTH_BODY_BYTES, readJson, tooLargeResponse } from '@/lib/server/body'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ export const dynamic = 'force-dynamic'
 // Public (the iOS Shortcut cannot log in) but only with the secret token, which names the user. POST JSON → one day
 // of Apple Health data for that user. Running workouts count only when no other connected source delivers runs
 // (otherwise they would count twice); they are deduplicated and checked for impossible values like every import, and
-// the plan engine runs after them. No values are logged.
+// the plan engine runs after them. No values are logged. Bodies over 1 MB are refused with 413 (12-04).
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
   const userId = await userForLinkToken('health', token)
@@ -25,7 +26,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   return runAsUser(userId, async () => {
     const blocked = await intakeBlocked()
     if (blocked) return blocked
-    const body = await req.json().catch(() => null)
+    const read = await readJson(req, HEALTH_BODY_BYTES)
+    if (!read.ok) return tooLargeResponse(HEALTH_BODY_BYTES)
+    const body = read.value
     const day = (n: number) => format(addDays(parseISO(todayLocal()), n), 'yyyy-MM-dd')
     // No date sent: yesterday. A date sent: a real day, at most tomorrow (the phone may be a day ahead of the
     // profile's time zone), else 400.
