@@ -264,3 +264,10 @@ phase = 12
 plan = "12-02"
 at = "2026-11-21T19:40:00Z"
 note = "redesign after DESIGN.md; replaces the checkpoint-only plan"
+
+[[entry]]
+action = "unify"
+phase = 12
+plan = "12-05"
+at = "2026-11-21T19:50:00Z"
+note = "PR #9 open, not merged; AC-8 not built (decision); summary written"
