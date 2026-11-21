@@ -88,6 +88,7 @@ The repository ships an example training block (a real 3:05 Porto Marathon build
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | yes | Clerk publishable key |
 | `CLERK_SECRET_KEY` | yes | Clerk secret key |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | recommended | `/sign-in` |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | recommended | `/sign-up` (open only with `BILLING_ENABLED`, otherwise it leads to the waitlist) |
 | `ALLOWED_EMAILS` | no | Comma-separated emails allowed to sign in; empty = any signed-in Clerk user |
 | `ENCRYPTION_KEY` | for Garmin | 32 random bytes (`openssl rand -base64 32`); encrypts each user's Garmin login and session at rest (AES-256-GCM). Changing it makes stored logins unreadable: users enter them again |
 | `CRON_SECRET` | for the cron | Secret the daily sync route checks (Vercel Cron sends it) |

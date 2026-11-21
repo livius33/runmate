@@ -32,7 +32,7 @@ The production instance for `runmate.dev`:
   default).
 - Webhook endpoint `https://runmate.dev/api/webhooks/clerk`, event `user.deleted` → its signing secret is
   `CLERK_WEBHOOK_SECRET`.
-- Paths: sign-in `/sign-in`.
+- Paths: sign-in `/sign-in`, sign-up `/sign-up`.
 
 ## 3 · Vercel project
 
@@ -44,6 +44,7 @@ the daily sync at 06:00 UTC. Environment variables, Production:
 | `DATABASE_URL` | Neon connection string (pooled) | A |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | Clerk production instance | A |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | `/sign-in` | A |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | `/sign-up` (leads to the waitlist until `BILLING_ENABLED` is set) | A |
 | `CLERK_WEBHOOK_SECRET` | from step 2 | A |
 | `ENCRYPTION_KEY` | `openssl rand -base64 32` — new, never reused from another project; losing it makes stored Garmin logins unreadable | A |
 | `CRON_SECRET` | `openssl rand -hex 32` | A |

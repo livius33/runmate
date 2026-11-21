@@ -14,6 +14,8 @@ export const analyticsEnabled = () => ['1', 'true'].includes((process.env.NEXT_P
 // Until billing is live the CTA is the waitlist; with BILLING_ENABLED it is the Clerk sign-up (trial starts there).
 export const signUpOpen = () => billingEnabled()
 export const SIGN_UP_PATH = '/sign-up'
+// The waitlist form at the end of the landing page (/warteliste itself has no page, only its status pages).
+export const WAITLIST_PATH = '/#warteliste'
 
 export const abs = (path: string) => `${siteUrl()}${path}`
 
