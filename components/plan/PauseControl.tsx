@@ -83,7 +83,7 @@ export function PauseControl({ today, compact = false, rebuildLink = true }: { t
                 <span>Wieder fit ab</span>
                 <Input small type="date" value={backFrom} min={current.from} onChange={(e) => setBackFrom(e.target.value)} className="w-auto tabular-nums" />
               </label>
-              <Button size="sm" variant="primary" disabled={m.isPending || !backFrom}
+              <Button size="action" variant="primary" disabled={m.isPending || !backFrom}
                 onClick={() => m.mutate({ method: 'PATCH', body: { id: current.id, to: day(backFrom, -1) < current.from ? current.from : day(backFrom, -1) } })}>Übernehmen</Button>
             </>
           )}
@@ -98,7 +98,7 @@ export function PauseControl({ today, compact = false, rebuildLink = true }: { t
 
   if (!form) {
     return (
-      <Button size="sm" onClick={() => { setForm(true); setFrom(today); setTo('') }} className={cn('text-foreground', !compact && 'mt-3')}>
+      <Button size="action" onClick={() => { setForm(true); setFrom(today); setTo('') }} className={cn('text-foreground', !compact && 'mt-3')}>
         <Thermometer /> Krank / Pause
       </Button>
     )

@@ -29,7 +29,7 @@ export function SessionEditor({ date, current, sessions, saving, onSave }: {
 
   if (!open) {
     return (
-      <Button size="sm" onClick={() => setOpen(true)} disabled={saving} className="mt-3">
+      <Button size="action" onClick={() => setOpen(true)} disabled={saving} className="mt-3">
         <Pencil /> Einheit ändern
       </Button>
     )
@@ -70,7 +70,7 @@ export function SessionEditor({ date, current, sessions, saving, onSave }: {
         </div>
       )}
       <div className="mt-2.5 flex items-center gap-2">
-        <Button size="sm" variant="primary" disabled={!preview || saving} onClick={() => { if (preview) { onSave(preview); setOpen(false) } }}>
+        <Button size="action" variant="primary" disabled={!preview || saving} onClick={() => { if (preview) { onSave(preview); setOpen(false) } }}>
           Übernehmen
         </Button>
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>

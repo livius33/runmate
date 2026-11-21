@@ -4,7 +4,8 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 // DESIGN.md button-primary / button-secondary in the in-app shape (rounded.sm, 6 px). Ink is the primary action;
-// brand red only marks the focus ring. `md` is 44 px high on phones (touch target) and 36 px from sm up.
+// brand red only marks the focus ring. `md` is 44 px high on phones (touch target) and 36 px from sm up; `action` is
+// a standalone action under a card: 44 px on phones, the small button from sm up. `sm` is for inline row actions.
 export const buttonVariants = cva(
   'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ' +
@@ -20,6 +21,7 @@ export const buttonVariants = cva(
       size: {
         md: 'h-11 px-4 text-body-sm sm:h-9 sm:px-3.5 [&_svg]:size-4',
         sm: 'tap h-8 px-2.5 text-caption',
+        action: 'h-11 px-3.5 text-body-sm sm:h-8 sm:px-2.5 sm:text-caption',
       },
     },
     defaultVariants: { variant: 'secondary', size: 'md' },

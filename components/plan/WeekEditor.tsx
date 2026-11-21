@@ -161,7 +161,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
       {!weekOver && summary.gapKm >= 0.5 && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-card bg-brand-soft px-3 py-2 text-body-sm">
           <span>Zum Wochenziel fehlen <span className="font-semibold tabular-nums">{fmtKm(summary.gapKm)} km</span>.</span>
-          <Button size="sm" variant="primary" onClick={balance} disabled={saving}>
+          <Button size="action" variant="primary" onClick={balance} disabled={saving}>
             <Scale /> Ausgleichen
           </Button>
         </div>
@@ -186,7 +186,7 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
         <span>{saving ? 'Speichern…' : 'Tag antippen, um km zu ändern oder Einheiten zu verschieben.'}</span>
         <span className="flex shrink-0 flex-wrap items-center gap-1.5">
           <PauseControl today={today} compact />
-          <Link href="/plan/anpassen" className={cn(buttonVariants({ size: 'sm' }), 'text-foreground')}>
+          <Link href="/plan/anpassen" className={cn(buttonVariants({ size: 'action' }), 'text-foreground')}>
             <SlidersHorizontal /> Plan anpassen
           </Link>
         </span>
@@ -416,7 +416,7 @@ function KmEditor({ plannedKm, session, saving, onSave }: {
           aria-invalid={km == null} className="w-16 text-center tabular-nums" />
         <Button size="sm" onClick={() => step(1)} aria-label="1 km mehr" disabled={saving} className="w-8 px-0 text-body-sm">+</Button>
       </div>
-      <Button type="submit" size="sm" variant="primary" disabled={!changed || saving}>
+      <Button type="submit" size="action" variant="primary" disabled={!changed || saving}>
         Übernehmen
       </Button>
       {km == null && <span className="text-error">0–60 km, z. B. 14,5</span>}

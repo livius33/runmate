@@ -148,7 +148,7 @@ export function WeekReview({ today, sessions, runs, fitness, engineLog, classNam
           {stored
             ? <span className="text-muted-foreground">Deine Bewertung: Woche <span className="text-foreground">{RATING_LABEL[stored.rating]}</span>, Müdigkeit <span className="text-foreground">{FATIGUE_LABEL[stored.fatigue]}</span>{stored.note && <span className="block sm:inline sm:before:content-['_·_']">„{stored.note}“</span>}</span>
             : <span className="text-muted-foreground">Noch nicht bewertet.</span>}
-          <Button size="sm" onClick={() => { save.reset(); setOpen(week) }} className="text-foreground">
+          <Button size="action" onClick={() => { save.reset(); setOpen(week) }} className="text-foreground">
             <MessageSquare /> {stored ? 'Bewertung ändern' : 'Woche bewerten'}
           </Button>
         </div>
