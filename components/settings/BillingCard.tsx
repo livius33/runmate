@@ -1,8 +1,9 @@
 'use client'
 
 // Settings → Abo (Phase 4): status, trial end or renewal date, the Plus offer (checkout via Paddle.js, loaded only when
-// needed) with what Free includes, the customer portal and the cancellation button (§312k BGB → /kuendigen). Hidden on
-// a self-hosted install.
+// needed) with what Free includes, the customer portal and the cancellation button (§312k BGB → /kuendigen). A
+// scheduled cancellation can be taken back here, and form requests held after a take-back are confirmed or discarded
+// here (12-05, lib/billing/cancel-form.ts). Hidden on a self-hosted install.
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -60,6 +61,15 @@ export function BillingCard() {
     },
     onSuccess: (url) => { window.location.href = url },
   })
+  const post = async (url: string, body?: unknown) => {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(d.error ?? 'Das hat gerade nicht geklappt. Bitte noch einmal versuchen.')
+    return d
+  }
+  const refresh = () => qc.invalidateQueries({ queryKey: ['billing'] })
+  const undo = useMutation({ mutationFn: () => post('/api/billing/cancel/undo'), onSuccess: refresh })
+  const held = useMutation({ mutationFn: (action: 'confirm' | 'discard') => post('/api/billing/cancel/held', { action }), onSuccess: refresh })
 
   if (!data?.billing) return null
   const e = fromClient(data.entitlements)
@@ -94,6 +104,25 @@ export function BillingCard() {
         {paid && <><dt className="text-muted-foreground">{e.cancelAtPeriodEnd ? 'Endet am' : 'Verlängert sich am'}</dt><dd>{fmtDate(e.periodEnd)}</dd></>}
       </dl>
       {notice && <p className="mt-2 text-xs text-muted-foreground">{notice}</p>}
+      {paid && e.cancelAtPeriodEnd && (
+        <div className="mt-3 rounded-xl border border-border p-3 text-sm">
+          <p>Dein Plus endet am <b>{fmtDate(e.periodEnd)}</b>.{data.cancellation?.viaForm ? ` Die Kündigung kam am ${fmtDate(data.cancellation.at)} über das Kündigungsformular.` : ''}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Warst du das nicht, oder hast du es dir anders überlegt? Dann nimm die Kündigung zurück; das Abo läuft weiter wie bisher.</p>
+          <button onClick={() => undo.mutate()} disabled={undo.isPending} className="mt-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-60">Kündigung zurücknehmen</button>
+          {undo.isError && <p className="mt-2 text-xs text-red-600">{(undo.error as Error).message}</p>}
+        </div>
+      )}
+      {data.heldRequests.length > 0 && (
+        <div className="mt-3 rounded-xl border border-border p-3 text-sm">
+          <p>Über das Kündigungsformular {data.heldRequests.length === 1 ? 'ist eine Kündigung' : `sind ${data.heldRequests.length} Kündigungen`} für dein Konto eingegangen (zuletzt am {fmtDate(data.heldRequests[data.heldRequests.length - 1].at)}).</p>
+          <p className="mt-1 text-xs text-muted-foreground">Weil du vor Kurzem eine Kündigung zurückgenommen hast, wird sie erst ausgeführt, wenn du sie hier bestätigst.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button onClick={() => held.mutate('confirm')} disabled={held.isPending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60">Kündigung bestätigen</button>
+            <button onClick={() => held.mutate('discard')} disabled={held.isPending} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-60">Verwerfen</button>
+          </div>
+          {held.isError && <p className="mt-2 text-xs text-red-600">{(held.error as Error).message}</p>}
+        </div>
+      )}
       {thanks && !paid && <p className="mt-2 text-xs text-teal">Danke! Das Abo ist in wenigen Sekunden aktiv.</p>}
 
       {!paid && (

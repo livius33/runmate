@@ -28,3 +28,13 @@ export async function setSetting(key: string, value: string) {
 }
 
 export const setSettingJson = (key: string, v: unknown) => setSetting(key, JSON.stringify(v))
+
+// Compare-and-set for a read-modify-write that two requests may run at once: writes only while the stored value is still
+// `expected` (null = no row yet). False = another request wrote first; the caller reads again or gives up. One
+// statement each, so it holds on both drivers (neon-http has no interactive transactions).
+export async function compareAndSetSetting(key: string, expected: string | null, value: string): Promise<boolean> {
+  const rows = expected == null
+    ? await db.insert(settings).values(mine({ key, value })).onConflictDoNothing().returning({ key: settings.key })
+    : await db.update(settings).set({ value }).where(own(settings, eq(settings.key, key), eq(settings.value, expected))).returning({ key: settings.key })
+  return rows.length > 0
+}

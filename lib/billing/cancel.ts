@@ -16,6 +16,8 @@ export async function cancelCurrent(when: 'next_billing_period' | 'immediately' 
   if (!row?.paddleSubscriptionId || row.status === 'canceled') {
     return row?.trialEndsAt && !row.paddleSubscriptionId ? { ok: true, kind: 'trial', endsAt: row.trialEndsAt, at } : { ok: true, kind: 'none', at }
   }
+  // Already ends with the paid period: asking Paddle again changes nothing (and a second form request lands here).
+  if (when === 'next_billing_period' && row.cancelAtPeriodEnd) return { ok: true, kind: 'subscription', endsAt: row.currentPeriodEnd, at }
   try {
     const s = await cancelSubscription(row.paddleSubscriptionId, when)
     const next = await saveCancelled(s)
