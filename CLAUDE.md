@@ -74,3 +74,8 @@ scripts/                 — backfill-run-metrics.mts, check-methodologies.mts, 
   GET route the dashboard reads must be added to `lib/demo/routes.ts` or excluded in `tests/demo/serve.test.ts`.
 - Legal pages are templates: operator details only as `<Ph>…</Ph>` (`[PLATZHALTER: …]`), never invented.
 - Every change on its own branch (`feature/…`, `fix/…`, `chore/…`) with a pull request to `main`.
+- Design: `DESIGN.md` (repo root) is the reference for layout, type scale, spacing, radius, elevation and component
+  shape. It is an unmodified third-party analysis of Vercel's design language (see NOTICE), so three things in it do
+  not apply here: Runmate's colours stay as they are in `app/globals.css` (ink primary, brand red, teal; no mesh
+  gradient and none of the file's accent scales), UI text is German, and overview pages use a wide grid or week strip,
+  never a narrow column of stacked cards. Where the file and `app/globals.css` disagree on a colour, the CSS wins.

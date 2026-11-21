@@ -16,3 +16,8 @@ LGPL-3.0-or-later and dynamically linked.
 Third-party notice: lib/vendor/garmin-connect/ is a modified copy of garmin-connect 1.6.2
 (https://github.com/Pythe1337N/garmin-connect), Copyright (c) 2020 Oskar Bernberg, licensed under the MIT licence
 (lib/vendor/garmin-connect/LICENSE).
+
+Third-party notice: DESIGN.md is an unmodified copy of design-md/vercel/DESIGN.md from awesome-design-md
+(https://github.com/VoltAgent/awesome-design-md), Copyright (c) 2026 VoltAgent, licensed under the MIT licence
+(docs/third-party/awesome-design-md-LICENSE). It describes Vercel's public design language; Runmate is not
+affiliated with Vercel.
