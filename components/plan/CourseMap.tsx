@@ -4,25 +4,25 @@ import { useEffect, useRef } from 'react'
 import 'leaflet/dist/leaflet.css'
 import { pointAtKm, type Course } from '@/lib/plan/course'
 import type { RaceInfo } from '@/lib/plan/types'
-import { Card } from './ui'
+import { Card } from '@/components/ui/card'
 
 const MARKER_KM = [5, 10, 15, 20, 25, 30, 35, 40]
 
 export function CourseMap({ course, status, race: RACE }: { course: Course | null; status: 'loading' | 'missing' | 'ready'; race: RaceInfo }) {
   return (
-    <Card title="Strecke" aside={course && (
-      <span className="text-xs text-muted-foreground tabular-nums">{RACE.courseLabel ? `${RACE.courseLabel} · ` : ''}{course.distanceKm.toFixed(1).replace('.', ',')} km</span>
+    <Card title="Strecke" className="h-full" aside={course && (
+      <span className="tabular-nums">{RACE.courseLabel ? `${RACE.courseLabel} · ` : ''}{course.distanceKm.toFixed(1).replace('.', ',')} km</span>
     )}>
       {status === 'ready' && course ? <LeafletCourse course={course} /> : (
-        <div className="h-[340px] rounded-xl border border-dashed border-border grid place-items-center p-6 text-center">
+        <div className="grid h-[340px] place-items-center rounded-card border border-dashed border-border p-6 text-center">
           {status === 'loading' ? (
-            <span className="text-sm text-muted-foreground">Strecke wird geladen…</span>
+            <span className="text-body-sm text-muted-foreground">Strecke wird geladen…</span>
           ) : (
             <div className="max-w-sm space-y-2">
-              <p className="text-sm font-medium">Noch keine Strecke hinterlegt</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-body-sm font-medium">Noch keine Strecke hinterlegt</p>
+              <p className="text-body-sm text-muted-foreground">
                 Die GPX-Datei der Strecke (z. B. aus einer Strava-Route exportiert) als{' '}
-                <code className="rounded bg-secondary px-1 py-0.5 text-xs">public{RACE.gpxPath ?? '/strecke.gpx'}</code> ins Repo legen.
+                <code className="rounded-control bg-secondary px-1 py-0.5 font-mono text-caption">public{RACE.gpxPath ?? '/strecke.gpx'}</code> ins Repo legen.
               </p>
             </div>
           )}
@@ -80,7 +80,7 @@ function LeafletCourse({ course }: { course: Course }) {
     }
   }, [course])
 
-  return <div ref={el} className="h-[340px] sm:h-[400px] rounded-xl overflow-hidden border border-border z-0" />
+  return <div ref={el} className="z-0 h-[340px] overflow-hidden rounded-card shadow-hairline sm:h-[400px]" />
 }
 
 function addEndpoint(L: typeof import('leaflet'), map: import('leaflet').Map, p: { lat: number; lon: number }, label: string, side: 'left' | 'right' = 'right') {

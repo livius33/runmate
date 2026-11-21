@@ -13,7 +13,10 @@ import {
 } from '@/lib/plan/effective'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
 import { cn } from '@/lib/utils'
-import { TypeTag } from './ui'
+import { TypeTag } from './tags'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Chip } from '@/components/ui/chip'
+import { Input } from '@/components/ui/field'
 import { useIsPhone } from '@/lib/use-media'
 import { SessionDetails } from './SessionDetails'
 import { SessionEditor } from './SessionEditor'
@@ -114,21 +117,21 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
           <IconButton label="Vorherige Woche" disabled={weekIdx === 0} onClick={() => { setWeekIdx(weekIdx - 1); setSelected(null); setBalanceNote(null) }}>
             <ChevronLeft className="h-4 w-4" />
           </IconButton>
-          <span className="text-sm font-medium tabular-nums">
+          <span className="text-body-sm font-medium tabular-nums">
             KW {week.kw} <span className="text-muted-foreground font-normal">· {format(parseISO(week.start), 'd.M.')}–{format(parseISO(week.end), 'd.M.')}</span>
           </span>
           <IconButton label="Nächste Woche" disabled={weekIdx === weeks.length - 1} onClick={() => { setWeekIdx(weekIdx + 1); setSelected(null); setBalanceNote(null) }}>
             <ChevronRight className="h-4 w-4" />
           </IconButton>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+        <div className="flex items-center gap-2 text-caption text-muted-foreground tabular-nums">
           <span>Ziel {fmtKm(week.km)} km</span>
           <span>·</span>
           <span>{weekOver ? 'Gelaufen' : 'Prognose'} <span className="font-semibold text-foreground">{fmtKm(summary.forecastKm)} km</span></span>
           {Math.abs(summary.gapKm) >= 0.5 && (
-            <span className={cn('rounded-full px-2 py-0.5 font-medium', summary.gapKm > 0 ? 'bg-brand-soft text-brand' : 'bg-teal-soft text-teal')}>
+            <Chip tone={summary.gapKm > 0 ? 'brand' : 'teal'} className="tabular-nums">
               {summary.gapKm > 0 ? `−${fmtKm(summary.gapKm)}` : `+${fmtKm(-summary.gapKm)}`} km
-            </span>
+            </Chip>
           )}
           {kbCount && <><span>·</span><span title="Kettlebell erledigt / geplant (optionale zählen erst, wenn erledigt)">Kettlebell <span className="font-semibold text-foreground">{kbCount.done}/{kbCount.planned}</span></span></>}
         </div>
@@ -156,18 +159,17 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
       )}
 
       {!weekOver && summary.gapKm >= 0.5 && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-soft/50 px-3.5 py-2.5 text-sm">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-card bg-brand-soft px-3 py-2 text-body-sm">
           <span>Zum Wochenziel fehlen <span className="font-semibold tabular-nums">{fmtKm(summary.gapKm)} km</span>.</span>
-          <button onClick={balance} disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:bg-foreground/85 disabled:opacity-50">
-            <Scale className="h-3.5 w-3.5" /> Ausgleichen
-          </button>
+          <Button size="sm" variant="primary" onClick={balance} disabled={saving}>
+            <Scale /> Ausgleichen
+          </Button>
         </div>
       )}
-      {balanceNote && <p className="mt-2 text-xs text-muted-foreground">{balanceNote}</p>}
+      {balanceNote && <p className="mt-2 text-caption text-muted-foreground">{balanceNote}</p>}
 
       {summary.warnings.map((w) => (
-        <p key={w} className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
+        <p key={w} className="mt-2 flex items-start gap-1.5 text-caption text-warning">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />{w}
         </p>
       ))}
@@ -175,22 +177,22 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
       {!phone && panel}
 
       {saveError && !saving && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-soft px-3.5 py-2.5 text-sm text-brand">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-card bg-brand-soft px-3 py-2 text-body-sm text-error" role="alert">
           <span>{saveMessage ? `${saveMessage} Die Änderung wurde zurückgenommen.` : 'Änderung konnte nicht gespeichert werden und wurde zurückgenommen.'}</span>
-          {!saveMessage && <button onClick={onRetry} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Erneut versuchen</button>}
+          {!saveMessage && <Button size="sm" variant="primary" onClick={onRetry}>Erneut versuchen</Button>}
         </div>
       )}
-      <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-caption text-muted-foreground">
         <span>{saving ? 'Speichern…' : 'Tag antippen, um km zu ändern oder Einheiten zu verschieben.'}</span>
         <span className="flex shrink-0 flex-wrap items-center gap-1.5">
           <PauseControl today={today} compact />
-          <Link href="/plan/anpassen" className="tap inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 font-medium text-foreground hover:bg-secondary">
-            <SlidersHorizontal className="h-3.5 w-3.5" /> Plan anpassen
+          <Link href="/plan/anpassen" className={cn(buttonVariants({ size: 'sm' }), 'text-foreground')}>
+            <SlidersHorizontal /> Plan anpassen
           </Link>
         </span>
         {edited && (
           <button onClick={() => change(resetWeek(week, overrides))} disabled={saving}
-            className="inline-flex items-center gap-1 hover:text-foreground disabled:opacity-50">
+            className="tap inline-flex items-center gap-1 hover:text-foreground disabled:opacity-50">
             <RotateCcw className="h-3.5 w-3.5" /> Woche zurücksetzen
           </button>
         )}
@@ -200,18 +202,18 @@ export function WeekEditor({ today, sessions, baseSessions, autoSessions, overri
 }
 
 // Cross-training on that day: one letter per session (K Kraft · S Schwimmen · R Rad · G Gym), the label as tooltip.
-// A kettlebell marker joins them: a grey dashed K when planned (lighter when optional), amber when the day is past
+// A kettlebell marker joins them: a grey dashed K when planned (lighter when optional), in the warning colour when the day is past
 // and synced without a session ("ausgelassen"), and when done the day's K/G pill turns teal.
 const KB_LABEL: Record<KbMark, string> = { planned: 'Kettlebell geplant', optional: 'Kettlebell optional', done: 'Kettlebell erledigt', skipped: 'Kettlebell ausgelassen' }
 function CrossPills({ pills = [], kb, wide, className }: { pills?: CrossPill[]; kb?: KbMark | null; wide?: boolean; className?: string }) {
   if (!pills.length && !kb) return null
   const doneAt = kb === 'done' ? Math.max(0, pills.findIndex((p) => p.kb)) : -1
-  const pill = 'inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none'
+  const pill = 'inline-flex h-5 min-w-5 items-center justify-center rounded-control px-1 text-caption font-semibold leading-none'
   return (
     <span className={cn('inline-flex gap-0.5', className)}>
       {kb && kb !== 'done' && (
         <span title={KB_LABEL[kb]} aria-label={KB_LABEL[kb]}
-          className={cn(pill, kb === 'skipped' ? 'bg-amber-100 text-amber-800' : 'border border-dashed border-muted-foreground/50 text-muted-foreground', kb === 'optional' && 'opacity-60')}>
+          className={cn(pill, kb === 'skipped' ? 'bg-warning-soft text-warning' : 'border border-dashed border-muted-foreground/50 text-muted-foreground', kb === 'optional' && 'opacity-60')}>
           K{wide && kb === 'skipped' ? ' ausgelassen' : ''}
         </span>
       )}
@@ -235,26 +237,28 @@ function DayCell({ day, today, edited, auto, cross, kb, selected, onSelect }: {
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
-        'relative rounded-lg border px-1 py-2 flex flex-col items-center gap-1 text-center transition-colors hover:border-foreground/40',
-        day.date === today ? 'border-foreground/60' : 'border-border',
+        'relative flex min-w-0 flex-col items-center gap-1 rounded-card border bg-card px-1 py-2 text-center transition-colors hover:border-foreground/40',
+        day.date === today ? 'border-brand' : 'border-border',
         mark.ran && 'bg-teal-soft/60 border-teal/30',
         status === 'planned' && 'border-dashed',
-        status === 'paused' && 'bg-amber-50 border-amber-200',
+        status === 'paused' && 'bg-warning-soft border-warning-border',
         selected && 'ring-2 ring-foreground ring-offset-1',
       )}
     >
-      {edited && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-brand" aria-label="geändert" />}
-      {auto && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-muted-foreground/60" aria-label="automatisch angepasst" />}
-      <CrossPills pills={cross} kb={kb} className="absolute left-1 top-1" />
-      <span className="text-[11px] text-muted-foreground uppercase">{format(parseISO(day.date), 'EEEEEE', { locale: de })}</span>
+      {edited && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-brand" aria-label="geändert" />}
+      {auto && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/60" aria-label="automatisch angepasst" />}
+      <span className="font-mono text-caption uppercase text-muted-foreground">{format(parseISO(day.date), 'EEEEEE', { locale: de })}</span>
       <span className="h-4 grid place-items-center">
         {mark.ran ? <RunTick diffKm={mark.diffKm} />
-          : status === 'missed' ? <span className="text-[10px] font-medium text-brand">offen</span>
-          : status === 'paused' ? <span className="text-[10px] font-medium text-amber-700">{day.session?.paused === 'krank' ? 'krank' : 'Pause'}</span>
+          : status === 'missed' ? <span className="text-caption font-medium text-brand">offen</span>
+          : status === 'paused' ? <span className="text-caption font-medium text-warning">{day.session?.paused === 'krank' ? 'krank' : 'Pause'}</span>
           : <span className={cn('h-1.5 w-1.5 rounded-full', day.plannedKm ? 'bg-muted-foreground/40' : 'bg-transparent')} />}
       </span>
-      <span className="text-xs tabular-nums font-medium">{day.actualKm || day.plannedKm ? fmtKm(day.actualKm || day.plannedKm) : '–'}</span>
-      <span className="text-[10px] tabular-nums text-muted-foreground">{day.actualKm && day.plannedKm ? `/${fmtKm(day.plannedKm)}` : ' '}</span>
+      <span className="text-body-sm font-medium tabular-nums">{day.actualKm || day.plannedKm ? fmtKm(day.actualKm || day.plannedKm) : '–'}</span>
+      <span className="text-caption tabular-nums text-muted-foreground">{day.actualKm && day.plannedKm ? `/${fmtKm(day.plannedKm)}` : ' '}</span>
+      {/* Wide screens: the session's title fits under the figures (the week strip spans the page from lg up) */}
+      {day.session && day.session.type !== 'rest' && <span className="hidden w-full truncate px-1 text-caption text-muted-foreground lg:block">{day.session.title}</span>}
+      <CrossPills pills={cross} kb={kb} className="flex-wrap justify-center" />
     </button>
   )
 }
@@ -288,13 +292,13 @@ function DayPanel({ day, why, edited, today, sessions, actualKm, actual, saving,
   const pendingTarget = targets.find((t) => t.date === pending)
 
   return (
-    <div className="mt-3 rounded-xl border border-border p-3.5">
+    <div className="mt-3 rounded-card p-3 shadow-hairline sm:p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-semibold">{dayLabel(day.date)}</span>
-        <span className="text-sm">{s?.title ?? 'Frei'}</span>
+        <span className="text-body-sm font-semibold">{dayLabel(day.date)}</span>
+        <span className="text-body-sm">{s?.title ?? 'Frei'}</span>
         {s && <TypeTag type={s.type} />}
       </div>
-      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground tabular-nums">
         <span>Plan {fmtKm(day.plannedKm)} km</span>
         <span>Gelaufen {fmtKm(day.actualKm)} km</span>
         {day.openKm > 0 && <span className="font-medium text-brand">Offen {fmtKm(day.openKm)} km</span>}
@@ -304,12 +308,12 @@ function DayPanel({ day, why, edited, today, sessions, actualKm, actual, saving,
       </div>
       {s && <SessionDetails session={s} why={why} />}
       {z2 && day.actualKm === 0 && day.date >= today && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-caption">
           <span className="font-medium">Laufen als</span>
-          <div className="inline-flex rounded-lg border border-border p-0.5" role="group" aria-label="Zone 2 oder Tempo">
+          <div className="inline-flex rounded-control p-0.5 shadow-hairline" role="group" aria-label="Zone 2 oder Tempo">
             {([['z2', 'Locker (Z2)'], ['pace', 'Tempolauf']] as const).map(([k, label]) => (
               <button key={k} type="button" disabled={saving} aria-pressed={z2 === k} onClick={() => z2 !== k && onZ2(k === 'z2')}
-                className={cn('tap rounded-md px-2.5 py-1 font-medium disabled:opacity-50', z2 === k ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground')}>
+                className={cn('tap rounded-control px-2.5 py-1 font-medium disabled:opacity-50', z2 === k ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground')}>
                 {label}
               </button>
             ))}
@@ -318,68 +322,65 @@ function DayPanel({ day, why, edited, today, sessions, actualKm, actual, saving,
         </div>
       )}
       {strengthEditable(s, day.date) && s && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-caption">
           <span className="inline-flex items-center gap-1 font-medium"><Dumbbell className="h-3.5 w-3.5" aria-hidden /> Kettlebell</span>
-          <div className="inline-flex rounded-lg border border-border p-0.5" role="group" aria-label="Kettlebell an diesem Tag">
+          <div className="inline-flex rounded-control p-0.5 shadow-hairline" role="group" aria-label="Kettlebell an diesem Tag">
             {([[true, 'An'], [false, 'Aus']] as const).map(([on, label]) => (
               <button key={label} type="button" disabled={saving} aria-pressed={!!s.strength === on} onClick={() => !!s.strength !== on && onKb()}
-                className={cn('tap rounded-md px-2.5 py-1 font-medium disabled:opacity-50', !!s.strength === on ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground')}>
+                className={cn('tap rounded-control px-2.5 py-1 font-medium disabled:opacity-50', !!s.strength === on ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground')}>
                 {label}
               </button>
             ))}
           </div>
           {kb === 'done' && <span className="font-medium text-teal">erledigt</span>}
-          {kb === 'skipped' && <span className="font-medium text-amber-700">ausgelassen</span>}
+          {kb === 'skipped' && <span className="font-medium text-warning">ausgelassen</span>}
           {kb === 'optional' && <span className="text-muted-foreground">optional</span>}
           {s.strength && s.type === 'rest' && <span className="text-muted-foreground">{strengthDetail(s)}</span>}
         </div>
       )}
-      {day.status === 'paused' && <p className="mt-2 text-xs text-muted-foreground">Dieser Tag liegt in deiner {s?.paused === 'krank' ? 'Krankheit' : 'Pause'}.</p>}
+      {day.status === 'paused' && <p className="mt-2 text-caption text-muted-foreground">Dieser Tag liegt in deiner {s?.paused === 'krank' ? 'Krankheit' : 'Pause'}.</p>}
       {s?.type !== 'race' && day.status !== 'paused' && <KmEditor plannedKm={day.plannedKm} session={s} saving={saving} onSave={onSetKm} />}
       {day.date >= today && day.actualKm === 0 && day.status !== 'paused' && s?.type !== 'race' && !s?.anchor && (
         <div className="flex flex-wrap items-end gap-2">
           <SessionEditor key={day.date} date={day.date} current={s} sessions={effective} saving={saving} onSave={onEdit} />
           {edited && (
-            <button type="button" onClick={onRestore} disabled={saving}
-              className="tap mt-3 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50">
-              <RotateCcw className="h-3.5 w-3.5" /> Original wiederherstellen
-            </button>
+            <Button size="sm" variant="ghost" onClick={onRestore} disabled={saving} className="mt-3">
+              <RotateCcw /> Original wiederherstellen
+            </Button>
           )}
         </div>
       )}
 
       {movable ? (
         <>
-          <div className="mt-3 text-xs font-medium">
+          <div className="mt-3 text-caption font-medium">
             {day.status === 'partial' ? `Einheit tauschen oder offene ${fmtKm(day.openKm)} km verschieben nach:` : day.status === 'missed' ? 'Einheit nachholen am:' : 'Einheit verschieben nach:'}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {targets.map((t) => (
               <button key={t.date} disabled={saving}
                 onClick={() => (t.modes.length === 1 ? onMove(t.date, t.modes[0]) : setPending(pending === t.date ? null : t.date))}
-                className={cn('rounded-lg border px-2.5 py-1.5 text-xs tabular-nums hover:border-foreground/50 disabled:opacity-50',
-                  pending === t.date ? 'border-foreground bg-secondary' : 'border-border')}>
+                className={cn('tap h-8 rounded-control px-2.5 text-caption tabular-nums disabled:opacity-50',
+                  pending === t.date ? 'bg-secondary ring-2 ring-foreground' : 'bg-card shadow-hairline hover:bg-secondary')}>
                 <span className="font-medium">{format(parseISO(t.date), 'EEEEEE d.M.', { locale: de })}</span>
                 <span className="ml-1.5 text-muted-foreground">{t.state.plannedKm ? `${fmtKm(t.state.plannedKm)} km` : 'frei'}</span>
               </button>
             ))}
           </div>
           {pendingTarget && (
-            <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+            <div className="mt-2.5 flex flex-wrap items-center gap-2 text-caption">
               <span className="text-muted-foreground">{dayLabel(pendingTarget.date)} hat schon {fmtKm(pendingTarget.state.plannedKm)} km:</span>
-              <button onClick={() => onMove(pendingTarget.date, 'swap')} disabled={saving}
-                className="inline-flex items-center gap-1 rounded-lg bg-foreground px-2.5 py-1.5 font-medium text-background disabled:opacity-50">
+              <Button size="sm" variant="primary" onClick={() => onMove(pendingTarget.date, 'swap')} disabled={saving}>
                 Tauschen
-              </button>
-              <button onClick={() => onMove(pendingTarget.date, 'merge')} disabled={saving}
-                className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 font-medium disabled:opacity-50">
-                Zusammenlegen <ArrowRight className="h-3 w-3" /> {fmtKm(pendingTarget.state.plannedKm + (day.status === 'planned' ? day.plannedKm : day.openKm))} km
-              </button>
+              </Button>
+              <Button size="sm" onClick={() => onMove(pendingTarget.date, 'merge')} disabled={saving} className="text-foreground">
+                Zusammenlegen <ArrowRight /> {fmtKm(pendingTarget.state.plannedKm + (day.status === 'planned' ? day.plannedKm : day.openKm))} km
+              </Button>
             </div>
           )}
         </>
       ) : (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-caption text-muted-foreground">
           {s?.type === 'race' ? 'Das Rennen bleibt, wo es ist.'
             : day.status === 'done' ? 'Erledigt.'
             : day.status === 'rest' || day.status === 'extra' ? 'Nichts zu verschieben.'
@@ -407,26 +408,21 @@ function KmEditor({ plannedKm, session, saving, onSave }: {
     if (changed && !saving) onSave(km)
   }
   return (
-    <form onSubmit={submit} className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+    <form onSubmit={submit} className="mt-3 flex flex-wrap items-center gap-2 text-caption">
       <label htmlFor="planned-km" className="font-medium">Geplante km</label>
       <div className="flex items-center gap-1">
-        <button type="button" onClick={() => step(-1)} aria-label="1 km weniger" disabled={saving}
-          className="grid h-7 w-7 place-items-center rounded-md border border-border hover:border-foreground/50 disabled:opacity-50">−</button>
-        <input id="planned-km" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} disabled={saving}
-          aria-invalid={km == null}
-          className={cn('h-7 w-16 rounded-md border bg-card px-2 text-center tabular-nums outline-none focus:border-foreground/60',
-            km == null ? 'border-brand' : 'border-border')} />
-        <button type="button" onClick={() => step(1)} aria-label="1 km mehr" disabled={saving}
-          className="grid h-7 w-7 place-items-center rounded-md border border-border hover:border-foreground/50 disabled:opacity-50">+</button>
+        <Button size="sm" onClick={() => step(-1)} aria-label="1 km weniger" disabled={saving} className="w-8 px-0 text-body-sm">−</Button>
+        <Input small id="planned-km" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} disabled={saving}
+          aria-invalid={km == null} className="w-16 text-center tabular-nums" />
+        <Button size="sm" onClick={() => step(1)} aria-label="1 km mehr" disabled={saving} className="w-8 px-0 text-body-sm">+</Button>
       </div>
-      <button type="submit" disabled={!changed || saving}
-        className="rounded-lg bg-foreground px-2.5 py-1.5 font-medium text-background hover:bg-foreground/85 disabled:opacity-40">
+      <Button type="submit" size="sm" variant="primary" disabled={!changed || saving}>
         Übernehmen
-      </button>
-      {km == null && <span className="text-brand">0–60 km, z. B. 14,5</span>}
+      </Button>
+      {km == null && <span className="text-error">0–60 km, z. B. 14,5</span>}
       {effect?.kind === 'ok' && <span className="basis-full text-muted-foreground">Neu: {effect.notes}</span>}
       {effect?.kind === 'block' && (
-        <span className="basis-full text-amber-700">Der Block passt nicht in {fmtKm(km!)} km und wird gekürzt: {effect.notes}</span>
+        <span className="basis-full text-warning">Der Block passt nicht in {fmtKm(km!)} km und wird gekürzt: {effect.notes}</span>
       )}
     </form>
   )
@@ -443,7 +439,7 @@ function WeekKmWhy({ b, over }: { b: ReturnType<typeof weekBreakdown>; over: boo
   ].filter((p) => Math.abs(p.km) >= 0.5)
   if (!parts.length) return null
   return (
-    <div className="mt-2 rounded-xl bg-secondary/60 px-3.5 py-2.5 text-xs">
+    <div className="mt-2 rounded-card bg-secondary px-3 py-2 text-caption">
       <div className="font-medium">Warum {fmtKm(b.forecastKm)} statt {b.targetKm} km?</div>
       <ul className="mt-1 grid gap-0.5 tabular-nums text-muted-foreground">
         {parts.map((p) => (
@@ -457,7 +453,7 @@ function WeekKmWhy({ b, over }: { b: ReturnType<typeof weekBreakdown>; over: boo
 function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button aria-label={label} title={label} disabled={disabled} onClick={onClick}
-      className="tap grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30">
+      className="tap grid h-8 w-8 place-items-center rounded-control text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30">
       {children}
     </button>
   )
@@ -471,7 +467,7 @@ function RunTick({ diffKm, className }: { diffKm: number | null; className?: str
     <span className={cn('inline-flex items-center gap-0.5', className)} aria-label={label}>
       <Check className="h-3.5 w-3.5 text-teal" aria-hidden />
       {diffKm != null && (
-        <span className={cn('text-[10px] font-medium tabular-nums', diffKm < 0 ? 'text-brand' : 'text-muted-foreground')}>
+        <span className={cn('text-caption font-medium tabular-nums', diffKm < 0 ? 'text-brand' : 'text-muted-foreground')}>
           {diffKm < 0 ? '−' : '+'}{fmtKm(Math.abs(diffKm))}
         </span>
       )}
@@ -490,16 +486,16 @@ function DayRow({ day, today, edited, auto, cross, kb, selected, onSelect }: {
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
-        'flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors',
-        day.date === today ? 'border-foreground/60' : 'border-border',
+        'flex w-full items-center gap-3 rounded-card border bg-card px-3 py-2.5 text-left transition-colors',
+        day.date === today ? 'border-brand' : 'border-border',
         mark.ran && 'bg-teal-soft/60 border-teal/30',
         status === 'planned' && 'border-dashed',
-        status === 'paused' && 'bg-amber-50 border-amber-200',
+        status === 'paused' && 'bg-warning-soft border-warning-border',
         selected && 'ring-2 ring-foreground ring-offset-1',
       )}
     >
-      <span className="w-11 shrink-0 text-xs leading-tight text-muted-foreground">
-        <span className="block font-medium uppercase text-foreground">{format(parseISO(day.date), 'EEEEEE', { locale: de })}</span>
+      <span className="w-11 shrink-0 text-caption text-muted-foreground">
+        <span className="block font-mono font-medium uppercase text-foreground">{format(parseISO(day.date), 'EEEEEE', { locale: de })}</span>
         {format(parseISO(day.date), 'd.M.')}
       </span>
       <span className="min-w-0 flex-1">
@@ -509,14 +505,14 @@ function DayRow({ day, today, edited, auto, cross, kb, selected, onSelect }: {
           {auto && <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" aria-label="automatisch angepasst" />}
           <CrossPills pills={cross} kb={kb} wide />
         </span>
-        <span className="mt-0.5 block truncate text-sm">{session?.title ?? 'Ruhetag'}</span>
+        <span className="mt-0.5 block truncate text-body-sm">{session?.title ?? 'Ruhetag'}</span>
       </span>
       <span className="shrink-0 text-right tabular-nums">
-        <span className="block text-sm font-medium">{day.actualKm || day.plannedKm ? `${fmtKm(day.actualKm || day.plannedKm)} km` : '–'}</span>
-        <span className="block text-[11px] text-muted-foreground">
+        <span className="block text-body-sm font-medium">{day.actualKm || day.plannedKm ? `${fmtKm(day.actualKm || day.plannedKm)} km` : '–'}</span>
+        <span className="block text-caption text-muted-foreground">
           {mark.ran ? <RunTick diffKm={mark.diffKm} className="justify-end" />
             : status === 'missed' ? <span className="text-brand">offen</span>
-            : status === 'paused' ? <span className="text-amber-700">{session?.paused === 'krank' ? 'krank' : 'Pause'}</span>
+            : status === 'paused' ? <span className="text-warning">{session?.paused === 'krank' ? 'krank' : 'Pause'}</span>
             : ' '}
         </span>
       </span>

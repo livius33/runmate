@@ -11,6 +11,8 @@ import { Thermometer, X } from 'lucide-react'
 import { allSessions, activeBlock } from '@/lib/plan/blocks'
 import { pauseEnd, pauseLayer, returnText, PAUSE_LABEL, type Pause, type PauseKind } from '@/lib/plan/pause'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/field'
 
 const day = (d: string, n: number) => format(addDays(parseISO(d), n), 'yyyy-MM-dd')
 
@@ -64,68 +66,62 @@ export function PauseControl({ today, compact = false, rebuildLink = true }: { t
   if (current && window) {
     if (compact) return null                                   // the Heute card shows the running pause
     return (
-      <div className={cn('rounded-xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900', !compact && 'mt-3')}>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+      <div className={cn('rounded-card bg-warning-soft px-3 py-2.5 text-body-sm', !compact && 'mt-3')}>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-warning">
           <Thermometer className="h-4 w-4" />
           {PAUSE_LABEL[current.kind]} seit {dm(current.from)}{current.to ? ` bis ${dm(current.to)}` : ' (noch offen)'}
         </div>
-        {!running || current.to ? <p className="mt-1.5 leading-snug">{returnText(window)}</p>
-          : <p className="mt-1.5 leading-snug">Alle Einheiten bis heute fallen aus. Sag Bescheid, ab wann du wieder läufst – dann plant Runmate den Wiedereinstieg.</p>}
+        {!running || current.to ? <p className="mt-1">{returnText(window)}</p>
+          : <p className="mt-1">Alle Einheiten bis heute fallen aus. Sag Bescheid, ab wann du wieder läufst – dann plant Runmate den Wiedereinstieg.</p>}
         {window.replan && generated && rebuildLink && (
-          <Link href="/plan/anpassen" className="mt-1.5 inline-block font-medium underline underline-offset-2">Plan neu aufbauen →</Link>
+          <Link href="/plan/anpassen" className="mt-1 inline-block font-medium underline underline-offset-2">Plan neu aufbauen →</Link>
         )}
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-caption">
           {running && !current.to && (
             <>
               <label className="flex items-center gap-1.5">
                 <span>Wieder fit ab</span>
-                <input type="date" value={backFrom} min={current.from} onChange={(e) => setBackFrom(e.target.value)}
-                  className="h-7 rounded-md border border-amber-200 bg-white px-1.5 tabular-nums" />
+                <Input small type="date" value={backFrom} min={current.from} onChange={(e) => setBackFrom(e.target.value)} className="w-auto tabular-nums" />
               </label>
-              <button type="button" disabled={m.isPending || !backFrom}
-                onClick={() => m.mutate({ method: 'PATCH', body: { id: current.id, to: day(backFrom, -1) < current.from ? current.from : day(backFrom, -1) } })}
-                className="rounded-lg bg-amber-900 px-2.5 py-1.5 font-medium text-white disabled:opacity-50">Übernehmen</button>
+              <Button size="sm" variant="primary" disabled={m.isPending || !backFrom}
+                onClick={() => m.mutate({ method: 'PATCH', body: { id: current.id, to: day(backFrom, -1) < current.from ? current.from : day(backFrom, -1) } })}>Übernehmen</Button>
             </>
           )}
-          <button type="button" disabled={m.isPending} onClick={() => m.mutate({ method: 'DELETE', id: current.id })}
-            className="inline-flex items-center gap-1 rounded-lg border border-amber-200 px-2.5 py-1.5 font-medium hover:bg-amber-100 disabled:opacity-50">
-            <X className="h-3.5 w-3.5" /> Pause löschen
-          </button>
+          <Button size="sm" disabled={m.isPending} onClick={() => m.mutate({ method: 'DELETE', id: current.id })}>
+            <X /> Pause löschen
+          </Button>
         </div>
-        {m.isError && <p className="mt-2 text-xs text-brand">{(m.error as Error).message}</p>}
+        {m.isError && <p className="mt-2 text-caption text-error">{(m.error as Error).message}</p>}
       </div>
     )
   }
 
   if (!form) {
     return (
-      <button type="button" onClick={() => { setForm(true); setFrom(today); setTo('') }}
-        className={cn('tap inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-secondary', !compact && 'mt-3')}>
-        <Thermometer className="h-3.5 w-3.5" /> Krank / Pause
-      </button>
+      <Button size="sm" onClick={() => { setForm(true); setFrom(today); setTo('') }} className={cn('text-foreground', !compact && 'mt-3')}>
+        <Thermometer /> Krank / Pause
+      </Button>
     )
   }
   return (
-    <form className={cn('flex flex-wrap items-center gap-2 rounded-xl bg-secondary/60 px-3 py-2.5 text-xs', !compact && 'mt-3')}
+    <form className={cn('flex flex-wrap items-center gap-2 rounded-card bg-secondary px-3 py-2.5 text-caption', !compact && 'mt-3')}
       onSubmit={(e) => { e.preventDefault(); m.mutate({ method: 'POST', body: { kind, from, to: to || null } }, { onSuccess: () => setForm(false) }) }}>
-      <div className="inline-flex rounded-lg border border-border bg-card p-0.5" role="group" aria-label="Art">
+      <div className="inline-flex rounded-control bg-card p-0.5 shadow-hairline" role="group" aria-label="Art">
         {(['krank', 'pause'] as const).map((k) => (
           <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}
-            className={cn('rounded-md px-2.5 py-1 font-medium', kind === k ? 'bg-foreground text-background' : 'text-muted-foreground')}>{PAUSE_LABEL[k]}</button>
+            className={cn('tap rounded-control px-2.5 py-1 font-medium', kind === k ? 'bg-foreground text-background' : 'text-muted-foreground')}>{PAUSE_LABEL[k]}</button>
         ))}
       </div>
       <label className="flex items-center gap-1.5">ab
-        <input type="date" value={from} min={day(today, -14)} onChange={(e) => setFrom(e.target.value)} required
-          className="h-7 rounded-md border border-border bg-card px-1.5 tabular-nums" />
+        <Input small type="date" value={from} min={day(today, -14)} onChange={(e) => setFrom(e.target.value)} required className="w-auto tabular-nums" />
       </label>
       <label className="flex items-center gap-1.5">bis
-        <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)}
-          className="h-7 rounded-md border border-border bg-card px-1.5 tabular-nums" />
+        <Input small type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="w-auto tabular-nums" />
       </label>
       <span className="text-muted-foreground">{to ? '' : 'leer = noch offen'}</span>
-      <button type="submit" disabled={m.isPending} className="rounded-lg bg-foreground px-2.5 py-1.5 font-medium text-background disabled:opacity-50">Speichern</button>
-      <button type="button" onClick={() => setForm(false)} className="px-1.5 py-1.5 font-medium text-muted-foreground hover:text-foreground">Abbrechen</button>
-      {m.isError && <p className="basis-full text-brand">{(m.error as Error).message}</p>}
+      <Button type="submit" size="sm" variant="primary" disabled={m.isPending}>Speichern</Button>
+      <Button size="sm" variant="ghost" onClick={() => setForm(false)}>Abbrechen</Button>
+      {m.isError && <p className="basis-full text-error">{(m.error as Error).message}</p>}
     </form>
   )
 }

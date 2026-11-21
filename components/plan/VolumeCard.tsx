@@ -4,7 +4,7 @@ import { fmtKm } from '@/lib/plan/format'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { activeBlock } from '@/lib/plan/blocks'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
-import { Card } from './ui'
+import { Card } from '@/components/ui/card'
 
 const BRAND = 'hsl(358 75% 59%)'
 const PLAN = 'hsl(220 9% 62%)'
@@ -26,8 +26,8 @@ export function VolumeCard({ today, actuals }: { today: string; actuals: Map<str
   })
 
   return (
-    <Card title="Wochenumfang" aside={
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+    <Card title="Wochenumfang" className="h-full" aside={
+      <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px] border-[1.5px]" style={{ borderColor: PLAN }} />Plan</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: BRAND }} />Gelaufen</span>
       </div>
@@ -44,7 +44,7 @@ export function VolumeCard({ today, actuals }: { today: string; actuals: Map<str
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">Rahmen = geplante km, Füllung = gelaufene km. Blockvolumen KW {block[0].kw}–{block[block.length - 1].kw}: {fmtKm(blockKm)} km.</p>
+      <p className="mt-2 text-caption text-muted-foreground">Rahmen = geplante km, Füllung = gelaufene km. Blockvolumen KW {block[0].kw}–{block[block.length - 1].kw}: {fmtKm(blockKm)} km.</p>
     </Card>
   )
 }
@@ -53,7 +53,7 @@ function VolumeTooltip({ active, payload }: { active?: boolean; payload?: { payl
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-md">
+    <div className="rounded-card bg-card px-3 py-2 text-caption shadow-overlay">
       <div className="font-semibold">{d.label}</div>
       <div className="text-muted-foreground">{d.focus}</div>
       <div className="mt-1 tabular-nums">Plan {d.plan} km · Gelaufen {d.ist != null ? `${d.ist} km` : '–'}</div>

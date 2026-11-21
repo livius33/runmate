@@ -8,7 +8,10 @@ import { estimateDurationS, fmtDuration, fmtKm } from '@/lib/plan/format'
 import { weekOf } from '@/lib/plan/blocks'
 import { changeWhy, type Overrides } from '@/lib/plan/effective'
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
-import { Card, Stat, TypeTag, Pill } from './ui'
+import { Card } from '@/components/ui/card'
+import { Chip } from '@/components/ui/chip'
+import { Figure } from '@/components/ui/figure'
+import { TypeTag } from './tags'
 import { WeekEditor } from './WeekEditor'
 import { SessionDetails } from './SessionDetails'
 
@@ -19,7 +22,7 @@ function relativeDay(date: string, today: string) {
   return format(parseISO(date), 'EEEE', { locale: de })
 }
 
-export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough, sessions, overrides, baseSessions, autoSessions, engineOverrides, engineNotes, onChange, saving, saveError, saveMessage, onRetry }: {
+export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough, sessions, overrides, baseSessions, autoSessions, engineOverrides, engineNotes, onChange, saving, saveError, saveMessage, onRetry, className }: {
   today: string
   actuals: Map<string, DayActual>
   cross?: Map<string, { letter: string; label: string; kb?: boolean }[]>   // cross-training sessions per day (08-04)
@@ -36,6 +39,7 @@ export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough,
   saveError: boolean
   saveMessage?: string
   onRetry: () => void
+  className?: string
 }) {
   const doneToday = actuals.has(today)
   const upcoming = sessions.filter(
@@ -49,25 +53,26 @@ export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough,
   return (
     <Card
       title="Trainingsplan"
-      aside={week && <Pill className="tabular-nums">KW {week.kw} · {week.km} km</Pill>}
+      aside={week && <Chip className="font-mono tabular-nums">KW {week.kw} · {week.km} km</Chip>}
+      className={className}
     >
-      <div className="grid gap-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         {next ? <NextSession session={next} today={today} why={changeWhy(overrides[next.date], engineNotes.get(next.date))} /> : (
-          <div className="rounded-xl border border-border p-4 text-sm text-muted-foreground">Keine Einheiten mehr geplant.</div>
+          <div className="rounded-card p-4 text-body-sm text-muted-foreground shadow-hairline">Keine Einheiten mehr geplant.</div>
         )}
         <ul className="flex flex-col gap-2">
           {after.map((s) => (
-            <li key={s.date} className="rounded-xl border border-border px-3.5 py-2.5">
+            <li key={s.date} className="rounded-card px-3 py-2.5 shadow-hairline">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium truncate">{s.title}</span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                <span className="truncate text-body-sm font-medium">{s.title}</span>
+                <span className="flex items-center gap-1 text-caption text-muted-foreground shrink-0">
                   <CalendarDays className="h-3.5 w-3.5" />{relativeDay(s.date, today)}
                 </span>
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <TypeTag type={s.type} />
-                {s.km && <Pill>{fmtKm(s.km)} km</Pill>}
-                {s.pace && <Pill>@ {s.pace}/km</Pill>}
+                {s.km && <Chip className="tabular-nums">{fmtKm(s.km)} km</Chip>}
+                {s.pace && <Chip className="tabular-nums">@ {s.pace}/km</Chip>}
               </div>
               <SessionDetails session={s} compact />
             </li>
@@ -82,21 +87,21 @@ export function TrainingSchedule({ today, actuals, cross, kbDone, syncedThrough,
 
 function NextSession({ session, today, why }: { session: PlanSession; today: string; why: string[] }) {
   return (
-    <div className="rounded-xl border border-border p-4 shadow-[0_4px_16px_rgba(16,24,40,0.06)]">
-      <div className="text-xs text-muted-foreground">Nächste Einheit</div>
+    <div className="rounded-card bg-card p-4 shadow-raised">
+      <div className="text-caption text-muted-foreground">Nächste Einheit</div>
       <div className="mt-2 flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold tracking-tight">{session.title}</h3>
-        {session.key && <span className="rounded-full bg-foreground px-2 py-0.5 text-[11px] font-medium text-background">Kerneinheit</span>}
+        <h3 className="text-title-sm">{session.title}</h3>
+        {session.key && <Chip tone="solid">Kerneinheit</Chip>}
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <Pill>{relativeDay(session.date, today)}, {format(parseISO(session.date), 'd. MMM', { locale: de })}</Pill>
+        <Chip>{relativeDay(session.date, today)}, {format(parseISO(session.date), 'd. MMM', { locale: de })}</Chip>
         <TypeTag type={session.type} />
       </div>
       <SessionDetails session={session} why={why} />
-      <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-3">
-        <Stat label="Distanz" value={session.km ? fmtKm(session.km) : '–'} unit="km" />
-        <Stat label="Zieltempo" value={session.pace ?? 'locker'} unit={session.pace ? '/km' : undefined} />
-        <Stat label="Dauer ca." value={session.km ? fmtDuration(estimateDurationS(session)) : '–'} />
+      <div className="mt-3 grid grid-cols-3 gap-3 border-t border-border pt-3">
+        <Figure label="Distanz" value={session.km ? fmtKm(session.km) : '–'} unit="km" />
+        <Figure label="Zieltempo" value={session.pace ?? 'locker'} unit={session.pace ? '/km' : undefined} />
+        <Figure label="Dauer ca." value={session.km ? fmtDuration(estimateDurationS(session)) : '–'} />
       </div>
     </div>
   )

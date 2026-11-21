@@ -3,7 +3,7 @@ import { de } from 'date-fns/locale'
 import { fmtPace, fmtClock } from '@/lib/plan/format'
 import Link from 'next/link'
 import { activeBlock, blocks, weekOf } from '@/lib/plan/blocks'
-import { Pill } from './ui'
+import { Chip } from '@/components/ui/chip'
 
 // Title, code and countdown come from the active block's race.
 export function PlanHeader({ today }: { today: string }) {
@@ -19,31 +19,31 @@ export function PlanHeader({ today }: { today: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-      <div className="h-14 w-14 shrink-0 rounded-2xl bg-brand text-white grid place-items-center text-lg font-bold tracking-tight">
+      <div className="h-14 w-14 shrink-0 grid place-items-center rounded-card bg-brand text-title-sm text-white">
         {race.code}
       </div>
       <div className="min-w-0">
-        <h1 className="text-2xl sm:text-[28px] font-semibold tracking-tight">{`${race.name} Plan`}</h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <h1 className="text-title sm:text-display">{`${race.name} Plan`}</h1>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
           <span>Renntag</span>
-          <Pill className="border-brand/20 bg-brand-soft text-brand font-medium">
+          <Chip tone="brand">
             {format(parseISO(race.date), 'd. MMMM yyyy', { locale: de })}
-          </Pill>
-          <span className="ml-2">Woche</span>
-          <Pill className="border-teal/20 bg-teal-soft text-teal font-medium tabular-nums">
+          </Chip>
+          <span className="ml-1.5">Woche</span>
+          <Chip tone="teal" className="tabular-nums">
             {weekIdx > 0 ? weekIdx : '–'}/{raceWeeks.length}
-          </Pill>
-          <span className="ml-2">Ziel</span>
-          <Pill className="font-medium text-foreground tabular-nums">
+          </Chip>
+          <span className="ml-1.5">Ziel</span>
+          <Chip className="tabular-nums text-foreground">
             {fmtClock(race.goalS)} · {fmtPace(race.goalPaceS)}/km
-          </Pill>
+          </Chip>
         </div>
       </div>
       <div className="ml-auto text-right">
-        <div className="text-3xl font-semibold tabular-nums tracking-tight">
+        <div className="text-display tabular-nums">
           {daysLeft > 0 ? daysLeft : daysLeft === 0 ? 'Heute' : '✓'}
         </div>
-        <div className="text-xs text-muted-foreground">{daysLeft > 0 ? 'Tage bis zum Start' : daysLeft === 0 ? 'Renntag' : 'gelaufen'}</div>
+        <div className="text-caption text-muted-foreground">{daysLeft > 0 ? 'Tage bis zum Start' : daysLeft === 0 ? 'Renntag' : 'gelaufen'}</div>
       </div>
     </div>
   )
@@ -56,24 +56,24 @@ function BaseHeader({ today }: { today: string }) {
   const next = blocks().find((b) => !b.base && b.planStart > today)
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-      <div className="h-14 w-14 shrink-0 rounded-2xl bg-teal text-white grid place-items-center text-lg font-bold tracking-tight">GL</div>
+      <div className="h-14 w-14 shrink-0 grid place-items-center rounded-card bg-teal text-title-sm text-white">GL</div>
       <div className="min-w-0">
-        <h1 className="text-2xl sm:text-[28px] font-semibold tracking-tight">Grundlage</h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <h1 className="text-title sm:text-display">Grundlage</h1>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
           <span>Woche</span>
-          <Pill className="border-teal/20 bg-teal-soft text-teal font-medium tabular-nums">{idx > 0 ? idx : '–'}</Pill>
-          <span className="ml-2">Nächster Block</span>
+          <Chip tone="teal" className="tabular-nums">{idx > 0 ? idx : '–'}</Chip>
+          <span className="ml-1.5">Nächster Block</span>
           {next ? (
-            <Pill className="border-brand/20 bg-brand-soft text-brand font-medium">
+            <Chip tone="brand">
               {next.race.shortName} ab {format(parseISO(next.planStart), 'd. MMMM', { locale: de })}
-            </Pill>
+            </Chip>
           ) : <Link href="/plan/neu" className="text-brand hover:underline">noch nicht geplant</Link>}
         </div>
       </div>
       {next && (
         <div className="ml-auto text-right">
-          <div className="text-3xl font-semibold tabular-nums tracking-tight">{differenceInCalendarDays(parseISO(next.planStart), parseISO(today))}</div>
-          <div className="text-xs text-muted-foreground">Tage bis zum Blockstart</div>
+          <div className="text-display tabular-nums">{differenceInCalendarDays(parseISO(next.planStart), parseISO(today))}</div>
+          <div className="text-caption text-muted-foreground">Tage bis zum Blockstart</div>
         </div>
       )}
     </div>
@@ -88,22 +88,22 @@ function RecoveryHeader({ today }: { today: string }) {
   const idx = current?.recovery ? blocks.findIndex((w) => w.kw === current.kw) + 1 : 0
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-      <div className="h-14 w-14 shrink-0 rounded-2xl bg-teal text-white grid place-items-center text-lg font-bold tracking-tight">
+      <div className="h-14 w-14 shrink-0 grid place-items-center rounded-card bg-teal text-title-sm text-white">
         {block.race.code}
       </div>
       <div className="min-w-0">
-        <h1 className="text-2xl sm:text-[28px] font-semibold tracking-tight">{`Erholung nach ${block.race.shortName}`}</h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <h1 className="text-title sm:text-display">{`Erholung nach ${block.race.shortName}`}</h1>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
           <span>Woche</span>
-          <Pill className="border-teal/20 bg-teal-soft text-teal font-medium tabular-nums">
+          <Chip tone="teal" className="tabular-nums">
             {idx > 0 ? `${idx}/${blocks.length}` : today > block.end ? 'fertig' : '–'}
-          </Pill>
-          <Pill className="border-brand/20 bg-brand-soft text-brand font-medium">{`${block.race.shortName} ✓`}</Pill>
+          </Chip>
+          <Chip tone="brand">{`${block.race.shortName} ✓`}</Chip>
         </div>
       </div>
       <div className="ml-auto text-right">
-        <div className="text-3xl font-semibold tabular-nums tracking-tight">✓</div>
-        <div className="text-xs text-muted-foreground">gelaufen</div>
+        <div className="text-display tabular-nums">✓</div>
+        <div className="text-caption text-muted-foreground">gelaufen</div>
       </div>
     </div>
   )

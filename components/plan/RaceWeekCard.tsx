@@ -7,13 +7,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { raceWeek, raceWeekPhase } from '@/lib/plan/race-week'
 import { raceOf } from '@/lib/plan/blocks'
 import { cn } from '@/lib/utils'
-import { Card } from './ui'
+import { Card } from '@/components/ui/card'
 import { Upsell, useEntitlements } from '@/components/billing/Entitlements'
 
 type Checked = Record<string, boolean>
 
 // Race week day by day plus a checklist that is saved (same on phone and laptop).
-export function RaceWeekCard({ today }: { today: string }) {
+export function RaceWeekCard({ today, className }: { today: string; className?: string }) {
   const phase = raceWeekPhase(today)
   const { race, days: RACE_WEEK, checklist: CHECKLIST } = raceWeek(raceOf(today))
   const qc = useQueryClient()
@@ -42,7 +42,7 @@ export function RaceWeekCard({ today }: { today: string }) {
   if (phase === 'none') return null
   if (phase === 'preview') {
     return (
-      <p className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm">
+      <p className={cn('flex items-center gap-2 rounded-card bg-card px-4 py-3 text-body-sm shadow-raised', className)}>
         <Flag className="h-4 w-4 shrink-0 text-brand" />
         <span>Rennwoche ab {format(parseISO(RACE_WEEK[0].date), 'EEEEEE d.M.', { locale: de })}: {`${race.distanceKm > 40 ? 'Carb-Loading an den zwei Tagen davor' : 'am Tag davor kohlenhydratbetont essen'}, ${race.name} am ${format(parseISO(race.date), 'EEEEEE d.M.', { locale: de })}.`}</span>
       </p>
@@ -51,20 +51,20 @@ export function RaceWeekCard({ today }: { today: string }) {
 
   const done = CHECKLIST.filter((c) => checked[c.id]).length
   return (
-    <Card title="Rennwoche" aside={<span className="text-xs text-muted-foreground tabular-nums">Checkliste {done}/{CHECKLIST.length}</span>}>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+    <Card title="Rennwoche" aside={<span className="tabular-nums">Checkliste {done}/{CHECKLIST.length}</span>} className={className}>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <ol className="grid gap-2">
           {RACE_WEEK.map((d) => {
             const isToday = d.date === today, past = d.date < today
             return (
-              <li key={d.date} className={cn('rounded-xl px-3.5 py-2.5', isToday ? 'border-l-4 border-l-brand bg-brand-soft/40' : 'border border-border', past && 'opacity-55')}>
-                <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
+              <li key={d.date} className={cn('rounded-card px-3 py-2', isToday ? 'border-l-4 border-l-brand bg-brand-soft' : 'shadow-hairline', past && 'opacity-60')}>
+                <div className="flex flex-wrap items-baseline gap-x-2 text-body-sm">
                   <span className="font-semibold tabular-nums">{format(parseISO(d.date), 'EEEEEE d.M.', { locale: de })}</span>
                   <span className={cn(isToday && 'font-medium')}>{d.title}</span>
-                  {isToday && <span className="text-xs font-medium text-brand">heute</span>}
+                  {isToday && <span className="text-caption font-medium text-brand">heute</span>}
                 </div>
                 {(isToday || !past) && (
-                  <ul className="mt-1 grid gap-0.5 text-[13px] text-muted-foreground">
+                  <ul className="mt-1 grid gap-0.5 text-body-sm text-muted-foreground">
                     {d.focus.map((f) => <li key={f}>{f}</li>)}
                   </ul>
                 )}
@@ -73,19 +73,19 @@ export function RaceWeekCard({ today }: { today: string }) {
           })}
         </ol>
         <div>
-          <div className="mb-2 text-sm font-medium">Checkliste</div>
-          <ul className="grid gap-1.5 text-sm">
+          <div className="mb-2 text-body-sm font-medium">Checkliste</div>
+          <ul className="grid gap-1.5 text-body-sm">
             {CHECKLIST.map((c) => {
               const on = !!checked[c.id], due = c.due <= today && !on
               return (
                 <li key={c.id}>
                   <button onClick={() => toggle.mutate({ id: c.id, checked: !on })} aria-pressed={on} disabled={!canTick}
-                    className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-secondary">
-                    <span className={cn('mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border', on ? 'border-teal bg-teal text-white' : due ? 'border-brand' : 'border-border')}>
+                    className="flex w-full items-start gap-2 rounded-control px-1.5 py-1 text-left hover:bg-secondary">
+                    <span className={cn('mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border', on ? 'border-teal bg-teal text-white' : due ? 'border-brand' : 'border-border')}>
                       {on && <Check className="h-3 w-3" />}
                     </span>
                     <span className={cn(on && 'text-muted-foreground line-through', due && 'text-brand')}>
-                      {c.label} <span className="text-xs text-muted-foreground no-underline">· bis {format(parseISO(c.due), 'EEEEEE', { locale: de })}</span>
+                      {c.label} <span className="text-caption text-muted-foreground no-underline">· bis {format(parseISO(c.due), 'EEEEEE', { locale: de })}</span>
                     </span>
                   </button>
                 </li>
@@ -93,7 +93,7 @@ export function RaceWeekCard({ today }: { today: string }) {
             })}
           </ul>
           {!canTick && <Upsell feature="raceDay" className="mt-2" />}
-          {toggle.isError && <p className="mt-2 text-xs text-brand">Konnte nicht gespeichert werden, bitte noch einmal tippen.</p>}
+          {toggle.isError && <p className="mt-2 text-caption text-error">Konnte nicht gespeichert werden, bitte noch einmal tippen.</p>}
         </div>
       </div>
     </Card>

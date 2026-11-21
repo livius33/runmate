@@ -44,13 +44,13 @@ export function TodayFeedback({ today, sessions, runs, pauses }: { today: string
     <div className="mt-3 flex flex-col gap-2">
       {todays && <RunFeedback id={todays.id} value={value} onSaved={refresh} title="Wie war’s heute?" />}
       {hints.map((h) => (
-        <p key={h.kind} className={cn('flex items-start gap-2 text-sm', h.tone === 'warn' ? 'text-amber-800' : 'text-foreground/80')}>
+        <p key={h.kind} className={cn('flex items-start gap-2 text-body-sm', h.tone === 'warn' ? 'text-warning' : 'text-foreground/80')}>
           {h.tone === 'warn' ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> : <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" />}
           <span>{h.text}</span>
         </p>
       ))}
       {tooHard && (
-        <p className="flex items-start gap-2 text-sm text-amber-800">
+        <p className="flex items-start gap-2 text-body-sm text-warning">
           <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{tooHard.why[0]} <Link href="/plan/anpassen" className="font-medium underline underline-offset-2">Vorschlag unter Plan anpassen →</Link></span>
         </p>

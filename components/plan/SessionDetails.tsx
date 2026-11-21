@@ -8,7 +8,7 @@ import { describeStructure, glossaryFor, sessionStructure, rescale, stridesCount
 import { sessionTargets } from '@/lib/insights/today'
 import { strengthDetail } from '@/lib/plan/strength'
 import { cn } from '@/lib/utils'
-import { Pill } from './ui'
+import { Chip } from '@/components/ui/chip'
 
 // Plan history that edits append to the notes ("verschoben auf …", "+3 km Ausgleich", …):
 // shown under "Warum", not as part of the workout.
@@ -45,7 +45,7 @@ export function SessionDetails({ session, why = [], compact = false }: { session
 
   if (compact) {
     return (
-      <p className="mt-1.5 text-xs text-muted-foreground leading-snug">
+      <p className="mt-1.5 text-caption text-muted-foreground">
         {targets.join(' · ')}
         {lines.length > 0 && <> · {lines[1]}</>}
         {strides != null && <> · {strides} Steigerungen am Ende</>}
@@ -57,35 +57,35 @@ export function SessionDetails({ session, why = [], compact = false }: { session
   const terms = termsIn(session.title, workout, session.date)
   const glossary = glossaryFor(session.date)
   return (
-    <div className="mt-2 grid gap-2 text-sm">
+    <div className="mt-2 grid gap-2 text-body-sm">
       <div className="flex flex-wrap gap-1.5">
-        {targets.map((t) => <Pill key={t} className="tabular-nums text-foreground">{t}</Pill>)}
-        {session.km ? <Pill className="tabular-nums">ca. {fmtDuration(estimateDurationS(session))}</Pill> : null}
+        {targets.map((t) => <Chip key={t} className="tabular-nums text-foreground">{t}</Chip>)}
+        {session.km ? <Chip className="tabular-nums">ca. {fmtDuration(estimateDurationS(session))}</Chip> : null}
       </div>
       {lines.length > 0 && (
-        <ol className="grid gap-0.5 text-[13px]">
+        <ol className="grid gap-0.5 text-body-sm">
           {lines.map((l, i) => <li key={i} className="flex gap-2"><span className="text-muted-foreground tabular-nums">{i + 1}.</span>{l}</li>)}
         </ol>
       )}
-      {mismatch && <p className="text-xs text-amber-700">{mismatch}</p>}
+      {mismatch && <p className="text-caption text-warning">{mismatch}</p>}
       {strides != null && !structure && (
-        <p className="text-[13px]">Am Ende {strides} Steigerungen: je ca. 20 s zügig bis etwa 5-km-Tempo, locker zurück.</p>
+        <p className="text-body-sm">Am Ende {strides} Steigerungen: je ca. 20 s zügig bis etwa 5-km-Tempo, locker zurück.</p>
       )}
-      {rest && <p className="text-xs text-muted-foreground leading-relaxed">{rest}</p>}
-      {kb && <p className="text-[13px]">{kb}</p>}
+      {rest && <p className="text-caption text-muted-foreground">{rest}</p>}
+      {kb && <p className="text-body-sm">{kb}</p>}
       {terms.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <div className="flex flex-wrap items-center gap-1.5 text-caption">
           {terms.map((t) => (
             <button key={t} type="button" onClick={() => setTerm(term === t ? null : t)} aria-expanded={term === t}
-              className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5', term === t ? 'border-foreground bg-secondary' : 'border-border text-muted-foreground hover:text-foreground')}>
+              className={cn('tap inline-flex h-6 items-center gap-1 rounded-control px-2', term === t ? 'bg-secondary text-foreground shadow-hairline' : 'text-muted-foreground shadow-hairline hover:text-foreground')}>
               {t} <HelpCircle className="h-3 w-3" />
             </button>
           ))}
         </div>
       )}
-      {term && <p className="rounded-lg bg-secondary/70 px-3 py-2 text-xs leading-relaxed">{glossary[term]}</p>}
+      {term && <p className="rounded-card bg-secondary px-3 py-2 text-caption">{glossary[term]}</p>}
       {reasons.length > 0 && (
-        <p className="text-xs"><span className="text-muted-foreground">Warum: </span>{reasons.join(' · ')}</p>
+        <p className="text-caption"><span className="text-muted-foreground">Warum: </span>{reasons.join(' · ')}</p>
       )}
     </div>
   )

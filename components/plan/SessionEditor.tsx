@@ -9,6 +9,8 @@ import { parseKm } from '@/lib/plan/effective'
 import { blockPaces } from '@/lib/plan/blocks'
 import { EDIT_KINDS, editError, editSession, type EditKind } from '@/lib/plan/session-templates'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/field'
 import { SessionDetails } from './SessionDetails'
 
 export function SessionEditor({ date, current, sessions, saving, onSave }: {
@@ -27,21 +29,20 @@ export function SessionEditor({ date, current, sessions, saving, onSave }: {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} disabled={saving}
-        className="tap mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-secondary disabled:opacity-50">
-        <Pencil className="h-3.5 w-3.5" /> Einheit ändern
-      </button>
+      <Button size="sm" onClick={() => setOpen(true)} disabled={saving} className="mt-3">
+        <Pencil /> Einheit ändern
+      </Button>
     )
   }
   return (
-    <div className="mt-3 rounded-lg bg-secondary/50 p-3 text-xs">
+    <div className="mt-3 rounded-card bg-secondary p-3 text-caption">
       <div className="font-medium">Einheit ändern</div>
       <div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-5" role="group" aria-label="Art der Einheit">
         {EDIT_KINDS.map((k) => (
           <button key={k.kind} type="button" aria-pressed={kind === k.kind} disabled={saving}
             onClick={() => { setKind(k.kind); setPaceText(''); if ((parseKm(kmText) ?? 0) < k.minKm) setKmText(fmtKm(k.minKm)) }}
-            className={cn('tap rounded-md border px-2 py-1.5 font-medium',
-              kind === k.kind ? 'border-foreground bg-foreground text-background' : 'border-border bg-card hover:border-foreground/50')}>
+            className={cn('tap rounded-control px-2 py-1.5 font-medium',
+              kind === k.kind ? 'bg-foreground text-background' : 'bg-card shadow-hairline hover:bg-secondary')}>
             {k.label}
           </button>
         ))}
@@ -50,34 +51,31 @@ export function SessionEditor({ date, current, sessions, saving, onSave }: {
         <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
           <label className="flex items-center gap-1.5">
             <span className="font-medium">km</span>
-            <input inputMode="decimal" value={kmText} onChange={(e) => setKmText(e.target.value)} disabled={saving}
-              className="h-7 w-16 rounded-md border border-border bg-card px-2 text-center tabular-nums outline-none focus:border-foreground/60" />
+            <Input small inputMode="decimal" value={kmText} onChange={(e) => setKmText(e.target.value)} disabled={saving} className="w-16 text-center tabular-nums" />
           </label>
           {def.pace && (
             <label className="flex items-center gap-1.5">
               <span className="font-medium">Tempo</span>
-              <input value={paceText} placeholder={paces[def.pace]} onChange={(e) => setPaceText(e.target.value.trim())} disabled={saving}
-                className="h-7 w-16 rounded-md border border-border bg-card px-2 text-center tabular-nums outline-none focus:border-foreground/60" />
+              <Input small value={paceText} placeholder={paces[def.pace]} onChange={(e) => setPaceText(e.target.value.trim())} disabled={saving} className="w-16 text-center tabular-nums" />
               <span className="text-muted-foreground">/km</span>
             </label>
           )}
         </div>
       )}
-      {error && <p className="mt-2 text-brand">{error}</p>}
+      {error && <p className="mt-2 text-error">{error}</p>}
       {preview && preview.type !== 'rest' && (
-        <div className="mt-2 rounded-md border border-border bg-card p-2.5">
+        <div className="mt-2 rounded-card bg-card p-2.5 shadow-hairline">
           <div className="font-medium">{preview.title} · {fmtKm(preview.km ?? 0)} km</div>
           <SessionDetails session={preview} />
         </div>
       )}
       <div className="mt-2.5 flex items-center gap-2">
-        <button type="button" disabled={!preview || saving} onClick={() => { if (preview) { onSave(preview); setOpen(false) } }}
-          className="rounded-lg bg-foreground px-2.5 py-1.5 font-medium text-background hover:bg-foreground/85 disabled:opacity-40">
+        <Button size="sm" variant="primary" disabled={!preview || saving} onClick={() => { if (preview) { onSave(preview); setOpen(false) } }}>
           Übernehmen
-        </button>
-        <button type="button" onClick={() => setOpen(false)} className="rounded-lg px-2.5 py-1.5 font-medium text-muted-foreground hover:text-foreground">
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
           Abbrechen
-        </button>
+        </Button>
       </div>
     </div>
   )

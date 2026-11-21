@@ -21,9 +21,9 @@ async function patch(id: string, body: Record<string, unknown>) {
   if (!r.ok) throw new Error(d.error ?? 'Speichern fehlgeschlagen')
 }
 
-const seg = 'inline-flex rounded-lg border border-border bg-card p-0.5'
-const btn = (on: boolean, danger = false) => cn('tap rounded-md px-2 py-1 text-xs font-medium tabular-nums',
-  on ? (danger ? 'bg-brand text-white' : 'bg-foreground text-background') : 'text-muted-foreground hover:text-foreground')
+const seg = 'inline-flex rounded-control bg-card p-0.5 shadow-hairline'
+const btn = (on: boolean, danger = false) => cn('tap min-w-6 rounded-control px-2 py-1 text-caption font-medium tabular-nums',
+  on ? (danger ? 'bg-destructive text-destructive-foreground' : 'bg-foreground text-background') : 'text-muted-foreground hover:text-foreground')
 
 export function RunFeedback({ id, value, onSaved, title = 'Wie war’s?', className }: {
   id: string; value: FeedbackValue; onSaved?: () => void; title?: string; className?: string
@@ -47,12 +47,12 @@ export function RunFeedback({ id, value, onSaved, title = 'Wie war’s?', classN
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="text-sm font-medium">{title}</span>
-        {m.isPending ? <span className="text-xs text-muted-foreground">Speichert…</span>
-          : m.isError ? <span className="inline-flex items-center gap-1 text-xs text-brand"><AlertTriangle className="h-3.5 w-3.5" />{(m.error as Error).message}</span>
-          : m.isSuccess ? <span className="inline-flex items-center gap-1 text-xs text-teal"><Check className="h-3.5 w-3.5" />Gespeichert</span> : null}
+        <span className="text-body-sm font-medium">{title}</span>
+        {m.isPending ? <span className="text-caption text-muted-foreground">Speichert…</span>
+          : m.isError ? <span className="inline-flex items-center gap-1 text-caption text-error"><AlertTriangle className="h-3.5 w-3.5" />{(m.error as Error).message}</span>
+          : m.isSuccess ? <span className="inline-flex items-center gap-1 text-caption text-teal"><Check className="h-3.5 w-3.5" />Gespeichert</span> : null}
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-caption">
         <label className="flex flex-wrap items-center gap-1.5">
           <span className="text-muted-foreground">Anstrengung</span>
           <span className={seg} role="group" aria-label="RPE 1 bis 10">
@@ -75,9 +75,9 @@ export function RunFeedback({ id, value, onSaved, title = 'Wie war’s?', classN
         </label>
         <input type="text" value={note} maxLength={NOTE_MAX} placeholder="Notiz (optional)" aria-label="Notiz"
           onChange={(e) => setNote(e.target.value)} onBlur={saveNote} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-          className="h-7 min-w-[10rem] flex-1 rounded-md border border-border bg-card px-2 text-xs" />
+          className="h-8 min-w-[10rem] flex-1 rounded-control bg-card px-2 text-caption shadow-hairline outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </div>
-      {waiting && <p className="text-xs text-muted-foreground">Gefühl wählen, dann werden Schmerzen und Notiz gespeichert.</p>}
+      {waiting && <p className="text-caption text-muted-foreground">Gefühl wählen, dann werden Schmerzen und Notiz gespeichert.</p>}
     </div>
   )
 }

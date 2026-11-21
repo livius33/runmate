@@ -14,7 +14,10 @@ import { feedbackDue, weekOverview, type LoadPoint } from '@/lib/insights/week-o
 import { FATIGUE_LABEL, RATING_LABEL, type Score, type WeekFeedback, type WeekFeedbackEntry } from '@/lib/feedback/week'
 import type { RunFeel } from '@/app/api/feedback/week/route'
 import { cn } from '@/lib/utils'
-import { Card, Pill, Stat } from './ui'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Chip } from '@/components/ui/chip'
+import { Figure } from '@/components/ui/figure'
 import { WeekFeedbackOverlay, type RunFeelSummary } from './WeekFeedbackOverlay'
 
 const tsbText = (n: number | null) => (n == null ? '–' : `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(Math.round(n))}`)
@@ -22,7 +25,7 @@ const tsbText = (n: number | null) => (n == null ? '–' : `${n > 0 ? '+' : n < 
 const KEY_ICON: Record<KeyResult['status'], { icon: typeof Check; tone: string }> = {
   done: { icon: Check, tone: 'text-teal' },
   missed: { icon: X, tone: 'text-brand' },
-  moved: { icon: ArrowRight, tone: 'text-amber-700' },
+  moved: { icon: ArrowRight, tone: 'text-warning' },
   open: { icon: Clock, tone: 'text-muted-foreground' },
 }
 
@@ -36,12 +39,13 @@ const EMPTY: FeedbackData = { v: 1, byWeek: {}, runs: {} }
 
 // One plan week in review: volume, 80/20, key sessions, form, and next week's focus. At the start of a new week the
 // finished week opens once as the feedback overlay (07-26); "Woche bewerten" reopens it for any finished week.
-export function WeekReview({ today, sessions, runs, fitness, engineLog }: {
+export function WeekReview({ today, sessions, runs, fitness, engineLog, className }: {
   today: string
   sessions: PlanSession[]
   runs: DatedRun[]
   fitness: LoadPoint[]
   engineLog: EngineChange[]
+  className?: string
 }) {
   const started = planWeeks().filter((w) => w.start <= today)
   const latest = Math.max(0, started.length - 1)
@@ -99,26 +103,26 @@ export function WeekReview({ today, sessions, runs, fitness, engineLog }: {
   const stored: WeekFeedbackEntry | undefined = feedback.byWeek[week.start]
 
   return (
-    <Card title="Wochenrückblick" aside={
+    <Card title="Wochenrückblick" className={cn('h-full', className)} aside={
       <div className="flex items-center gap-1">
         <NavButton label="Vorherige Woche" disabled={idx === 0} onClick={() => setIdx(idx - 1)}><ChevronLeft className="h-4 w-4" /></NavButton>
-        <span className="text-xs tabular-nums text-muted-foreground">
-          KW {r.week.kw} · {format(parseISO(r.week.start), 'd.M.')}–{format(parseISO(r.week.end), 'd.M.')}
+        <span className="text-caption tabular-nums text-muted-foreground">
+          <span className="font-mono">KW {r.week.kw}</span> · {format(parseISO(r.week.start), 'd.M.')}–{format(parseISO(r.week.end), 'd.M.')}
         </span>
         <NavButton label="Nächste Woche" disabled={idx === started.length - 1} onClick={() => setIdx(idx + 1)}><ChevronRight className="h-4 w-4" /></NavButton>
       </div>
     }>
-      {r.running && <Pill className="mb-3 border-teal/20 bg-teal-soft text-teal">läuft noch</Pill>}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label="Umfang" value={`${fmtKm(r.km)}/${fmtKm(r.targetKm)}`} unit={`km · ${r.pct} %`} />
-        <Stat label="Läufe" value={r.runs} />
-        <Stat label="Locker (Z1+Z2)" value={r.easyPct != null ? `${r.easyPct} %` : '–'}
-          className={r.easyPct != null && r.easyPct < 75 ? '[&_div:last-child]:text-brand' : undefined} />
-        <Stat label="Form (TSB)" value={`${tsbText(r.tsbStart)} → ${tsbText(r.tsbEnd)}`} />
+      {r.running && <Chip tone="teal" className="mb-3">läuft noch</Chip>}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Figure label="Umfang" value={`${fmtKm(r.km)}/${fmtKm(r.targetKm)}`} unit={`km · ${r.pct} %`} />
+        <Figure label="Läufe" value={r.runs} />
+        <Figure label="Locker (Z1+Z2)" value={r.easyPct != null ? `${r.easyPct} %` : '–'}
+          tone={r.easyPct != null && r.easyPct < 75 ? 'brand' : 'default'} />
+        <Figure label="Form (TSB)" value={`${tsbText(r.tsbStart)} → ${tsbText(r.tsbEnd)}`} />
       </div>
 
       {r.keys.length > 0 && (
-        <ul className="mt-4 grid gap-1.5 text-sm">
+        <ul className="mt-3 grid gap-1.5 text-body-sm">
           {r.keys.map((k) => {
             const { icon: Icon, tone } = KEY_ICON[k.status]
             return (
@@ -134,20 +138,19 @@ export function WeekReview({ today, sessions, runs, fitness, engineLog }: {
         </ul>
       )}
       {r.engineChanges > 0 && (
-        <p className="mt-2 text-xs text-muted-foreground">{r.engineChanges} automatische {r.engineChanges === 1 ? 'Anpassung' : 'Anpassungen'} in dieser Woche.</p>
+        <p className="mt-2 text-caption text-muted-foreground">{r.engineChanges} automatische {r.engineChanges === 1 ? 'Anpassung' : 'Anpassungen'} in dieser Woche.</p>
       )}
 
-      <p className="mt-4 border-l-4 border-l-brand pl-3 text-sm font-semibold leading-snug">{r.focus}</p>
+      <p className="mt-3 border-l-2 border-l-brand pl-3 text-body-sm font-semibold">{r.focus}</p>
 
       {finished && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm">
           {stored
             ? <span className="text-muted-foreground">Deine Bewertung: Woche <span className="text-foreground">{RATING_LABEL[stored.rating]}</span>, Müdigkeit <span className="text-foreground">{FATIGUE_LABEL[stored.fatigue]}</span>{stored.note && <span className="block sm:inline sm:before:content-['_·_']">„{stored.note}“</span>}</span>
             : <span className="text-muted-foreground">Noch nicht bewertet.</span>}
-          <button type="button" onClick={() => { save.reset(); setOpen(week) }}
-            className="tap inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-secondary">
-            <MessageSquare className="h-3.5 w-3.5" /> {stored ? 'Bewertung ändern' : 'Woche bewerten'}
-          </button>
+          <Button size="sm" onClick={() => { save.reset(); setOpen(week) }} className="text-foreground">
+            <MessageSquare /> {stored ? 'Bewertung ändern' : 'Woche bewerten'}
+          </Button>
         </div>
       )}
 
@@ -163,7 +166,7 @@ export function WeekReview({ today, sessions, runs, fitness, engineLog }: {
 function NavButton({ label, disabled, onClick, children }: { label: string; disabled: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button aria-label={label} title={label} disabled={disabled} onClick={onClick}
-      className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30">
+      className="tap grid h-8 w-8 place-items-center rounded-control text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30">
       {children}
     </button>
   )
