@@ -207,6 +207,7 @@ export const subscription = pgTable('subscription', {
   // cancelled together with the main one, never applied to the row.
   otherSubscriptionIds: text('other_subscription_ids').array(),
   checkoutStartedAt: integer('checkout_started_at'),     // last checkout handed out (lib/billing/checkout.ts, 15 min lock)
+  version: integer('version').notNull().default(0),     // 12-05: compare-and-set for Paddle state (lib/billing/webhook.ts updateSubscription)
   // Retention of free accounts (Phase 5, lib/billing/retention.ts): last dashboard visit (stamped at most daily) and
   // when the "deleted in 30 days" reminder went out (null = none, or reset by a visit after it).
   lastSeenAt: integer('last_seen_at'),

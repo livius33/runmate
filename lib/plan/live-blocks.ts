@@ -28,7 +28,7 @@ export interface StoredLive { v: 1; blocks: LiveEntry[] }
 
 const TTL_MS = 10_000
 
-const parseLive = (value?: string): LiveEntry[] => {
+export const parseLive = (value?: string): LiveEntry[] => {
   if (!value) return []
   try {
     const v = JSON.parse(value) as StoredLive

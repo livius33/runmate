@@ -24,6 +24,7 @@ const tableOf = (sql: string) => sql.match(/(?:from|into|update|delete from) "(\
 const st = { sub: false }
 const fake = useFakeDb((q) => {
   const t = tableOf(q.sql)
+  if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
   if (!q.sql.startsWith('select') || !t) return []
   if (t === 'subscription') return st.sub ? [rowOf(subscription, { userId: USER, status: 'active', tier: 'plus', paddleSubscriptionId: 'sub_d', paddleCustomerId: 'ctm_d', cancelAtPeriodEnd: false, updatedAt: 0 })] : []
   const table = Object.values(schema).find((v) => is(v, PgTable) && getTableName(v as PgTable) === t) as PgTable

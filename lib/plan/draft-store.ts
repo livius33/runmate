@@ -6,7 +6,7 @@ import { addDays, format, parseISO, startOfWeek } from 'date-fns'
 import { db } from '@/lib/db'
 import { activities } from '@/lib/db/schema'
 import { own } from '@/lib/db/owned'
-import { getSettingJson, setSettingJson } from '@/lib/db/settings'
+import { compareAndSetSetting, getSetting as getRawSetting, getSettingJson, setSettingJson } from '@/lib/db/settings'
 import { RUN_ACTIVITY_TYPES } from '@/lib/analytics/run-view'
 import { allGoals, storedGoals, type SeasonGoal } from '@/lib/season/goals'
 import { listMethodologies, listOwnBases } from './methodology/load'
@@ -16,7 +16,7 @@ import { loadProfile } from './workshop-store'
 import { measureInputs, type RunRow } from './generator/inputs'
 import { GOAL_DISTANCE, generateDraft, type DraftOverrides, type DraftResult } from './generator/draft'
 import { freezeDraft, goLiveError } from './generator/freeze'
-import { LIVE_BLOCKS_KEY, ensureLiveBlocks, readLiveEntries, type StoredLive } from './live-blocks'
+import { LIVE_BLOCKS_KEY, ensureLiveBlocks, parseLive, readLiveEntries, type LiveEntry, type StoredLive } from './live-blocks'
 import { fieldValue, templateKeys, tuneFields, tuneTemplate, type Tuning } from './methodology/tune'
 import { OWN_KEY, OWN_NAME, buildOwn, isOwn, ownFields, ownValue, type StoredOwn } from './methodology/own'
 import type { Methodology } from './methodology/schema'
@@ -188,12 +188,25 @@ export async function goLive(draftId: string, today: string): Promise<{ error: s
   const tuned = resolveTemplate(ctx, stored.templateId)
   if (!tuned.ok) return { error: tuned.error }
   const block = freezeDraft(result, goal, tuned.label, tuned.template)
-  const entries = await readLiveEntries()
-  const err = goLiveError(block, [...builtInBlocks(), ...entries.map((e) => e.block)], today)
-  if (err) return { error: err }
-  await setSetting(LIVE_BLOCKS_KEY, { v: 1, blocks: [...entries, { block, draftId, liveAt: new Date().toISOString(), choice: { templateId: stored.templateId, overrides: stored.overrides } }] } satisfies StoredLive)
+  const err = await commitLiveEntry({ block, draftId, liveAt: new Date().toISOString(), choice: { templateId: stored.templateId, overrides: stored.overrides } }, e.maxLivePlans, today)
+  if (err) return err
   await ensureLiveBlocks(true)
   return { block: { id: block.id, planStart: block.planStart, end: block.end } }
+}
+
+// The write of a go-live (12-05, finding 11): the live-plan limit and the overlap check run against the value that is
+// replaced, and the write lands only if nobody changed it in between (compare-and-set). Two requests at once cannot both
+// take a plan live on a Free account; the loser checks again and gets the upsell. null = written.
+export async function commitLiveEntry(entry: LiveEntry, maxLivePlans: number, today: string): Promise<{ error: string; code?: string } | null> {
+  for (let i = 0; i < 3; i++) {
+    const raw = await getRawSetting(LIVE_BLOCKS_KEY)
+    const entries = parseLive(raw ?? undefined)
+    if (entries.filter((x) => x.block.end >= today).length >= maxLivePlans) return { error: upsellText('multiPlan'), code: 'plus-required' }
+    const err = goLiveError(entry.block, [...builtInBlocks(), ...entries.map((x) => x.block)], today)
+    if (err) return { error: err }
+    if (await compareAndSetSetting(LIVE_BLOCKS_KEY, raw, JSON.stringify({ v: 1, blocks: [...entries, entry] } satisfies StoredLive))) return null
+  }
+  return { error: 'Der Plan wurde gerade an anderer Stelle geändert. Bitte noch einmal versuchen.' }
 }
 
 // Save the own method for one distance (empty = the neutral base) and its name; checked like a template file (07-19).

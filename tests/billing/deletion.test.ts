@@ -12,7 +12,11 @@ vi.mock('@clerk/nextjs/server', () => ({ auth: async () => ({ userId: clerk.user
 
 const env = { BILLING_ENABLED: '1', PADDLE_WEBHOOK_SECRET: 'whsec', PADDLE_API_KEY: 'pdl_sdbx_apikey_test', PADDLE_ENV: 'sandbox', PADDLE_PRICE_PLUS_MONTH: 'pri_pm' }
 const db = { sub: null as Record<string, unknown> | null }
-const fake = useFakeDb((q) => (/^select .* from "subscription"/.test(q.sql) && db.sub ? [rowOf(subscription, db.sub)] : []))
+const fake = useFakeDb((q) => {
+  if (/^select .* from "subscription"/.test(q.sql) && db.sub) return [rowOf(subscription, db.sub)]
+  if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
+  return []
+})
 afterAll(() => fake.restore())
 
 const fails = { left: 0 }

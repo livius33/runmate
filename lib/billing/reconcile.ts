@@ -8,11 +8,10 @@ import { and, asc, eq, gt, isNotNull, ne, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { subscription } from '@/lib/db/schema'
 import { deletedUsers } from '@/lib/db/public-schema'
-import { own } from '@/lib/db/owned'
 import { runAsUser } from '@/lib/server/scope'
 import { priceIds, type PriceIds } from './config'
 import { cancelSubscription, getSubscription, type PaddleSubscription } from './paddle'
-import { ending, fromPaddleSubscription, secs, subState, type SubState } from './webhook'
+import { ending, fromPaddleSubscription, secs, subState, updateSubscription, type SubState } from './webhook'
 import type { SubscriptionRow } from './access'
 
 export const RECONCILE_PAGE = 100
@@ -48,11 +47,9 @@ async function reconcileRow(row: SubscriptionRow): Promise<boolean> {
   const main = mainLive ? await getSubscription(row.paddleSubscriptionId!) : null
   const others: Record<string, PaddleSubscription> = {}
   for (const id of row.otherSubscriptionIds ?? []) others[id] = await getSubscription(id)
-  const next = reconcileState(state, main, others)
+  // Compared again inside the compare-and-set: a webhook that landed meanwhile wins (its eventAt is newer).
+  const next = reconcileState(state, main, others) && await runAsUser(row.userId, () => updateSubscription((r) => (r ? reconcileState(r, main, others) : null)), { profile: null })
   if (!next) return false
-  await runAsUser(row.userId, async () => {
-    await db.update(subscription).set({ ...next, updatedAt: Math.floor(Date.now() / 1000) }).where(own(subscription))
-  }, { profile: null })
   console.info('[billing/reconcile] user=%s subscription=%s applied: status %s→%s, cancel %s→%s, others %s→%s', row.userId, row.paddleSubscriptionId ?? '-',
     row.status, next.status, row.cancelAtPeriodEnd, next.cancelAtPeriodEnd, (row.otherSubscriptionIds ?? []).join(',') || '-', (next.otherSubscriptionIds ?? []).join(',') || '-')
   return true

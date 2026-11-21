@@ -28,6 +28,11 @@ const fake = useFakeDb((q) => {
   }
   if (/^select .* from "subscription"/.test(q.sql) && db.sub) return [rowOf(subscription, db.sub)]
   if (/^select .* from "deleted_users"/.test(q.sql)) return db.tombs
+  if (/^select .* from "subscription" where "subscription"."user_id" = \$1/.test(q.sql)) {
+    const r = db.rows.find((x) => x.userId === q.params[0])
+    return r ? [rowOf(subscription, r)] : []
+  }
+  if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
   return []
 })
 afterAll(() => fake.restore())
@@ -173,7 +178,7 @@ describe('Täglicher Abgleich (Cron)', async () => {
       const res = await run()
       expect(await res.json()).toEqual({ ok: true, rows: n, changed: 1, failed: 0, tombstones: 1, cancelled: 1, complete: true })
     } finally { info.mockRestore() }
-    const pages = fake.log.filter((q) => /^select .* from "subscription" where/.test(q.sql))
+    const pages = fake.log.filter((q) => /^select .* from "subscription" where \(\(\("subscription"."paddle_subscription_id" is not null/.test(q.sql))
     expect(pages).toHaveLength(2)
     expect(pages[1].params).toContain(`user-${String(RECONCILE_PAGE - 1).padStart(4, '0')}`)       // keyset: after the last id of page 1
     const updates = fake.log.filter((q) => q.sql.startsWith('update "subscription"'))

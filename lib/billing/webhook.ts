@@ -19,12 +19,36 @@ export interface PaddleEvent {
 }
 
 // Retention stamps (Phase 5) and the checkout lock (12-05) are not Paddle's business: lib/billing/access.ts, the
-// retention cron and lib/billing/checkout.ts write them.
-export type SubState = Omit<SubscriptionRow, 'userId' | 'updatedAt' | 'lastSeenAt' | 'noticeSentAt' | 'checkoutStartedAt'>
+// retention cron and lib/billing/checkout.ts write them. `version` is the compare-and-set counter (updateSubscription).
+export type SubState = Omit<SubscriptionRow, 'userId' | 'updatedAt' | 'lastSeenAt' | 'noticeSentAt' | 'checkoutStartedAt' | 'version'>
 
 export function subState(r: SubscriptionRow): SubState {
-  const { userId: _u, updatedAt: _t, lastSeenAt: _s, noticeSentAt: _n, checkoutStartedAt: _c, ...row } = r
+  const { userId: _u, updatedAt: _t, lastSeenAt: _s, noticeSentAt: _n, checkoutStartedAt: _c, version: _v, ...row } = r
   return row
+}
+
+// Read-modify-write of the current user's Paddle state without a lock (12-05, finding 11): two webhooks, a webhook and
+// a cancel, or the reconcile job may run at once, and neon-http has no interactive transactions. Each write is one
+// statement that only lands if `version` is still the one read (or, for a new row, if none exists yet); otherwise the
+// row is read again and `change` decides anew. Returns the row written, or null when `change` had nothing to do.
+const CAS_TRIES = 5
+export class ConcurrentUpdateError extends Error {
+  constructor() { super('subscription row kept changing') }
+}
+
+export async function updateSubscription(change: (row: SubState | null) => SubState | null): Promise<SubState | null> {
+  for (let i = 0; i < CAS_TRIES; i++) {
+    const [current] = await db.select().from(subscription).where(own(subscription)).limit(1)
+    const next = change(current ? subState(current) : null)
+    if (!next) return null
+    const updatedAt = Math.floor(Date.now() / 1000)
+    const won = current
+      ? await db.update(subscription).set({ ...next, updatedAt, version: current.version + 1 })
+        .where(own(subscription, eq(subscription.version, current.version))).returning({ userId: subscription.userId })
+      : await db.insert(subscription).values(mine({ ...next, updatedAt })).onConflictDoNothing().returning({ userId: subscription.userId })
+    if (won.length) return next
+  }
+  throw new ConcurrentUpdateError()
 }
 
 const SUBSCRIPTION_EVENTS = new Set([
@@ -140,15 +164,13 @@ export async function handlePaddleEvent(ev: PaddleEvent): Promise<WebhookResult>
   if (!userId) return 'unknown-user'
   if (await isDeleted(userId)) return 'deleted-user'
   return runAsUser(userId, async () => {
-    const [current] = await db.select().from(subscription).where(own(subscription)).limit(1)
-    const row = current ? subState(current) : null
-    if (isOtherSubscription(row, ev)) {
-      console.error('[billing/webhook] second subscription for user=%s: stored=%s event=%s (%s, %s)', userId, row!.paddleSubscriptionId, (ev.data as { id?: string }).id, ev.event_type, ev.event_id)
-    }
-    const next = applyPaddleEvent(row, ev)
-    if (next) {
-      const values = { ...next, updatedAt: Math.floor(Date.now() / 1000) }
-      await db.insert(subscription).values(mine(values)).onConflictDoUpdate({ target: subscription.userId, set: values })
+    let second: string | null = null
+    const next = await updateSubscription((row) => {
+      second = isOtherSubscription(row, ev) ? row!.paddleSubscriptionId : null
+      return applyPaddleEvent(row, ev)
+    })
+    if (second) {
+      console.error('[billing/webhook] second subscription for user=%s: stored=%s event=%s (%s, %s)', userId, second, (ev.data as { id?: string }).id, ev.event_type, ev.event_id)
     }
     // Recorded after applying: a crash in between means Paddle's retry applies it again (same event, same result).
     await db.insert(billingEvents).values(mine({ eventId: ev.event_id, type: ev.event_type, occurredAt: secs(ev.occurred_at) })).onConflictDoNothing()
@@ -157,13 +179,6 @@ export async function handlePaddleEvent(ev: PaddleEvent): Promise<WebhookResult>
 }
 
 // The row after Runmate itself cancelled at Paddle (the response is the updated subscription entity).
-export async function saveCancelled(s: PaddleSubscription) {
-  const [current] = await db.select().from(subscription).where(own(subscription)).limit(1)
-  if (!current) return null
-  const row = subState(current)
-  const next = fromPaddleSubscription(row, s, row.eventAt)
-  if (!next) return null
-  const values = { ...next, updatedAt: Math.floor(Date.now() / 1000) }
-  await db.update(subscription).set(values).where(own(subscription))
-  return next
+export function saveCancelled(s: PaddleSubscription) {
+  return updateSubscription((row) => (row ? fromPaddleSubscription(row, s, row.eventAt) : null))
 }

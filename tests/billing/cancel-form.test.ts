@@ -37,7 +37,7 @@ const fake = useFakeDb((q) => {
   if (/^update "subscription" set "status"/.test(q.sql) && store.sub) {
     // saveCancelled: the cancel flag is the only field these tests follow
     store.sub = { ...store.sub, cancelAtPeriodEnd: p.includes(true) }
-    return []
+    return [['user-c']]
   }
   return []
 })

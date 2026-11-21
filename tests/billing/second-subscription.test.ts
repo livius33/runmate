@@ -23,6 +23,7 @@ const db = { sub: null as Record<string, unknown> | null, claim: true }
 const fake = useFakeDb((q) => {
   if (/^select .* from "subscription"/.test(q.sql) && db.sub) return [rowOf(subscription, db.sub)]
   if (/^update "subscription" set "checkout_started_at"/.test(q.sql)) return db.claim ? [[q.params[1]]] : []
+  if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
   return []
 })
 afterAll(() => fake.restore())
@@ -74,14 +75,17 @@ describe('Zweites Abo (Webhook, Kündigung, Löschung)', async () => {
   const { runAsUser } = await import('@/lib/server/scope')
 
   it('Webhook: Zeile behält sub_1, sub_2 kommt dazu, Fehler-Log mit beiden IDs', async () => {
+    db.sub = { ...db.sub, version: 3 }
     const err = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       const raw = JSON.stringify(sub('sub_2', T0 + 60))
       const res = await webhook(new Request('http://localhost/api/billing/webhook', { method: 'POST', body: raw, headers: { 'paddle-signature': signPaddle(raw, SECRET) } }))
       expect(await res.json()).toEqual({ ok: true, result: 'applied' })
-      const ins = fake.log.find((q) => q.sql.startsWith('insert into "subscription"'))!
+      const ins = fake.log.find((q) => q.sql.startsWith('update "subscription"'))!
       expect(ins.params).toContain('sub_1')
       expect(ins.params).toContain(`{"sub_2"}`)                    // text[] as the driver sends it
+      expect(ins.sql).toMatch(/"subscription"."version" = \$\d+/)   // compare-and-set on the version read
+      expect(ins.params.slice(-2)).toEqual(['user-s', 3])
       const line = err.mock.calls.map((c) => c.map(String).join(' ')).find((l) => l.includes('second subscription'))!
       expect(line).toContain('sub_1')
       expect(line).toContain('sub_2')

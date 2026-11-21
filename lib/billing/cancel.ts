@@ -1,11 +1,8 @@
 // Cancellation (§312k BGB "Kündigungsbutton", Phase 4): cancels the current user's Paddle subscription at the end of
 // the paid period and records it; a second subscription (12-05) is cancelled with it. The in-app trial needs no cancellation (it ends by itself, no card on file).
-import { db } from '@/lib/db'
-import { subscription } from '@/lib/db/schema'
-import { own } from '@/lib/db/owned'
 import { loadSubscription, clearEntitlementsCache } from './access'
 import { cancelSubscription } from './paddle'
-import { saveCancelled } from './webhook'
+import { saveCancelled, updateSubscription } from './webhook'
 
 export type CancelResult =
   | { ok: true; kind: 'subscription'; endsAt: number | null; at: number }
@@ -46,7 +43,8 @@ export async function cancelCurrent(when: 'next_billing_period' | 'immediately' 
       }
     }
     failed.push(...left)
-    await db.update(subscription).set({ otherSubscriptionIds: left.length ? left : null }).where(own(subscription))
+    const done = others.filter((id) => !left.includes(id))
+    await updateSubscription((r) => (r ? { ...r, otherSubscriptionIds: (r.otherSubscriptionIds ?? []).filter((id) => !done.includes(id)) } : null))
   }
   clearEntitlementsCache()
   if (failed.length) {

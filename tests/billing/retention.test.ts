@@ -70,6 +70,7 @@ const fake = useFakeDb((q) => {
   if (/^select .* from "deleted_users"/.test(q.sql)) return st.tomb.has(String(q.params[0])) ? [[q.params[0]]] : []
   if (/^select .* from "subscription"$/.test(q.sql.trim())) return st.subs.map((s) => rowOf(subscription, s))
   if (/^select .* from "subscription"/.test(q.sql)) return st.subs.filter((s) => s.userId === q.params[0]).map((s) => rowOf(subscription, s))
+  if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
   return []
 })
 afterAll(() => fake.restore())

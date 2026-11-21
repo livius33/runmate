@@ -57,6 +57,13 @@
       "when": 1795284757565,
       "tag": "0007_tombstone_paddle_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795285170150,
+      "tag": "0008_subscription_version",
+      "breakpoints": true
     }
   ]
 }

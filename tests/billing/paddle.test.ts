@@ -20,6 +20,7 @@ const fake = useFakeDb((q) => {
   if (/^select .* from "billing_events"/.test(q.sql)) return db.seen.has(String(q.params[0])) ? [[q.params[0]]] : []
   if (/^select .* from "subscription"/.test(q.sql) && db.sub) return [rowOf(subscription, db.sub)]
   if (/^insert into "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [rowOf(subscription, { userId: q.params[0], status: 'trialing', trialEndsAt: q.params[2], cancelAtPeriodEnd: false, updatedAt: 0 })]
+  if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
   return []
 })
 afterAll(() => fake.restore())
