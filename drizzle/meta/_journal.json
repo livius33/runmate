@@ -50,6 +50,13 @@
       "when": 1795284593694,
       "tag": "0006_second_subscription",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795284757565,
+      "tag": "0007_tombstone_paddle_ids",
+      "breakpoints": true
     }
   ]
 }
