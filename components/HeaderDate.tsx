@@ -13,5 +13,5 @@ export function HeaderDate({ className }: { className?: string }) {
 
 function DateText({ className }: { className?: string }) {
   const today = useToday()
-  return <span className={cn('hidden lg:block text-xs text-muted-foreground tabular-nums', className)}>{format(parseISO(today), 'EEEE, d. MMMM yyyy', { locale: de })}</span>
+  return <span className={cn('hidden lg:block text-caption text-muted-foreground tabular-nums', className)}>{format(parseISO(today), 'EEEE, d. MMMM yyyy', { locale: de })}</span>
 }

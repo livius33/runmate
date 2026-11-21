@@ -17,7 +17,7 @@ export function Logo({ className, compact }: { className?: string; compact?: boo
   return (
     <span className={cn('inline-flex items-center gap-2', className)}>
       <LogoMark />
-      <span className={cn('text-sm font-semibold tracking-tight text-foreground', compact && 'hidden sm:inline')}>Runmate</span>
+      <span className={cn('text-body-sm font-semibold text-foreground', compact && 'hidden sm:inline')}>Runmate</span>
     </span>
   )
 }
