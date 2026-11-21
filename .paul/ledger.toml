@@ -278,3 +278,10 @@ phase = 12
 plan = "12-02"
 at = "2026-11-21T20:10:00Z"
 note = "Livius approved tasks 1 and 2; branch design/12-02-design-md pushed; rollout waits for the checkpoint"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-02"
+at = "2026-11-21T20:27:00Z"
+note = "tasks 1 and 2 built (11 commits, one review round), checks green, branch pushed; at the checkpoint (task 3), rollout not started"

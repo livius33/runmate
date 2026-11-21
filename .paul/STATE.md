@@ -17,7 +17,7 @@ See: .paul/PROJECT.md (updated 2026-11-18)
 
 Milestone: v1.1 Shipping-ready (v1.1.0)
 Phase: 12 (Launch)
-Plan: 12-01 in APPLY — repo public (2026-11-19), PR #4 merged (2026-11-20), Vercel project `runmate` prepared; waits for Livius (keys, GitHub access for Vercel, domain). 12-04 built (PR #8, not merged), 12-05 built (PR #9, not merged), 12-06 after their merge, 12-07 waits for decisions; 12-02 (redesign) in APPLY: tasks 1 and 2 (tokens, primitives, three reference screens) being built, then the checkpoint with Livius; 13-01 tasks 2–4 built locally, tasks 5–8 wait for the account
+Plan: 12-01 in APPLY — repo public (2026-11-19), PR #4 merged (2026-11-20), Vercel project `runmate` prepared; waits for Livius (keys, GitHub access for Vercel, domain). 12-04 built (PR #8, not merged), 12-05 built (PR #9, not merged), 12-06 after their merge, 12-07 waits for decisions; 12-02 (redesign) in APPLY: tasks 1 and 2 (tokens, primitives, three reference screens) built and on the branch, at the checkpoint with Livius (task 3); the rollout waits for their word; 13-01 tasks 2–4 built locally, tasks 5–8 wait for the account
 Status: Phases 8–11 on `main`; runmate.dev still serves the personal dashboard (404 for visitors)
 Last activity: 2026-11-21 — 12-05 reviewed, fixed and in PR #9; redesign plan 12-02; 12-04 summary, 13-01 progress note
 Progress:
@@ -42,13 +42,13 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | Hosted pricing: Free + Plus (9 €/month, 79 €/year), 30-day Plus trial without a card, then Free | 9 | Replaces Basic 6 € / Plus ~10 € |
 | Plan anpassen: four areas; every lever has preview, reason with numbers and a data check; past weeks unchanged; nothing changes silently | 10 | New change model in lib/plan |
 | "Feature card" in Livius' note is read as the week review overlay (dashboard PR #120 made it airier; still too large) | 11 | To confirm with Livius |
-| Design reference: `DESIGN.md` (third-party analysis of Vercel's design language) for type, spacing, radius, elevation and component shape; Runmate's colours, German UI text and the wide-grid rule stay | 12 | Plan 12-02; the file is on the branch `design/12-02-design-md` (pushed 2026-11-21, no pull request yet) |
+| Design reference: `DESIGN.md` (third-party analysis of Vercel's design language) for type, spacing, radius, elevation and component shape; Runmate's colours, German UI text and the wide-grid rule stay | 12 | Plan 12-02; the file and tasks 1–2 of the plan are on the branch `design/12-02-design-md` (pushed 2026-11-21, no pull request yet) |
 | Instagram defaults until Livius says otherwise: German only, every post approved, pipeline in its own local repository, handle as a config value, no post before runmate.dev and the Impressum are live | 13 | 13-01 tasks 2–4 built on them |
 
 ### Open questions for Livius
 
 - "Feature card" = the week review overlay? (11-02 was built on that reading)
-- Redesign (12-02): Inter → Geist, card radius 12–16 px → 8 px, smallest text 12 px, app stays light; the plan takes these as defaults and shows three reference screens before the rollout
+- Redesign (12-02), checkpoint: the three reference screens are built (Inter → Geist, radius 6/8/12 px, smallest text 12 px, app stays light). To decide before the rollout: go or changes; text-only tokens for brand red and teal (as text on white they reach 3.9:1 and 3.3:1, the rule is 4.5:1); the overlay has no "Später" button any more (the close button does it); the active tab is ink instead of brand red
 - Two overlapping profiles (Plan anpassen → Alltag and Settings → Mein Profil): merge them? Not part of 12-02
 - Waitlist: wire a mail provider or open sign-up without billing (docs/launch/DEPLOY.md step 8)
 - Rule decisions from the sweep (08-02 SUMMARY): low-volume long-run share, 4-run low weeks, floors and caps
