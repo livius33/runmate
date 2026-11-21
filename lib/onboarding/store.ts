@@ -76,6 +76,8 @@ export async function applyOnboarding(req: OnboardingRequest): Promise<{ error: 
     if (req.step === 'consent' && !(await hasHealthConsent())) return { error: 'Bitte zuerst einwilligen – ohne Einwilligung kann Runmate keine Gesundheitsdaten verarbeiten.' }
     if (req.step === 'profile') {
       if (!req.profile) return { error: 'Profil fehlt.' }
+      // Heart rate and weight are health data: the consent step comes first, and a revoked consent stops it too (12-04).
+      if (!(await hasHealthConsent())) return { error: 'Bitte zuerst einwilligen – ohne Einwilligung kann Runmate keine Gesundheitsdaten verarbeiten.' }
       const built = buildProfiles(req.profile, await loadProfile())
       if (!built.ok) return { error: built.error }
       // Only check the step order before writing anything.

@@ -7,6 +7,7 @@ import { isCrossType, isManualId, parseCrossEntry, parseRpe } from '@/lib/analyt
 import { crossSummary } from '@/lib/analytics/cross-view'
 import { todayLocal } from '@/lib/dates'
 import { withUser } from '@/lib/server/scope'
+import { consentBlocked, given } from '@/lib/legal/intake'
 
 export const runtime = 'nodejs'
 
@@ -26,6 +27,9 @@ export const PATCH = withUser(async (req: Request, { params }: Ctx) => {
   if (!body || typeof body !== 'object') return NextResponse.json({ error: 'JSON-Objekt erwartet' }, { status: 400 })
 
   const rpeOnly = Object.keys(body).every((k) => k === 'rpe')
+  // Like POST: a session and its RPE are health data; only clearing the RPE needs no consent.
+  const blocked = await consentBlocked(!rpeOnly || given(body.rpe))
+  if (blocked) return blocked
   let set: Partial<typeof activities.$inferInsert>
   if (rpeOnly) {
     const r = parseRpe(body.rpe)

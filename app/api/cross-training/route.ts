@@ -8,6 +8,7 @@ import { CROSS_TYPES, MANUAL_ID_PREFIX, parseCrossEntry } from '@/lib/analytics/
 import { crossSummary } from '@/lib/analytics/cross-view'
 import { isCalendarDay, todayLocal } from '@/lib/dates'
 import { withUser } from '@/lib/server/scope'
+import { consentBlocked } from '@/lib/legal/intake'
 
 export const runtime = 'nodejs'
 
@@ -34,6 +35,9 @@ export const GET = withUser(async (req: Request) => {
 export const POST = withUser(async (req: Request) => {
   const parsed = parseCrossEntry(await req.json().catch(() => null), todayLocal())
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
+  // A training session (with its RPE) is health data like an imported activity (Art. 9).
+  const blocked = await consentBlocked()
+  if (blocked) return blocked
   const e = parsed.entry
   try {
     const row = {
