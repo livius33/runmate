@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
-import { Panel } from '@/components/runs/format'
+import { Card } from '@/components/ui/card'
 
 type Day = { date: string; sleepMin: number | null; restingHr: number | null; hrvMs: number | null; steps: number | null; activeKcal: number | null; weightKg: number | null }
 type Workout = { id: string; date: string; type: string; minutes: number; kcal: number | null; avgHr: number | null }
@@ -18,14 +18,14 @@ export function HealthPanel({ className }: { className?: string }) {
   if (!data) return null
   const days = data.days.slice(0, 7)
   return (
-    <Panel title="Apple Health" sub="letzte 7 Tage · Kurzbefehl" className={className}>
+    <Card stack title="Apple Health" aside="letzte 7 Tage · Kurzbefehl" className={className}>
       {!days.length && !data.workouts.length ? (
-        <p className="text-sm text-muted-foreground">Noch keine Daten. <Link href="/settings" className="text-brand hover:underline">Kurzbefehl einrichten →</Link></p>
+        <p className="text-body-sm text-muted-foreground">Noch keine Daten. <Link href="/settings" className="text-brand hover:underline">Kurzbefehl einrichten →</Link></p>
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-sm tabular-nums">
-              <thead><tr className="text-left text-xs text-muted-foreground">
+            <table className="w-full min-w-[520px] text-body-sm tabular-nums">
+              <thead><tr className="text-left text-caption text-muted-foreground">
                 <th className="py-1.5 pr-3 font-medium">Tag</th><th className="py-1.5 pr-3 text-right font-medium">Schlaf</th>
                 <th className="py-1.5 pr-3 text-right font-medium">Ruhepuls</th><th className="py-1.5 pr-3 text-right font-medium">HRV</th>
                 <th className="py-1.5 pr-3 text-right font-medium">Schritte</th><th className="py-1.5 pr-3 text-right font-medium">Aktiv kcal</th>
@@ -48,8 +48,8 @@ export function HealthPanel({ className }: { className?: string }) {
           </div>
           {data.workouts.length > 0 && (
             <div>
-              <div className="text-xs font-medium text-muted-foreground">Andere Workouts (Apple Watch)</div>
-              <ul className="mt-1.5 grid gap-1 text-sm">
+              <div className="text-caption font-medium text-muted-foreground">Andere Workouts (Apple Watch)</div>
+              <ul className="mt-1.5 grid gap-1 text-body-sm">
                 {data.workouts.slice(0, 8).map((w) => (
                   <li key={w.id} className="flex flex-wrap justify-between gap-2 tabular-nums">
                     <span>{format(parseISO(w.date), 'EEEEEE d.M.', { locale: de })} · {w.type}</span>
@@ -61,6 +61,6 @@ export function HealthPanel({ className }: { className?: string }) {
           )}
         </>
       )}
-    </Panel>
+    </Card>
   )
 }

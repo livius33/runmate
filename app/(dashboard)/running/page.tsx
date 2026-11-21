@@ -8,7 +8,10 @@ import { addDays, format, parseISO, startOfWeek, subDays, subMonths } from 'date
 import { de } from 'date-fns/locale'
 import { BEST_EFFORTS } from '@/lib/analytics/run-metrics'
 import type { AnalyticsRun } from '@/app/api/running/analytics/route'
-import { Panel, fmtClock, fmtNum, fmtPace } from '@/components/runs/format'
+import { fmtClock, fmtNum, fmtPace } from '@/components/runs/format'
+import { Card } from '@/components/ui/card'
+import { ChipButton } from '@/components/ui/chip'
+import { Figure } from '@/components/ui/figure'
 import { ConsistencyCalendar, EfficiencyTrend, FitnessForm, Intensity, PaceHrScatter, VolumeChart, WeeklyEasyHard, YearComparison, type Bucket, type EasyHardWeek, type FitnessPoint } from '@/components/analyse/charts'
 import { cn } from '@/lib/utils'
 import { HealthPanel } from '@/components/analyse/HealthPanel'
@@ -112,24 +115,23 @@ export default function AnalysePage() {
 
   return (
     <div className="flex flex-col gap-4 pb-10">
-      <h1 className="text-2xl font-semibold tracking-tight">Deine Form</h1>
+      <h1 className="text-title">Deine Form</h1>
 
       <ProgressSection today={today} />
 
       <div className="flex flex-wrap items-baseline justify-between gap-3 pt-2">
-        <h2 className="text-lg font-semibold tracking-tight">Form im Zeitraum</h2>
+        <h2 className="text-title-sm">Form im Zeitraum</h2>
         <div className="flex gap-1.5" role="group" aria-label="Zeitraum">
           {PERIODS.map((p) => (
-            <button key={p.key} aria-pressed={period === p.key} onClick={() => setPeriod(p.key)}
-              className={cn('rounded-full border px-3 py-1 text-xs', period === p.key ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
+            <ChipButton key={p.key} selected={period === p.key} onClick={() => setPeriod(p.key)}>
               {p.label}
-            </button>
+            </ChipButton>
           ))}
         </div>
       </div>
 
-      {isLoading && <div className="h-40 animate-pulse rounded-2xl border border-border bg-card" />}
-      {isError && <p className="text-sm text-brand">Die Analyse konnte nicht geladen werden. Seite neu laden.</p>}
+      {isLoading && <div className="h-40 animate-pulse rounded-card bg-card shadow-raised" />}
+      {isError && <p className="text-body-sm text-error">Die Analyse konnte nicht geladen werden. Seite neu laden.</p>}
 
       {view && (
         <>
@@ -142,39 +144,38 @@ export default function AnalysePage() {
             ].map((t) => {
               const d = t.prev ? Math.round(((t.cur - t.prev) / t.prev) * 100) : null
               return (
-                <div key={t.label} className="rounded-2xl border border-border bg-card px-4 py-3.5">
-                  <div className="text-xs text-muted-foreground">{t.label}</div>
-                  <div className="mt-0.5 text-2xl font-semibold tracking-tight tabular-nums">{t.value}</div>
-                  <div className={cn('mt-0.5 text-xs tabular-nums', d == null || d === 0 ? 'text-muted-foreground' : d > 0 ? 'text-teal' : 'text-brand')}>
-                    {d == null ? (period === 'all' ? `seit ${format(parseISO(runs[0].date), 'MMMM yyyy', { locale: de })}` : 'kein Vergleich')
-                      : d === 0 ? `unverändert ${P.prevLabel}` : `${d > 0 ? '▲' : '▼'} ${Math.abs(d)} % ${P.prevLabel}`}
-                  </div>
-                </div>
+                <Card key={t.label} as="div" className="sm:p-4">
+                  <Figure size="lg" label={t.label} value={t.value} sub={
+                    <span className={cn(d == null || d === 0 ? undefined : d > 0 ? 'text-teal' : 'text-brand')}>
+                      {d == null ? (period === 'all' ? `seit ${format(parseISO(runs[0].date), 'MMMM yyyy', { locale: de })}` : 'kein Vergleich')
+                        : d === 0 ? `unverändert ${P.prevLabel}` : `${d > 0 ? '▲' : '▼'} ${Math.abs(d)} % ${P.prevLabel}`}
+                    </span>} />
+                </Card>
               )
             })}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-12">
-            <Panel title="Umfang" sub={period === 'all' ? 'pro Monat' : 'pro Woche'} className="lg:col-span-7">
+            <Card stack title="Umfang" aside={period === 'all' ? 'pro Monat' : 'pro Woche'} className="lg:col-span-7">
               <VolumeChart buckets={view.buckets} unit={period === 'all' ? 'Monat' : 'Woche'} />
-            </Panel>
-            <Panel title="Jahresvergleich" sub="kumulierte km" className="lg:col-span-5">
+            </Card>
+            <Card stack title="Jahresvergleich" aside="kumulierte km" className="lg:col-span-5">
               <YearComparison runs={runs} today={today} />
-            </Panel>
+            </Card>
 
-            <Panel title="Aerobe Effizienz" sub="Meter pro Herzschlag, lockere Läufe" className="lg:col-span-7">
+            <Card stack title="Aerobe Effizienz" aside="Meter pro Herzschlag, lockere Läufe" className="lg:col-span-7">
               <EfficiencyTrend months={view.months} />
-            </Panel>
-            <Panel title="Konsistenz" sub="km pro Tag" className="lg:col-span-5">
+            </Card>
+            <Card stack title="Konsistenz" aside="km pro Tag" className="lg:col-span-5">
               <ConsistencyCalendar runs={runs} today={today} />
-            </Panel>
+            </Card>
 
-            <Panel title="Intensität" sub={`Pulszonen und Lauftypen · ${P.label}`} className="lg:col-span-7">
+            <Card stack title="Intensität" aside={`Pulszonen und Lauftypen · ${P.label}`} className="lg:col-span-7">
               <Intensity runs={view.inPeriod} />
-            </Panel>
-            <Panel title="Bestwerte" sub="schnellster Abschnitt in einem Lauf" className="lg:col-span-5">
-              <div className="overflow-x-auto"><table className="w-full text-sm tabular-nums">
-                <thead><tr className="text-left text-xs text-muted-foreground">
+            </Card>
+            <Card stack title="Bestwerte" aside="schnellster Abschnitt in einem Lauf" className="lg:col-span-5">
+              <div className="overflow-x-auto"><table className="w-full text-body-sm tabular-nums">
+                <thead><tr className="text-left text-caption text-muted-foreground">
                   <th className="pb-1.5 font-medium" />
                   <th className="pb-1.5 font-medium">Allzeit</th>
                   <th className="pb-1.5 font-medium">{P.label}</th>
@@ -207,21 +208,21 @@ export default function AnalysePage() {
                   </tr>
                 </tbody>
               </table></div>
-            </Panel>
+            </Card>
 
-            <Panel title="Tempo × Puls" sub={`ein Punkt pro Lauf · ${P.label}`} className="lg:col-span-7">
+            <Card stack title="Tempo × Puls" aside={`ein Punkt pro Lauf · ${P.label}`} className="lg:col-span-7">
               <PaceHrScatter runs={view.inPeriod} />
-            </Panel>
-            <Panel title="80/20 pro Woche" sub="Zeit in Z1+Z2 vs. Z3–Z5" className="lg:col-span-5">
+            </Card>
+            <Card stack title="80/20 pro Woche" aside="Zeit in Z1+Z2 vs. Z3–Z5" className="lg:col-span-5">
               <WeeklyEasyHard weeks={view.easyHard} />
-            </Panel>
+            </Card>
 
-            <Panel title="Fitness & Form" sub="CTL · ATL · TSB" className="lg:col-span-12">
+            <Card stack title="Fitness & Form" aside="CTL · ATL · TSB" className="lg:col-span-12">
               <FitnessForm points={fitness} />
-            </Panel>
-            <Panel title="Belastung nach Sport" sub="TRIMP pro Woche · Laufen, Kraft, Schwimmen, Rad, Gym" className="lg:col-span-12">
+            </Card>
+            <Card stack title="Belastung nach Sport" aside="TRIMP pro Woche · Laufen, Kraft, Schwimmen, Rad, Gym" className="lg:col-span-12">
               <LoadBySport today={today} weeks={period === 'all' ? 52 : Math.max(12, Math.ceil(P.days! / 7))} />
-            </Panel>
+            </Card>
             <HealthPanel className="lg:col-span-12" />
           </div>
         </>

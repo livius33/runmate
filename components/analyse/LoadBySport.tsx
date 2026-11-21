@@ -47,9 +47,9 @@ export function LoadBySport({ today, weeks }: { today: string; weeks: number }) 
     })
   }, [loads, today, weeks])
 
-  if (isLoading) return <div className="h-40 animate-pulse rounded-xl bg-secondary" />
+  if (isLoading) return <div className="h-40 animate-pulse rounded-card bg-secondary" />
   const used = SPORTS.filter((sp) => rows.some((w) => w.by[sp] > 0))
-  if (!used.length) return <p className="text-sm text-muted-foreground">Noch keine Belastung in diesem Zeitraum.</p>
+  if (!used.length) return <p className="text-body-sm text-muted-foreground">Noch keine Belastung in diesem Zeitraum.</p>
 
   const W = 1100, L = 38, R = 16, H = 220, T = 10, B = 22
   const max = Math.max(1, ...rows.map((w) => w.total)) * 1.08
@@ -62,7 +62,7 @@ export function LoadBySport({ today, weeks }: { today: string; weeks: number }) 
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="min-h-[18px] text-xs text-muted-foreground tabular-nums">
+      <div className="min-h-[18px] text-caption text-muted-foreground tabular-nums">
         {cur.label}{cur.partial ? ' (läuft)' : ''}: <b className="text-foreground">{fmtNum(cur.total)}</b> gesamt
         {used.filter((sp) => cur.by[sp] > 0).map((sp) => <span key={sp}> · {SPORT_LABEL[sp]} {fmtNum(cur.by[sp])}</span>)}
       </div>
@@ -93,14 +93,14 @@ export function LoadBySport({ today, weeks }: { today: string; weeks: number }) 
           )
         })}
       </svg>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground">
         {used.map((sp) => (
           <span key={sp} className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLOR[sp] }} />{SPORT_LABEL[sp]}
           </span>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-caption text-muted-foreground">
         Laufen aus Dauer und Puls (TRIMP), Kraft und Schwimmen aus Minuten × RPE, Rad und Gym aus dem Puls. Kraft, Schwimmen, Rad
         und Gym zählen ab dem {format(parseISO(CROSS_LOAD_FROM), 'd.M.yyyy')} — nie in den Lauf-km.
       </p>

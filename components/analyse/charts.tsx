@@ -6,13 +6,14 @@ import { de } from 'date-fns/locale'
 import { hrZones } from '@/lib/analytics/hr'
 import { RUN_TYPES } from '@/lib/analytics/run-metrics'
 import type { AnalyticsRun } from '@/app/api/running/analytics/route'
-import { RunTypeTag, fmtClock, fmtNum, fmtPace, percentile } from '@/components/runs/format'
+import { fmtClock, fmtNum, fmtPace, percentile } from '@/components/runs/format'
+import { RunTypeTag } from '@/components/runs/tags'
 import { activeBlock } from '@/lib/plan/blocks'
 import { todayLocal } from '@/lib/dates'
 import { ZONE_COLORS } from '@/components/runs/ZonesBar'
 
 export const Readout = ({ children }: { children: React.ReactNode }) => (
-  <div className="min-h-[18px] text-xs text-muted-foreground tabular-nums">{children}</div>
+  <div className="min-h-[18px] text-caption text-muted-foreground tabular-nums">{children}</div>
 )
 
 export function niceStep(max: number, n = 4) {
@@ -135,7 +136,7 @@ export function EfficiencyTrend({ months }: { months: { key: string; eff: number
   const [hover, setHover] = useState<number | null>(null)
   const W = 680, H = 210, L = 44, R = 12, T = 12, B = 24
   const vals = months.map((m) => m.eff).filter((v): v is number => v != null)
-  if (vals.length < 2) return <p className="text-sm text-muted-foreground">Zu wenige lockere Läufe mit Pulsdaten in diesem Zeitraum.</p>
+  if (vals.length < 2) return <p className="text-body-sm text-muted-foreground">Zu wenige lockere Läufe mit Pulsdaten in diesem Zeitraum.</p>
   const lo = Math.floor((Math.min(...vals) - 0.02) * 20) / 20, hi = Math.ceil((Math.max(...vals) + 0.02) * 20) / 20
   const x = (i: number) => L + ((W - L - R) * i) / Math.max(1, months.length - 1)
   const y = (v: number) => T + (H - T - B) * (1 - (v - lo) / (hi - lo))
@@ -169,7 +170,7 @@ export function EfficiencyTrend({ months }: { months: { key: string; eff: number
           </g>
         ))}
       </svg>
-      <p className="text-xs text-muted-foreground">Lücken sind Monate ohne lockere Läufe mit Pulsdaten.</p>
+      <p className="text-caption text-muted-foreground">Lücken sind Monate ohne lockere Läufe mit Pulsdaten.</p>
     </div>
   )
 }
@@ -208,7 +209,7 @@ export function ConsistencyCalendar({ runs, today }: { runs: AnalyticsRun[]; tod
           )
         })}
       </svg>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-caption text-muted-foreground">
         {HEAT_LABELS.map((l, i) => <span key={l} className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: HEAT[i] }} />{l}</span>)}
       </div>
     </div>
@@ -228,27 +229,27 @@ export function Intensity({ runs }: { runs: AnalyticsRun[] }) {
     <div className="flex flex-col gap-4">
       {total > 0 ? (
         <div className="flex flex-col gap-2">
-          <div className="flex h-3.5 gap-0.5 overflow-hidden rounded-full" role="img" aria-label="Zeit in Pulszonen">
+          <div className="flex h-3.5 gap-0.5 overflow-hidden rounded-control" role="img" aria-label="Zeit in Pulszonen">
             {zones.map((s, i) => s > 0 && <div key={i} style={{ flex: s, background: ZONE_COLORS[i] }} title={`${hrZones()[i].name}: ${Math.round((s / total) * 100)} %`} />)}
           </div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground tabular-nums">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-caption text-muted-foreground tabular-nums">
             {hrZones().map((z, i) => (
               <span key={z.name} className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: ZONE_COLORS[i] }} />{z.name} {Math.round((zones[i] / total) * 100)} % <span className="opacity-70">({fmtClock(zones[i])})</span>
               </span>
             ))}
           </div>
-          <p className="text-sm">
+          <p className="text-body-sm">
             <b>{easyPct} %</b> der Zeit locker (Z1+Z2).{' '}
             <span className="text-muted-foreground">{easyPct! >= 75 ? 'Das passt zur 80/20-Regel.' : 'Für 80/20 wären es rund 80 %: die lockeren Läufe sind oft zu schnell.'}</span>
           </p>
         </div>
-      ) : <p className="text-sm text-muted-foreground">Keine Pulsdaten in diesem Zeitraum.</p>}
-      <ul className="grid gap-1.5 text-sm tabular-nums">
+      ) : <p className="text-body-sm text-muted-foreground">Keine Pulsdaten in diesem Zeitraum.</p>}
+      <ul className="grid gap-1.5 text-body-sm tabular-nums">
         {byType.map((x) => (
           <li key={x.t} className="grid grid-cols-[104px_1fr_auto] items-center gap-3">
             <RunTypeTag type={x.t} className="justify-self-start" />
-            <span className="h-2 rounded-full bg-secondary"><span className="block h-2 rounded-full bg-foreground/70" style={{ width: `${(x.km / maxKm) * 100}%` }} /></span>
+            <span className="h-2 rounded-control bg-secondary"><span className="block h-2 rounded-control bg-foreground/70" style={{ width: `${(x.km / maxKm) * 100}%` }} /></span>
             <span className="text-right">{fmtNum(x.km)} km <span className="text-muted-foreground">· {x.n}</span></span>
           </li>
         ))}
@@ -271,7 +272,7 @@ function formLabel(tsb: number) {
 
 export function FitnessForm({ points, target }: { points: FitnessPoint[]; target?: { label: string; ctl: number } }) {
   const [hover, setHover] = useState<number | null>(null)
-  if (points.length < 2) return <p className="text-sm text-muted-foreground">Noch zu wenige Daten.</p>
+  if (points.length < 2) return <p className="text-body-sm text-muted-foreground">Noch zu wenige Daten.</p>
   const W = 1100, L = 38, R = 72, H1 = 220, H2 = 100, T = 10, B = 4   // full-width panel
   const x = (i: number) => L + ((W - L - R) * i) / (points.length - 1)
   const max = Math.max(target?.ctl ?? 0, ...points.map((p) => Math.max(p.ctl, p.atl))) * 1.08
@@ -332,7 +333,7 @@ export function FitnessForm({ points, target }: { points: FitnessPoint[]; target
         ))}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={8} y2={H2 - 22} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />}
       </svg>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-caption text-muted-foreground">
         Fitness = Trainingsbelastung der letzten ~6 Wochen, Ermüdung = der letzten ~7 Tage (aus Dauer und Puls).
         Vor einem Rennen soll die Form ins Positive drehen.
       </p>
@@ -349,7 +350,7 @@ export function PaceHrScatter({ runs }: { runs: AnalyticsRun[] }) {
   const [hover, setHover] = useState<number | null>(null)
   const pts = runs.filter((r) => r.hr != null && r.km >= 3 && r.movingS > 0)
     .map((r) => ({ r, pace: r.movingS / r.km, hr: r.hr! }))
-  if (!pts.length) return <p className="text-sm text-muted-foreground">Keine Läufe mit Pulsdaten in diesem Zeitraum.</p>
+  if (!pts.length) return <p className="text-body-sm text-muted-foreground">Keine Läufe mit Pulsdaten in diesem Zeitraum.</p>
 
   const W = 680, H = 260, L = 38, R = 10, T = 10, B = 26
   const z2 = hrZones()[1]
@@ -401,7 +402,7 @@ export interface EasyHardWeek { key: string; label: string; easyS: number; hardS
 
 export function WeeklyEasyHard({ weeks }: { weeks: EasyHardWeek[] }) {
   const [hover, setHover] = useState<number | null>(null)
-  if (!weeks.some((w) => w.easyS + w.hardS > 0)) return <p className="text-sm text-muted-foreground">Keine Pulsdaten in diesem Zeitraum.</p>
+  if (!weeks.some((w) => w.easyS + w.hardS > 0)) return <p className="text-body-sm text-muted-foreground">Keine Pulsdaten in diesem Zeitraum.</p>
   const W = 680, H = 220, L = 38, R = 8, T = 10, B = 24
   const bw = (W - L - R) / weeks.length
   const y = (pct: number) => T + (H - T - B) * (1 - pct / 100)

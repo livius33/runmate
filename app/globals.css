@@ -108,6 +108,8 @@
 @layer base {
   * { @apply border-border; }
   body { @apply bg-background font-sans text-foreground antialiased; }
+  /* DESIGN.md: weight 600 is the ceiling, also for <b> and <strong> (the browser default is bolder, 700) */
+  b, strong { @apply font-semibold; }
   ::-webkit-scrollbar { width: 3px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }

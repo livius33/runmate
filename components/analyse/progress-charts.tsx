@@ -57,7 +57,7 @@ export function CumulativeVolume({ p }: { p: BlockProgress }) {
   const W = 680, H = 240, L = 40, R = 44, T = 12, B = 24
   const n = weeks.length
   const { hover, onMove, clear } = usePointerIndex(n, L, R, W)
-  if (n < 1) return <p className="text-sm text-muted-foreground">Dieser Block hat noch keine Wochen.</p>
+  if (n < 1) return <p className="text-body-sm text-muted-foreground">Dieser Block hat noch keine Wochen.</p>
   const x = (i: number) => n === 1 ? (L + W - R) / 2 : L + ((W - L - R) * i) / (n - 1)
   const bw = n === 1 ? W - L - R : (W - L - R) / (n - 1)
   const top0 = Math.max(10, ...weeks.map((w) => w.cumPlanKm), ...weeks.map((w) => w.cumActualKm ?? 0))
@@ -110,7 +110,7 @@ export function LongRunChart({ p }: { p: BlockProgress }) {
   const [hover, setHover] = useState<number | null>(null)
   const W = 460, H = 220, L = 34, R = 8, T = 12, B = 24
   const n = weeks.length
-  if (n < 1) return <p className="text-sm text-muted-foreground">Dieser Block hat noch keine Wochen.</p>
+  if (n < 1) return <p className="text-body-sm text-muted-foreground">Dieser Block hat noch keine Wochen.</p>
   const bw = (W - L - R) / n
   const top0 = Math.max(10, ...weeks.map((w) => Math.max(w.longPlanKm ?? 0, w.longActualKm ?? 0)))
   const step = niceStep(top0), top = Math.ceil(top0 / step) * step
@@ -157,7 +157,7 @@ export function Zone2Pace({ p }: { p: BlockProgress }) {
   const W = 460, H = 220, L = 40, R = 26, T = 12, B = 24
   const z2 = hrZones()[1]
   const pts = weeks.map((w, i) => ({ w, i })).filter(({ w }) => w.z2PaceS != null)
-  if (pts.length < 2) return <p className="text-sm text-muted-foreground">Noch zu wenige Wochen mit mindestens 4 sauberen Kilometern in Zone 2 ({z2.min}–{z2.max}).</p>
+  if (pts.length < 2) return <p className="text-body-sm text-muted-foreground">Noch zu wenige Wochen mit mindestens 4 sauberen Kilometern in Zone 2 ({z2.min}–{z2.max}).</p>
   const n = weeks.length
   const x = (i: number) => n === 1 ? (L + W - R) / 2 : L + ((W - L - R) * i) / (n - 1)
   const vals = pts.map(({ w }) => w.z2PaceS!)
@@ -208,8 +208,8 @@ export function QualityDots({ p }: { p: BlockProgress }) {
   const [hover, setHover] = useState<number | null>(null)
   const W = 680, H = 240, L = 40, R = 12, T = 12, B = 24
   const pts = quality.points
-  if (!weeks.length) return <p className="text-sm text-muted-foreground">Dieser Block hat noch keine Wochen.</p>
-  if (!pts.length) return <p className="text-sm text-muted-foreground">Noch keine Tempo-Einheit im Block.</p>
+  if (!weeks.length) return <p className="text-body-sm text-muted-foreground">Dieser Block hat noch keine Wochen.</p>
+  if (!pts.length) return <p className="text-body-sm text-muted-foreground">Noch keine Tempo-Einheit im Block.</p>
   const d0 = parseISO(weeks[0].start).getTime(), d1 = parseISO(weeks[weeks.length - 1].end).getTime()
   const x = (d: string) => L + ((W - L - R) * (parseISO(d).getTime() - d0)) / Math.max(1, d1 - d0)
   const attempted = pts.filter((q) => q.attempted && q.deltaS != null).map((q) => Math.abs(q.deltaS!))
