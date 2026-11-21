@@ -17,7 +17,7 @@ See: .paul/PROJECT.md (updated 2026-11-18)
 
 Milestone: v1.1 Shipping-ready (v1.1.0)
 Phase: 12 (Launch)
-Plan: 12-01 in APPLY — repo public (2026-11-19), PR #4 merged (2026-11-20), Vercel project `runmate` prepared; waits for Livius (keys, GitHub access for Vercel, domain). 12-03 (security fixes) and 13-01 (Instagram) planned
+Plan: 12-01 in APPLY — repo public (2026-11-19), PR #4 merged (2026-11-20), Vercel project `runmate` prepared; waits for Livius (keys, GitHub access for Vercel, domain). 12-04 and 12-05 (security fixes) in APPLY, 12-06 after their merge, 12-07 waits for decisions; 13-01 tasks 2–4 in APPLY
 Status: Phases 8–11 on `main`; runmate.dev still serves the personal dashboard (404 for visitors)
 Last activity: 2026-11-21 — security review (secrets, auth, billing, dependencies), plans 12-03 and 13-01, SECURITY.md
 Progress:
@@ -53,7 +53,10 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - Glitch activities stored before the plausibility filter stay in the data: clean them up once, or leave them?
 - Base block for an unknown runner shows the example easy pace; undated onboarding race time as a recent race?
 - Retention of idle Free accounts (12 months) and the § 312k confirmation through Paddle (09-01 SUMMARY)
-- Mail provider: unblocks the waitlist and the confirmed cancellation (12-03, finding 3)
+- Mail provider and sender address, or open sign-up without a waitlist (12-07)
+- Deleting expired accounts on a schedule: yes or no, from when (12-07)
+- AGB: is a cancellation through the form confirmed by e-mail to the account's address (12-05)
+- Link tokens as hashes, Garmin consumer pair in an env var, key ids for `ENCRYPTION_KEY` (12-07)
 - Instagram (13-01): handle, language, approval mode, private repo for the pipeline, start date
 
 ### Blockers

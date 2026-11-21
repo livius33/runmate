@@ -201,3 +201,52 @@ action = "plan"
 phase = 13
 plan = "13-01"
 at = "2026-11-21T17:00:00Z"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-04"
+at = "2026-11-21T19:00:00Z"
+note = "hardening before the first deployment"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-05"
+at = "2026-11-21T19:00:00Z"
+note = "billing hardening before stage B"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-06"
+at = "2026-11-21T19:00:00Z"
+note = "drizzle-orm behind a log helper; after 12-04/12-05 and PR #7"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-07"
+at = "2026-11-21T19:00:00Z"
+note = "mail and scheduled jobs; checkpoint"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-04"
+at = "2026-11-21T19:05:00Z"
+note = "Opus agent, branch fix/hardening-stage-a"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-05"
+at = "2026-11-21T19:05:00Z"
+note = "Opus agent, branch fix/billing-hardening"
+
+[[entry]]
+action = "apply"
+phase = 13
+plan = "13-01"
+at = "2026-11-21T19:05:00Z"
+note = "tasks 2-4 with defaults, local repo"
