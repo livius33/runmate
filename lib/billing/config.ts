@@ -17,6 +17,9 @@ export function healthConsentRequired(): boolean {
 export type PaddleEnv = 'sandbox' | 'production'
 
 export const paddleEnv = (): PaddleEnv => (process.env.PADDLE_ENV === 'production' ? 'production' : 'sandbox')
+// 12-05: only these two exact values count; anything else (a typo, "prod", unset) means billing is not ready, so no
+// checkout is offered and no API call goes out (lib/billing/paddle.ts).
+export const paddleEnvValid = () => process.env.PADDLE_ENV === 'sandbox' || process.env.PADDLE_ENV === 'production'
 export const paddleApiBase = (env: PaddleEnv = paddleEnv()) => (env === 'production' ? 'https://api.paddle.com' : 'https://sandbox-api.paddle.com')
 
 const PRICE_ENV: Record<Tier, Record<Interval, string>> = {
@@ -40,4 +43,29 @@ export function priceInfo(priceId: string | null | undefined, ids: PriceIds = pr
 // Shown next to the checkout buttons; the amount charged is always the one configured at Paddle.
 export const PRICE_LABEL: Record<Tier, Record<Interval, string>> = {
   plus: { month: '9 € / Monat', year: '79 € / Jahr' },
+}
+
+// What is missing before a checkout may be offered (12-05, finding 9): without the webhook secret a payment cannot be
+// attached to an account, without the API key nothing can be cancelled. Names only, never values.
+export function billingProblems(): string[] {
+  const has = (name: string) => !!process.env[name]?.trim()
+  const ids = priceIds()
+  return [
+    ...(ids.plus.month || ids.plus.year ? [] : ['PADDLE_PRICE_PLUS_MONTH or PADDLE_PRICE_PLUS_YEAR']),
+    ...['NEXT_PUBLIC_PADDLE_CLIENT_TOKEN', 'PADDLE_API_KEY', 'PADDLE_WEBHOOK_SECRET'].filter((n) => !has(n)),
+    ...(paddleEnvValid() ? [] : ['PADDLE_ENV (exactly sandbox or production)']),
+  ]
+}
+
+// Billing on and every Paddle setting in place: only then is a checkout offered.
+export function billingReady(): boolean {
+  return billingEnabled() && billingProblems().length === 0
+}
+
+// The one start-up line (instrumentation.ts) when billing is on but not ready. Returns it (tests).
+export function logBillingConfig(log: (line: string) => void = console.error): string | null {
+  if (!billingEnabled() || billingReady()) return null
+  const line = `[billing] BILLING_ENABLED is set but checkout stays off: missing or invalid ${billingProblems().join(', ')}`
+  log(line)
+  return line
 }

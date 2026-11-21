@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { billingEnabled, paddleEnv, priceIds, PRICE_LABEL } from '@/lib/billing/config'
+import { billingEnabled, billingReady, paddleEnv, priceIds, PRICE_LABEL } from '@/lib/billing/config'
 import { currentEntitlements, ensureSubscription } from '@/lib/billing/access'
 import { toClient } from '@/lib/billing/entitlements'
 import { checkoutBlock, type CheckoutBlock } from '@/lib/billing/checkout'
@@ -35,7 +35,8 @@ export const GET = withUser(async () => {
       status: row.status, tier: row.tier, interval: row.interval, trialEndsAt: row.trialEndsAt, periodEnd: row.currentPeriodEnd,
       cancelAtPeriodEnd: row.cancelAtPeriodEnd, paddle: !!row.paddleSubscriptionId,
     },
-    checkout: { env: paddleEnv(), clientToken: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || null, prices },
+    // Offered only when every Paddle setting is in place (12-05); otherwise the card says "Noch nicht buchbar".
+    checkout: billingReady() ? { env: paddleEnv(), clientToken: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || null, prices } : null,
     // The signed user id for the checkout comes from POST /api/billing/checkout, which refuses while this is set.
     checkoutBlocked: checkoutBlock(row, Math.floor(Date.now() / 1000)),
     cancellation: cancellation && { at: cancellation.at, endsAt: cancellation.endsAt, viaForm: !!cancellation.viaForm },

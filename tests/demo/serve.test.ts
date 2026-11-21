@@ -72,7 +72,7 @@ describe('Demo-API', () => {
   })
 
   it('jede Route mit GET ist entweder freigegeben oder bewusst ausgeschlossen', () => {
-    const EXCLUDED = ['account/export', 'billing', 'calendar-link', 'calendar/[token]', 'consent/health', 'cron/daily-sync',
+    const EXCLUDED = ['account/export', 'billing', 'calendar-link', 'calendar/[token]', 'consent/health', 'cron/billing-reconcile', 'cron/daily-sync',
       'cron/demo-reset', 'cron/expired-accounts', 'health-link', 'onboarding', 'waitlist/confirm', 'waitlist/leave']
     const root = join(__dirname, '..', '..', 'app', 'api')
     const routes = (dir: string, prefix = ''): string[] => readdirSync(dir).flatMap((f) => {

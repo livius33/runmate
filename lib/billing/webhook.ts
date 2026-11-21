@@ -33,7 +33,7 @@ const SUBSCRIPTION_EVENTS = new Set([
 ])
 export const HANDLED_EVENTS = new Set([...SUBSCRIPTION_EVENTS, 'transaction.completed'])
 
-const secs = (iso: unknown): number | null => {
+export const secs = (iso: unknown): number | null => {
   if (typeof iso !== 'string') return null
   const t = Date.parse(iso)
   return Number.isNaN(t) ? null : Math.floor(t / 1000)
@@ -45,7 +45,7 @@ const EMPTY: SubState = {
 }
 
 const live = (row: SubState | null): row is SubState => !!row?.paddleSubscriptionId && row.status !== 'canceled'
-const ending = (s: PaddleSubscription) => s.status === 'canceled' || s.scheduled_change?.action === 'cancel'
+export const ending = (s: PaddleSubscription) => s.status === 'canceled' || s.scheduled_change?.action === 'cancel'
 
 // An event for a subscription that is not the stored live one (12-05, finding 7: a second checkout went through).
 // It never replaces the row; a live one is kept in `otherSubscriptionIds` (so cancel and deletion stop it too), an

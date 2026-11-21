@@ -13,7 +13,7 @@ vi.mock('@clerk/nextjs/server', () => ({ auth: async () => ({ userId: clerk.user
 
 const SECRET = 'pdl_ntfset_test_secret'
 const IDS: PriceIds = { plus: { month: 'pri_pm', year: 'pri_py' } }
-const env = { BILLING_ENABLED: '1', PADDLE_WEBHOOK_SECRET: SECRET, PADDLE_API_KEY: 'pdl_sdbx_apikey_test', PADDLE_ENV: 'sandbox', PADDLE_PRICE_PLUS_MONTH: 'pri_pm', PADDLE_PRICE_PLUS_YEAR: 'pri_py' }
+const env = { BILLING_ENABLED: '1', PADDLE_WEBHOOK_SECRET: SECRET, PADDLE_API_KEY: 'pdl_sdbx_apikey_test', PADDLE_ENV: 'sandbox', PADDLE_PRICE_PLUS_MONTH: 'pri_pm', PADDLE_PRICE_PLUS_YEAR: 'pri_py', NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: 'test_tok' }
 
 const db = { sub: null as Record<string, unknown> | null, seen: new Set<string>() }
 const fake = useFakeDb((q) => {

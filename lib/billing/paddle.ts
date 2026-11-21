@@ -2,7 +2,7 @@
 // the payment, handles VAT and sends the invoices. Runmate keeps one subscription row per user in sync (webhook.ts).
 // Docs: developer.paddle.com — webhooks/signature-verification, api-reference/subscriptions, customer-portal-sessions.
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { paddleApiBase } from './config'
+import { paddleApiBase, paddleEnvValid } from './config'
 
 // Signatures older than this are refused (replays; the event id check catches the rest).
 export const SIGNATURE_TOLERANCE_S = 300
@@ -47,7 +47,7 @@ export class PaddleError extends Error {
 // Paddle API call; errors carry only status and Paddle's error code (never the key, never the full body).
 async function paddle<T>(path: string, body?: unknown, method: 'GET' | 'POST' | 'PATCH' = 'POST'): Promise<T> {
   const key = process.env.PADDLE_API_KEY
-  if (!key) throw new PaddleError(0, 'not-configured')
+  if (!key || !paddleEnvValid()) throw new PaddleError(0, 'not-configured')
   const res = await fetch(`${paddleApiBase()}${path}`, {
     method,
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -74,6 +74,11 @@ export interface PaddleSubscription {
 // §312k BGB button and account deletion. `next_billing_period`: it stays active until the paid period ends.
 export function cancelSubscription(subscriptionId: string, when: 'next_billing_period' | 'immediately'): Promise<PaddleSubscription> {
   return paddle<PaddleSubscription>(`/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, { effective_from: when })
+}
+
+// The subscription as Paddle has it now (daily reconcile, 12-05).
+export function getSubscription(subscriptionId: string): Promise<PaddleSubscription> {
+  return paddle<PaddleSubscription>(`/subscriptions/${encodeURIComponent(subscriptionId)}`, undefined, 'GET')
 }
 
 // Taking a cancellation back (Settings → Abo): removes the scheduled change, the subscription renews as before.

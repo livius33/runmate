@@ -24,7 +24,12 @@ export async function POST(req: Request) {
   }
   try {
     const result = await handlePaddleEvent(ev)
-    if (result === 'unknown-user') console.warn('[billing/webhook] event without a known user:', ev.event_type, ev.event_id)
+    // 12-05: a payment nobody can be matched to is money without an account; error level so it is seen.
+    if (result === 'unknown-user') {
+      const d = ev.data as { id?: unknown; subscription_id?: unknown; customer_id?: unknown }
+      const sub = ev.event_type.startsWith('subscription.') ? d.id : d.subscription_id
+      console.error('[billing/webhook] event without a known user: type=%s event=%s subscription=%s customer=%s', ev.event_type, ev.event_id, sub ?? '-', d.customer_id ?? '-')
+    }
     return NextResponse.json({ ok: true, result })
   } catch (err: any) {
     console.error('[billing/webhook] failed:', ev.event_type, ev.event_id, err?.message)

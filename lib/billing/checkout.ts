@@ -8,6 +8,7 @@ import { subscription } from '@/lib/db/schema'
 import { own, uid } from '@/lib/db/owned'
 import { ensureSubscription, nowS, type SubscriptionRow } from './access'
 import { signCheckoutUser } from './paddle'
+import { billingReady } from './config'
 
 export const CHECKOUT_LOCK_S = 15 * 60
 
@@ -24,6 +25,7 @@ export function checkoutBlock(row: Pick<SubscriptionRow, 'status' | 'paddleSubsc
 export type CheckoutGrant = { ok: true; userId: string; userSig: string } | { ok: false; block: CheckoutBlock | 'not-configured' }
 
 export async function claimCheckout(now = nowS()): Promise<CheckoutGrant> {
+  if (!billingReady()) return { ok: false, block: 'not-configured' }
   const row = await ensureSubscription()
   const block = checkoutBlock(row, now)
   if (block) return { ok: false, block }
