@@ -52,7 +52,6 @@ const NOT_YET_MIGRATED = [
   'components/legal/LegalFooter.tsx',
   'components/legal/Template.tsx',
   'components/plan/Rebuild.tsx',
-  'components/plan/WeekFeedbackOverlay.tsx',
   'components/plan/ui.tsx',
   'components/plan/workshop/Onboarding.tsx',
   'components/runs/Comparison.tsx',
