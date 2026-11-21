@@ -4,10 +4,10 @@
 // taking over when the stored one ended. Tombstones that still name a Paddle subscription (a deletion whose cancel
 // failed, lib/account/delete.ts) are cancelled. `reconcileState` is pure; the cron route is
 // app/api/cron/billing-reconcile.
-import { and, asc, eq, gt, isNotNull, ne, or, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, isNotNull, lt, ne, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { subscription } from '@/lib/db/schema'
-import { deletedUsers } from '@/lib/db/public-schema'
+import { deletedUsers, jobState } from '@/lib/db/public-schema'
 import { runAsUser } from '@/lib/server/scope'
 import { priceIds, type PriceIds } from './config'
 import { cancelSubscription, getSubscription, type PaddleSubscription } from './paddle'
@@ -73,31 +73,23 @@ async function settleTombstone(t: { userId: string; paddleSubscriptionIds: strin
   return cancelled
 }
 
-// One run: pages through the rows by user id (keyset, RECONCILE_PAGE at a time) until done or `deadline` (ms epoch).
-// What is left after the deadline is reported (`complete: false`); the next run starts again from the first user id.
+export const CURSOR_JOB = 'billing-reconcile.cursor'
+
+async function readCursor(): Promise<string> {
+  const [row] = await db.select({ value: jobState.value }).from(jobState).where(eq(jobState.name, CURSOR_JOB)).limit(1)
+  return row?.value ?? ''
+}
+async function saveCursor(value: string) {
+  const updatedAt = Math.floor(Date.now() / 1000)
+  await db.insert(jobState).values({ name: CURSOR_JOB, value, updatedAt }).onConflictDoUpdate({ target: jobState.name, set: { value, updatedAt } })
+}
+
+// One run until done or `deadline` (ms epoch). Tombstones first (few, and each is money still being taken). Then the
+// subscription rows by user id (keyset, RECONCILE_PAGE at a time), starting after the user the last run stopped at
+// (job_state) and wrapping around to the start; a full lap resets the cursor. `complete: false` = the budget ran out
+// and the next run continues from the cursor.
 export async function reconcileAll(deadline: number): Promise<ReconcileReport> {
   const r: ReconcileReport = { rows: 0, changed: 0, failed: 0, tombstones: 0, cancelled: 0, complete: false }
-  const nonFinal = or(
-    and(isNotNull(subscription.paddleSubscriptionId), ne(subscription.status, 'canceled')),
-    sql`coalesce(cardinality(${subscription.otherSubscriptionIds}), 0) > 0`,
-  )
-  let after = ''
-  for (;;) {
-    // cross-user: the cron has no session; it reads the non-final rows page by page and writes inside each user's scope
-    const page = await db.select().from(subscription).where(and(nonFinal, gt(subscription.userId, after))).orderBy(asc(subscription.userId)).limit(RECONCILE_PAGE)
-    for (const row of page) {
-      if (Date.now() > deadline) return r
-      r.rows++
-      try {
-        if (await reconcileRow(row)) r.changed++
-      } catch (err: any) {
-        r.failed++
-        console.error('[billing/reconcile] user=%s subscription=%s failed: %s', row.userId, row.paddleSubscriptionId ?? '-', err?.message)
-      }
-    }
-    if (page.length < RECONCILE_PAGE) break
-    after = page[page.length - 1].userId
-  }
   const tombs = await db.select({ userId: deletedUsers.userId, paddleSubscriptionIds: deletedUsers.paddleSubscriptionIds }).from(deletedUsers)
     .where(sql`coalesce(cardinality(${deletedUsers.paddleSubscriptionIds}), 0) > 0`)
   for (const t of tombs) {
@@ -105,6 +97,36 @@ export async function reconcileAll(deadline: number): Promise<ReconcileReport> {
     r.tombstones++
     r.cancelled += await settleTombstone(t)
   }
+
+  const nonFinal = or(
+    and(isNotNull(subscription.paddleSubscriptionId), ne(subscription.status, 'canceled')),
+    sql`coalesce(cardinality(${subscription.otherSubscriptionIds}), 0) > 0`,
+  )
+  const start = await readCursor()
+  let wrapped = start === ''            // no cursor: one pass from the first id is the whole lap
+  let after = start
+  let last = start
+  for (;;) {
+    const upTo = wrapped && start ? lt(subscription.userId, start) : undefined
+    // cross-user: the cron has no session; it reads the non-final rows page by page and writes inside each user's scope
+    const page = await db.select().from(subscription).where(and(nonFinal, gt(subscription.userId, after), upTo)).orderBy(asc(subscription.userId)).limit(RECONCILE_PAGE)
+    for (const row of page) {
+      if (Date.now() > deadline) { await saveCursor(last); return r }
+      r.rows++
+      try {
+        if (await reconcileRow(row)) r.changed++
+      } catch (err: any) {
+        r.failed++
+        console.error('[billing/reconcile] user=%s subscription=%s failed: %s', row.userId, row.paddleSubscriptionId ?? '-', err?.message)
+      }
+      last = row.userId
+    }
+    if (page.length === RECONCILE_PAGE) { after = page[page.length - 1].userId; continue }
+    if (wrapped) break
+    wrapped = true
+    after = ''
+  }
+  await saveCursor('')
   r.complete = true
   return r
 }

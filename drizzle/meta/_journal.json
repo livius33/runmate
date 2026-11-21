@@ -71,6 +71,13 @@
       "when": 1795286141081,
       "tag": "0009_other_subscription_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795286365888,
+      "tag": "0010_job_state",
+      "breakpoints": true
     }
   ]
 }

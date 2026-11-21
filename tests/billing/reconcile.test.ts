@@ -20,13 +20,19 @@ const END = T0 + 30 * 86_400
 const iso = (s: number) => new Date(s * 1000).toISOString()
 
 // tombs: deleted user id → Paddle ids still to cancel (the deleted_users table, stateful).
-const db = { sub: null as Record<string, unknown> | null, rows: [] as Record<string, unknown>[], tombs: new Map<string, { ids: string[] | null; customer: string | null }>() }
+const db = { sub: null as Record<string, unknown> | null, rows: [] as Record<string, unknown>[], tombs: new Map<string, { ids: string[] | null; customer: string | null }>(), cursor: null as string | null }
 const fake = useFakeDb((q) => {
   if (/^select .* from "subscription" where \(\(\("subscription"."paddle_subscription_id" is not null/.test(q.sql)) {
-    const after = String(q.params[q.params.length - 2])
-    const limit = Number(q.params[q.params.length - 1])
-    return db.rows.filter((r) => String(r.userId) > after).slice(0, limit).map((r) => rowOf(subscription, r))
+    // params: …, after, [before], limit (the wrapped pass of a run that started at a cursor has an upper bound)
+    const bounded = /"subscription"."user_id" < \$\d+/.test(q.sql)
+    const n = q.params.length
+    const after = String(q.params[bounded ? n - 3 : n - 2])
+    const before = bounded ? String(q.params[n - 2]) : null
+    const limit = Number(q.params[n - 1])
+    return db.rows.filter((r) => String(r.userId) > after && (before == null || String(r.userId) < before)).slice(0, limit).map((r) => rowOf(subscription, r))
   }
+  if (/^select "value" from "job_state"/.test(q.sql)) return db.cursor == null ? [] : [[db.cursor]]
+  if (/^insert into "job_state"/.test(q.sql)) { db.cursor = String(q.params[1]); return [] }
   if (/^select .* from "subscription"/.test(q.sql) && db.sub) return [rowOf(subscription, db.sub)]
   if (/^select "user_id" from "deleted_users" where "deleted_users"."user_id" = \$1/.test(q.sql)) return db.tombs.has(String(q.params[0])) ? [[q.params[0]]] : []
   if (/^select "user_id", "paddle_subscription_ids" from "deleted_users"/.test(q.sql)) return [...db.tombs].filter(([, t]) => t.ids?.length).map(([u, t]) => [u, t.ids])
@@ -59,6 +65,7 @@ beforeEach(() => {
   db.sub = null
   db.rows = []
   db.tombs.clear()
+  db.cursor = null
   paddle.byId = {}
   paddle.calls = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
@@ -230,6 +237,39 @@ describe('Täglicher Abgleich (Cron)', async () => {
     } finally { err.mockRestore(); info.mockRestore() }
     expect(paddle.calls).toContain('POST /subscriptions/sub_late/cancel')
     expect(db.tombs.get('user-gone')!.ids).toBeNull()
+  })
+
+  // 12-05 review 6
+  it('Frist in Lauf 1 erreicht: Lauf 2 macht nach dem letzten bearbeiteten Nutzer weiter; Grabsteine in beiden zuerst', async () => {
+    const { reconcileAll } = await import('@/lib/billing/reconcile')
+    const n = 6
+    db.rows = Array.from({ length: n }, (_, i) => live(i))
+    for (let i = 0; i < n; i++) paddle.byId[`sub_${i}`] = { status: 'active', current_billing_period: { starts_at: iso(T0), ends_at: iso(END) }, scheduled_change: null, updated_at: iso(T0 + 10) }
+    db.tombs.set('user-gone-1', { ids: ['sub_g1'], customer: null })
+    paddle.byId.sub_g1 = { status: 'active' }
+    // A clock that moves one second per Paddle call.
+    let clock = 0
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock)
+    const f = global.fetch as unknown as (u: string, i: RequestInit) => Promise<Response>
+    vi.stubGlobal('fetch', vi.fn(async (u: string, i: RequestInit) => { clock += 1000; return f(u, i) }))
+    try {
+      // Run 1: the tombstone (GET + cancel) and two rows, then the budget is gone.
+      const r1 = await reconcileAll(3500)
+      expect(r1).toMatchObject({ tombstones: 1, cancelled: 1, rows: 2, complete: false })
+      expect(db.cursor).toBe('user-0001')
+
+      // Run 2: a new tombstone first, then user-0002 … user-0005, wrap, nothing before user-0001 left but user-0000.
+      db.tombs.set('user-gone-2', { ids: ['sub_g2'], customer: null })
+      paddle.byId.sub_g2 = { status: 'active' }
+      paddle.calls = []
+      clock = 0
+      const r2 = await reconcileAll(1_000_000)
+      expect(r2).toMatchObject({ tombstones: 1, cancelled: 1, rows: n - 1, complete: true })
+      expect(paddle.calls[0]).toBe('GET /subscriptions/sub_g2')
+      expect(paddle.calls.filter((c) => c.startsWith('GET /subscriptions/sub_')).slice(1)).toEqual(
+        ['sub_2', 'sub_3', 'sub_4', 'sub_5', 'sub_0', 'sub_1'].slice(0, n - 1).map((id) => `GET /subscriptions/${id}`))
+      expect(db.cursor).toBe('')                     // a full lap: the next run starts at the first id
+    } finally { now.mockRestore() }
   })
 
   it('Billing aus: nichts gelesen', async () => {
