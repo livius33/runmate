@@ -29,6 +29,18 @@ export interface FormRequest { name: string; kind: CancelKind; reason?: string }
 
 const EMPTY: FormState = { v: 1, lastAt: null, undoneAt: null, held: [] }
 
+// Read-modify-write of the form state with a compare-and-set, so a form request held at the same moment is not
+// overwritten by the owner's take-back or decision. `change` null = nothing to write. False when it kept losing.
+async function updateFormState(change: (s: FormState) => FormState | null): Promise<boolean> {
+  for (let i = 0; i < 5; i++) {
+    const raw = await getSetting(FORM_KEY)
+    const next = change(parseFormState(raw))
+    if (!next) return true
+    if (await compareAndSetSetting(FORM_KEY, raw, JSON.stringify(next))) return true
+  }
+  return false
+}
+
 export function parseFormState(raw: string | null): FormState {
   try {
     const v = raw ? JSON.parse(raw) : null
@@ -66,12 +78,15 @@ export async function handleFormRequest(req: FormRequest, at = nowS()): Promise<
     : { ...state, lastAt: at }
   if (!(await compareAndSetSetting(FORM_KEY, raw, JSON.stringify(next)))) return { outcome: 'cooldown', subscriptionId }
   if (decision === 'hold') return { outcome: 'hold', subscriptionId }
-  const r = await cancelCurrent('next_billing_period')
-  if (!r.ok) {
-    // Give the slot back: a retry must not be swallowed by the cooldown.
-    await setSettingJson(FORM_KEY, { ...next, lastAt: state.lastAt })
-    throw new Error('paddle')
+  let r: CancelResult | null = null
+  try {
+    r = await cancelCurrent('next_billing_period')
+  } finally {
+    // Paddle did not confirm (refused, or anything threw): give the slot back, so the retry is not swallowed by the
+    // cooldown. Only while the state is still the one written here; a newer one is left alone.
+    if (!r?.ok) await compareAndSetSetting(FORM_KEY, JSON.stringify(next), JSON.stringify({ ...next, lastAt: state.lastAt })).catch(() => false)
   }
+  if (!r.ok) throw new Error('paddle')
   await recordCancellation(req, r, true)
   return { outcome: 'cancel', subscriptionId }
 }
@@ -103,8 +118,7 @@ export async function undoCancellation(at = nowS()): Promise<UndoResult> {
     const s = await removeScheduledChange(row.paddleSubscriptionId)
     const next = await saveCancelled(s)
     clearEntitlementsCache()
-    const raw = await getSetting(FORM_KEY)
-    await setSettingJson(FORM_KEY, { ...parseFormState(raw), undoneAt: at })
+    await updateFormState((s) => ({ ...s, undoneAt: at }))
     const c = await getSettingJson<StoredCancellation>(CANCELLATION_KEY)
     if (c) await setSettingJson(CANCELLATION_KEY, { ...c, revokedAt: at })
     console.info('[billing/cancel-undo] user=%s subscription=%s', row.userId, row.paddleSubscriptionId)
@@ -129,7 +143,9 @@ export async function resolveHeld(action: 'confirm' | 'discard'): Promise<HeldRe
     const last = state.held[state.held.length - 1]
     await recordCancellation(last, cancelled, true)
   }
-  await setSettingJson(FORM_KEY, { ...state, held: [] })
+  // Only the requests decided on here; one held meanwhile stays for the owner.
+  const decided = new Set(state.held.map((h) => h.at))
+  await updateFormState((s) => ({ ...s, held: s.held.filter((h) => !decided.has(h.at)) }))
   console.info('[billing/cancel-held] user=%s action=%s requests=%d', uid(), action, state.held.length)
   return { ok: true, cancelled }
 }

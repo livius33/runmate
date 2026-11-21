@@ -18,7 +18,9 @@ const END = T0 + 20 * 86_400
 const iso = (s: number) => new Date(s * 1000).toISOString()
 
 // Stateful fake: the settings rows (compare-and-set included) and one subscription row.
-const store = { settings: new Map<string, string>(), sub: null as Record<string, unknown> | null }
+// `beforeSettingUpdate` runs "the other request" right before a settings compare-and-set is checked; `throwOnSubSelect`
+// makes the n-th read of the subscription row throw.
+const store = { settings: new Map<string, string>(), sub: null as Record<string, unknown> | null, beforeSettingUpdate: null as null | (() => void), throwOnSubSelect: 0, subSelects: 0 }
 const fake = useFakeDb((q) => {
   const p = q.params
   if (/^select "value" from "settings"/.test(q.sql)) return store.settings.has(String(p[1])) ? [[store.settings.get(String(p[1]))]] : []
@@ -29,10 +31,12 @@ const fake = useFakeDb((q) => {
     store.settings.set(key, value); return []
   }
   if (/^update "settings"/.test(q.sql)) {
+    if (store.beforeSettingUpdate) { const f = store.beforeSettingUpdate; store.beforeSettingUpdate = null; f() }
     const [value, , key, expected] = p as string[]
     if (store.settings.get(key) !== expected) return []
     store.settings.set(key, value); return [[key]]
   }
+  if (/^select .* from "subscription"/.test(q.sql) && ++store.subSelects === store.throwOnSubSelect) throw new Error('db down')
   if (/^select .* from "subscription"/.test(q.sql) && store.sub) return [rowOf(subscription, store.sub)]
   if (/^update "subscription" set "status"/.test(q.sql) && store.sub) {
     // saveCancelled: the cancel flag is the only field these tests follow
@@ -52,6 +56,9 @@ beforeEach(() => {
   paddleCalls.length = 0
   paddleFails.value = false
   store.settings.clear()
+  store.beforeSettingUpdate = null
+  store.throwOnSubSelect = 0
+  store.subSelects = 0
   store.sub = { userId: 'user-c', status: 'active', tier: 'plus', interval: 'month', paddleSubscriptionId: 'sub_1', paddleCustomerId: 'ctm_1', priceId: 'pri_pm', currentPeriodEnd: END, cancelAtPeriodEnd: false, eventAt: T0, updatedAt: 0, lastSeenAt: T0 }
   vi.useFakeTimers({ now: T0 * 1000, toFake: ['Date'] })
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
@@ -171,6 +178,55 @@ describe('Kündigungsformular (öffentlich)', () => {
     paddleCalls.length = 0
     expect((await form()).status).toBe(200)
     expect(cancels()).toHaveLength(1)
+  })
+})
+
+describe('Formular: kein verschluckter Versuch, keine überschriebene Anfrage (Review 3, 7)', () => {
+  const quiet = () => vi.spyOn(console, 'error').mockImplementation(() => {})
+
+  it('cancelCurrent wirft (nicht nur ok:false): die Sperre wird freigegeben, der nächste Versuch erreicht Paddle', async () => {
+    store.throwOnSubSelect = 2                       // 1: handleFormRequest's read, 2: the one inside cancelCurrent
+    const err = quiet()
+    try {
+      expect((await form()).status).toBe(502)
+    } finally { err.mockRestore() }
+    expect(cancels()).toEqual([])
+    expect(JSON.parse(store.settings.get('billing_cancel_form')!).lastAt).toBeNull()
+    expect((await form()).status).toBe(200)
+    expect(cancels()).toHaveLength(1)
+  })
+
+  it('die Freigabe überschreibt keinen neueren Stand', async () => {
+    paddleFails.value = true
+    const err = quiet()
+    // Between the claim and the release another request held something (here: the state changed under us).
+    store.beforeSettingUpdate = null
+    const newer = JSON.stringify({ v: 1, lastAt: T0, undoneAt: T0, held: [{ at: T0, kind: 'ordentlich', name: 'x' }] })
+    const orig = global.fetch
+    vi.stubGlobal('fetch', vi.fn(async (u: string, i: RequestInit) => { store.settings.set('billing_cancel_form', newer); return orig(u, i) }))
+    try {
+      expect((await form()).status).toBe(502)
+    } finally { err.mockRestore() }
+    expect(store.settings.get('billing_cancel_form')).toBe(newer)
+  })
+
+  it('Verwerfen, während eine neue Anfrage zurückgehalten wird: die neue bleibt', async () => {
+    const h1 = { at: T0 - 100, kind: 'ordentlich', name: 'a' }
+    const h2 = { at: T0 - 10, kind: 'ordentlich', name: 'b' }
+    store.settings.set('billing_cancel_form', JSON.stringify({ v: 1, lastAt: T0 - 100, undoneAt: T0 - 1000, held: [h1] }))
+    store.beforeSettingUpdate = () => store.settings.set('billing_cancel_form', JSON.stringify({ v: 1, lastAt: T0 - 10, undoneAt: T0 - 1000, held: [h1, h2] }))
+    const res = await heldPost(new Request('http://localhost/api/billing/cancel/held', { method: 'POST', body: JSON.stringify({ action: 'discard' }) }))
+    expect(res.status).toBe(200)
+    expect(JSON.parse(store.settings.get('billing_cancel_form')!).held).toEqual([h2])
+  })
+
+  it('Rücknahme, während eine Anfrage zurückgehalten wird: die Anfrage bleibt, die Rücknahme ist vermerkt', async () => {
+    store.sub = { ...store.sub, cancelAtPeriodEnd: true }
+    const h = { at: T0 - 10, kind: 'ordentlich', name: 'b' }
+    store.settings.set('billing_cancel_form', JSON.stringify({ v: 1, lastAt: T0 - 100, undoneAt: null, held: [] }))
+    store.beforeSettingUpdate = () => store.settings.set('billing_cancel_form', JSON.stringify({ v: 1, lastAt: T0 - 10, undoneAt: null, held: [h] }))
+    expect((await undoPost()).status).toBe(200)
+    expect(JSON.parse(store.settings.get('billing_cancel_form')!)).toMatchObject({ undoneAt: T0, held: [h] })
   })
 })
 
