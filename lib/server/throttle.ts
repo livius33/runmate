@@ -54,20 +54,22 @@ export async function throttleReset(name: string): Promise<void> {
   await setSettingJson(key(name), [])
 }
 
-export function tooManyResponse(seconds: number) {
-  const wait = seconds >= 90 ? `${Math.ceil(seconds / 60)} Minuten` : `${seconds} Sekunden`
+export const waitText = (seconds: number) => (seconds >= 90 ? `${Math.ceil(seconds / 60)} Minuten` : `${seconds} Sekunden`)
+
+export function tooManyResponse(seconds: number): Response {
   return NextResponse.json(
-    { ok: false, error: `Zu viele Anfragen. Bitte in ${wait} erneut versuchen.`, code: 'rate-limited' },
+    { ok: false, error: `Zu viele Anfragen. Bitte in ${waitText(seconds)} erneut versuchen.`, code: 'rate-limited' },
     { status: 429, headers: { 'Retry-After': String(seconds) } },
   )
 }
 
 // A cooldown or quota for a route: 429 when the limit is reached, otherwise the request is counted and null returned.
-// Counted before the work runs, so a failing or slow request cannot be repeated without limit.
-export async function throttle(name: string, limit: Limit, now = Date.now()): Promise<Response | null> {
+// Counted before the work runs, so a failing or slow request cannot be repeated without limit. `respond` builds the 429
+// (JSON by default; a plain link like the export answers with text).
+export async function throttle(name: string, limit: Limit, respond: (seconds: number) => Response = tooManyResponse, now = Date.now()): Promise<Response | null> {
   const times = recent(await getSettingJson<unknown>(key(name)), now, limit)
   const wait = retryAfter(times, now, limit)
-  if (wait) return tooManyResponse(wait)
+  if (wait) return respond(wait)
   await setSettingJson(key(name), [...times, now].slice(-limit.max))
   return null
 }
