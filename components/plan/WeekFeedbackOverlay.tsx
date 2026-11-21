@@ -43,7 +43,7 @@ export function WeekFeedbackOverlay({ overview, saved, feel, saving, error, onLa
   const [rating, setRating] = useState<Score | null>(saved?.rating ?? null)
   const [fatigue, setFatigue] = useState<Score | null>(saved?.fatigue ?? null)
   const [note, setNote] = useState(saved?.note ?? '')
-  const [noteOpen, setNoteOpen] = useState(!!saved?.note)
+  const [noteOpen, setNoteOpen] = useState(false)          // a saved note shows as one line until "ändern"
   const [details, setDetails] = useState(false)
   const complete = rating != null && fatigue != null
   const range = `${format(parseISO(r.week.start), 'd.M.')}–${format(parseISO(r.week.end), 'd.M.')}`
@@ -53,11 +53,11 @@ export function WeekFeedbackOverlay({ overview, saved, feel, saving, error, onLa
   return (
     <DialogShell onOpenChange={(open) => { if (!open) onLater() }} closeLabel="Später"
       title={`Wochenrückblick KW ${r.week.kw}`}
-      description={`${range} · ${r.week.focus}`}
+      description={<>{range} · {r.week.focus}{saved && <span className="sm:hidden"> · Gespeichert am {format(parseISO(saved.at), 'd.M.')}</span>}</>}
       footer={
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
           {error ? <p className="mr-auto text-caption text-error" role="alert">{error}</p>
-            : saved ? <p className="mr-auto text-caption text-muted-foreground">Gespeichert am {format(parseISO(saved.at), "d.M. 'um' HH:mm", { locale: de })}</p> : null}
+            : saved ? <p className="mr-auto hidden text-caption text-muted-foreground sm:block">Gespeichert am {format(parseISO(saved.at), "d.M. 'um' HH:mm", { locale: de })}</p> : null}
           <Button type="submit" form={FORM_ID} variant="primary" disabled={!complete || saving} className="w-full sm:w-auto">
             {saving ? 'Speichert …' : saved ? 'Bewertung aktualisieren' : 'Bewertung speichern'}
           </Button>
@@ -90,8 +90,14 @@ export function WeekFeedbackOverlay({ overview, saved, feel, saving, error, onLa
           <label className="mt-3 block text-body-sm">
             <span className="font-medium">Notiz</span> <span className="text-muted-foreground">(optional)</span>
             <Textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))} disabled={saving} rows={2} maxLength={NOTE_MAX}
-              autoFocus={!saved?.note} placeholder="Was war anders als geplant? Schlaf, Stress, Schmerzen …" className="mt-1.5" />
+              autoFocus placeholder="Was war anders als geplant? Schlaf, Stress, Schmerzen …" className="mt-1.5" />
           </label>
+        ) : note ? (
+          <p className="mt-2 flex min-w-0 items-center gap-2 text-caption">
+            <span className="min-w-0 truncate text-muted-foreground">Notiz: „{note}“</span>
+            <button type="button" onClick={() => setNoteOpen(true)} disabled={saving}
+              className="tap shrink-0 rounded-control font-medium text-foreground underline underline-offset-2">ändern</button>
+          </p>
         ) : (
           <button type="button" onClick={() => setNoteOpen(true)} disabled={saving}
             className="tap mt-2 inline-flex items-center gap-1 rounded-control text-caption font-medium text-muted-foreground hover:text-foreground">
