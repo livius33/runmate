@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
+// DESIGN.md typography (12-02): Geist for text, Geist Mono for small technical labels (`font-mono`). Both SIL OFL.
+const sans = Geist({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
+const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' })
 
 export const metadata: Metadata = {
   title: 'Runmate',
@@ -18,8 +20,8 @@ export const viewport: Viewport = { themeColor: '#E5484D', viewportFit: 'cover' 
 // the public pages (landing, methods, Impressum, Datenschutz, AGB, Kündigung) load neither.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de">
-      <body className={inter.className}>
+    <html lang="de" className={`${sans.variable} ${mono.variable}`}>
+      <body>
         {children}
       </body>
     </html>

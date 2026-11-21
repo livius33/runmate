@@ -1,5 +1,17 @@
 import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+// The design tokens' own class names (tailwind.config.ts), so `cn` merges them as sizes, radii and shadows instead of
+// reading `text-caption` as a colour and dropping it next to `text-muted-foreground`.
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      'font-size': [{ text: ['caption', 'body-sm', 'body', 'title-sm', 'title', 'display', 'hero'] }],
+      rounded: [{ rounded: ['control', 'card', 'dialog'] }],
+      shadow: [{ shadow: ['hairline', 'raised', 'overlay'] }],
+    },
+  },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

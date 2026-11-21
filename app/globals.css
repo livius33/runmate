@@ -28,6 +28,12 @@
     --brand-soft: 358 90% 96%;
     --teal: 174 72% 36%;
     --teal-soft: 172 60% 93%;
+    /* Warning (replaces Tailwind's amber): DESIGN.md colors.warning-deep / warning-soft, in Runmate's amber hue. */
+    --warning: 30 90% 32%;
+    --warning-soft: 45 100% 94%;
+    --warning-border: 43 90% 78%;
+    /* Error text (form errors, failed saves): DESIGN.md colors.error. --destructive stays the button fill. */
+    --error: 0 72% 45%;
   }
 
   /* Dark set (Phase 6). Only where asked for: `.dark` (Tailwind's class strategy), or `.theme-auto` (the marketing
@@ -56,6 +62,10 @@
     --brand-soft: 358 40% 17%;
     --teal: 174 64% 40%;
     --teal-soft: 174 40% 15%;
+    --warning: 38 85% 64%;
+    --warning-soft: 38 60% 16%;
+    --warning-border: 38 45% 30%;
+    --error: 0 85% 70%;
   }
 }
 
@@ -84,6 +94,10 @@
     --brand-soft: 358 40% 17%;
     --teal: 174 64% 40%;
     --teal-soft: 174 40% 15%;
+    --warning: 38 85% 64%;
+    --warning-soft: 38 60% 16%;
+    --warning-border: 38 45% 30%;
+    --error: 0 85% 70%;
     color-scheme: dark;
   }
   /* The app's long-run tag uses fixed amber; keep it readable on the dark marketing panels */
@@ -93,7 +107,7 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground antialiased; }
+  body { @apply bg-background font-sans text-foreground antialiased; }
   ::-webkit-scrollbar { width: 3px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
