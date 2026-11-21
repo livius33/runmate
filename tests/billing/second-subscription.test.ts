@@ -47,24 +47,48 @@ const sub = (id: string, at: number, data: Record<string, unknown> = {}, type = 
   event_id: `evt_${id}_${type}_${at}`, event_type: type, occurred_at: iso(at),
   data: { id, status: 'active', customer_id: 'ctm_1', items: [{ price: { id: 'pri_pm' } }], current_billing_period: { starts_at: iso(at), ends_at: iso(at + 30 * 86_400) }, scheduled_change: null, custom_data: { userId: 'user-s', userSig: signCheckoutUser('user-s', SECRET) }, ...data },
 })
-const LIVE: SubState = { status: 'active', tier: 'plus', interval: 'month', trialEndsAt: null, paddleCustomerId: 'ctm_1', paddleSubscriptionId: 'sub_1', priceId: 'pri_pm', currentPeriodEnd: END, cancelAtPeriodEnd: false, canceledAt: null, eventAt: T0, otherSubscriptionIds: null }
+const LIVE: SubState = { status: 'active', tier: 'plus', interval: 'month', trialEndsAt: null, paddleCustomerId: 'ctm_1', paddleSubscriptionId: 'sub_1', priceId: 'pri_pm', currentPeriodEnd: END, cancelAtPeriodEnd: false, canceledAt: null, eventAt: T0, otherSubscriptionIds: null, otherSubscriptionSeen: null }
 
 describe('Zweites Abo (rein)', () => {
   it('Ereignis für eine andere Abo-ID ersetzt die Zeile nicht; die zweite ID wird gemerkt', () => {
     const next = applyPaddleEvent(LIVE, sub('sub_2', T0 + 60, { items: [{ price: { id: 'pri_py' } }] }), IDS)!
-    expect(next).toEqual({ ...LIVE, otherSubscriptionIds: ['sub_2'] })
-    expect(applyPaddleEvent(next, sub('sub_2', T0 + 70, {}, 'subscription.updated'), IDS)).toBeNull()     // already known
+    expect(next).toEqual({ ...LIVE, otherSubscriptionIds: ['sub_2'], otherSubscriptionSeen: { sub_2: T0 + 60 } })
+    expect(applyPaddleEvent(next, sub('sub_2', T0 + 70, {}, 'subscription.updated'), IDS)).toEqual({ ...next, otherSubscriptionSeen: { sub_2: T0 + 70 } })     // already listed: only the time
+    expect(applyPaddleEvent(next, sub('sub_2', T0 + 60, {}, 'subscription.updated'), IDS)).toBeNull()                                                    // nothing new
   })
 
   it('das zweite Abo endet oder ist gekündigt: aus der Liste; das gespeicherte bleibt', () => {
     const row = { ...LIVE, otherSubscriptionIds: ['sub_2'] }
-    expect(applyPaddleEvent(row, sub('sub_2', T0 + 80, { status: 'canceled' }, 'subscription.canceled'), IDS)).toEqual({ ...LIVE, otherSubscriptionIds: [] })
-    expect(applyPaddleEvent(row, sub('sub_2', T0 + 80, { scheduled_change: { action: 'cancel', effective_at: iso(END) } }, 'subscription.updated'), IDS)).toEqual({ ...LIVE, otherSubscriptionIds: [] })
+    expect(applyPaddleEvent(row, sub('sub_2', T0 + 80, { status: 'canceled' }, 'subscription.canceled'), IDS)).toEqual({ ...LIVE, otherSubscriptionIds: [], otherSubscriptionSeen: { sub_2: T0 + 80 } })
+    expect(applyPaddleEvent(row, sub('sub_2', T0 + 80, { scheduled_change: { action: 'cancel', effective_at: iso(END) } }, 'subscription.updated'), IDS)).toEqual({ ...LIVE, otherSubscriptionIds: [], otherSubscriptionSeen: { sub_2: T0 + 80 } })
   })
 
   it('das gespeicherte Abo ist beendet: ein neues ersetzt es (erneuter Kauf nach Kündigung)', () => {
     const ended = { ...LIVE, status: 'canceled', otherSubscriptionIds: ['sub_2'] }
     expect(applyPaddleEvent(ended, sub('sub_2', T0 + 90, {}, 'subscription.updated'), IDS)).toMatchObject({ paddleSubscriptionId: 'sub_2', status: 'active', otherSubscriptionIds: [] })
+  })
+})
+
+describe('Reihenfolge und späte Ereignisse (Review 4, 5)', () => {
+  const T1 = T0 + 100, T2 = T0 + 200
+
+  it('A endet bei T2 und wird zuerst angewendet; B created bei T1 < T2 kommt später: B wird das gespeicherte Abo', () => {
+    const ended = { ...LIVE, status: 'canceled', canceledAt: T2, eventAt: T2 }
+    const next = applyPaddleEvent(ended, sub('sub_B', T1), IDS)!
+    expect(next).toMatchObject({ paddleSubscriptionId: 'sub_B', status: 'active', eventAt: T1, otherSubscriptionSeen: { sub_1: T2 } })
+    // A's own late "active" event (older than its cancel) does not come back as a second subscription
+    expect(applyPaddleEvent(next, sub('sub_1', T2 - 50, {}, 'subscription.updated'), IDS)).toBeNull()
+  })
+
+  it('A beendet, ein beendetes C kommt verspätet: ersetzt nichts', () => {
+    const ended = { ...LIVE, status: 'canceled', eventAt: T2 }
+    expect(applyPaddleEvent(ended, sub('sub_C', T1, { status: 'canceled' }, 'subscription.canceled'), IDS)).toMatchObject({ paddleSubscriptionId: 'sub_1', status: 'canceled', otherSubscriptionIds: [] })
+  })
+
+  it('ein spätes „active“ für ein beendetes zweites Abo bringt es nicht zurück', () => {
+    const row = { ...LIVE, otherSubscriptionIds: [], otherSubscriptionSeen: { sub_2: T0 + 80 } }
+    expect(applyPaddleEvent(row, sub('sub_2', T0 + 70, {}, 'subscription.updated'), IDS)).toBeNull()
+    expect(applyPaddleEvent(row, sub('sub_2', T0 + 90, {}, 'subscription.updated'), IDS)).toMatchObject({ otherSubscriptionIds: ['sub_2'] })   // a newer one does
   })
 })
 
@@ -102,6 +126,24 @@ describe('Zweites Abo (Webhook, Kündigung, Löschung)', async () => {
       'https://sandbox-api.paddle.com/subscriptions/sub_2/cancel',
     ])
     expect(paddleCalls.every((c) => (c.body as { effective_from: string }).effective_from === 'next_billing_period')).toBe(true)
+  })
+
+  it('Paddle lehnt die Kündigung ab, weil das Abo schon beendet ist: zählt als erledigt', async () => {
+    db.sub = { ...db.sub, otherSubscriptionIds: ['sub_2'] }
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      paddleCalls.push({ url, body: init.body ? JSON.parse(String(init.body)) : null })
+      const id = String(url).split('/subscriptions/')[1]?.split('/')[0]
+      if (id === 'sub_2' && String(url).endsWith('/cancel')) return new Response(JSON.stringify({ error: { code: 'subscription_update_when_canceled' } }), { status: 400 })
+      return new Response(JSON.stringify({ data: { id, status: 'canceled', customer_id: 'ctm_1', items: [{ price: { id: 'pri_pm' } }], scheduled_change: null } }))
+    }))
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const res = await cancel(new Request('http://localhost/api/billing/cancel', { method: 'POST', body: '{}' }))
+      expect(res.status).toBe(200)
+    } finally { err.mockRestore() }
+    expect(paddleCalls.map((c) => c.url.split('/subscriptions/')[1])).toEqual(['sub_1/cancel', 'sub_2/cancel', 'sub_2'])
+    const last = fake.log.filter((q) => q.sql.startsWith('update "subscription"')).at(-1)!
+    expect(last.params).toContain('{}')                                // sub_2 off the list
   })
 
   it('Kontolöschung kündigt beide sofort', async () => {

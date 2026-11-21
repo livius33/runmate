@@ -127,7 +127,7 @@ describe('Webhook ohne bekannten Nutzer (AC-6)', () => {
 })
 
 describe('Abgleich mit Paddle (rein)', () => {
-  const row: SubState = { status: 'active', tier: 'plus', interval: 'month', trialEndsAt: null, paddleCustomerId: 'ctm_1', paddleSubscriptionId: 'sub_1', priceId: 'pri_pm', currentPeriodEnd: END, cancelAtPeriodEnd: false, canceledAt: null, eventAt: T0, otherSubscriptionIds: null }
+  const row: SubState = { status: 'active', tier: 'plus', interval: 'month', trialEndsAt: null, paddleCustomerId: 'ctm_1', paddleSubscriptionId: 'sub_1', priceId: 'pri_pm', currentPeriodEnd: END, cancelAtPeriodEnd: false, canceledAt: null, eventAt: T0, otherSubscriptionIds: null, otherSubscriptionSeen: null }
   const entity = (o: Partial<PaddleSubscription> = {}): PaddleSubscription => ({ id: 'sub_1', status: 'active', customer_id: 'ctm_1', items: [{ price: { id: 'pri_pm' } }], current_billing_period: { starts_at: iso(T0), ends_at: iso(END) }, scheduled_change: null, updated_at: iso(T0 + 10), ...o })
 
   it('gleich: nichts zu tun', () => {

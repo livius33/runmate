@@ -66,19 +66,42 @@ export const secs = (iso: unknown): number | null => {
 const EMPTY: SubState = {
   status: 'trialing', tier: null, interval: null, trialEndsAt: null, paddleCustomerId: null, paddleSubscriptionId: null,
   priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null, otherSubscriptionIds: null,
+  otherSubscriptionSeen: null,
 }
 
 const live = (row: SubState | null): row is SubState => !!row?.paddleSubscriptionId && row.status !== 'canceled'
 export const ending = (s: PaddleSubscription) => s.status === 'canceled' || s.scheduled_change?.action === 'cancel'
 
+// True when `at` is older than the last event seen for that (non-stored) subscription id.
+const staleOther = (row: SubState, id: string, at: number | null) => {
+  const last = row.otherSubscriptionSeen?.[id]
+  return at != null && last != null && at < last
+}
+// The seen-map with `id` stamped at `at` (never moved back).
+export const stampSeen = (seen: Record<string, number> | null, id: string, at: number | null): Record<string, number> | null =>
+  at == null || (seen?.[id] ?? -Infinity) >= at ? seen : { ...(seen ?? {}), [id]: at }
+
 // An event for a subscription that is not the stored live one (12-05, finding 7: a second checkout went through).
 // It never replaces the row; a live one is kept in `otherSubscriptionIds` (so cancel and deletion stop it too), an
-// ended or cancel-scheduled one is dropped from there. null = nothing to change.
-export function otherSubscription(row: SubState, s: PaddleSubscription): SubState | null {
+// ended or cancel-scheduled one is dropped from there. An event older than the last one seen for that id is ignored.
+// null = nothing to change.
+export function otherSubscription(row: SubState, s: PaddleSubscription, at: number | null = null): SubState | null {
+  if (staleOther(row, s.id, at)) return null
   const others = row.otherSubscriptionIds ?? []
   const has = others.includes(s.id)
-  if (ending(s)) return has ? { ...row, otherSubscriptionIds: others.filter((x) => x !== s.id) } : null
-  return has ? null : { ...row, otherSubscriptionIds: [...others, s.id] }
+  const list = ending(s) ? (has ? others.filter((x) => x !== s.id) : others) : (has ? others : [...others, s.id])
+  const seen = stampSeen(row.otherSubscriptionSeen, s.id, at)
+  if (list === others && seen === row.otherSubscriptionSeen) return null
+  return { ...row, otherSubscriptionIds: list, otherSubscriptionSeen: seen }
+}
+
+// A different subscription becomes the stored one (the stored one ended). The one it replaces is remembered with its
+// last event time, so its own late events count as stale.
+export function replaceStored(row: SubState, s: PaddleSubscription, at: number | null, ids: PriceIds = priceIds()): SubState | null {
+  const next = fromPaddleSubscription(row, s, at, ids)
+  if (!next) return null
+  const { [s.id]: _dropped, ...seen } = stampSeen(row.otherSubscriptionSeen, row.paddleSubscriptionId!, row.eventAt) ?? {}
+  return { ...next, otherSubscriptionSeen: Object.keys(seen).length ? seen : null }
 }
 
 // True when the event is about a second subscription next to the stored live one (logged by the caller).
@@ -112,9 +135,17 @@ export function fromPaddleSubscription(row: SubState | null, s: PaddleSubscripti
 export function applyPaddleEvent(row: SubState | null, ev: PaddleEvent, ids: PriceIds = priceIds()): SubState | null {
   const at = secs(ev.occurred_at)
   if (SUBSCRIPTION_EVENTS.has(ev.event_type)) {
-    if (row && isOtherSubscription(row, ev)) return otherSubscription(row, ev.data as unknown as PaddleSubscription)
-    if (row?.eventAt != null && at != null && at < row.eventAt) return null          // stale: a newer event already applied
-    return fromPaddleSubscription(row, ev.data as unknown as PaddleSubscription, at, ids)
+    const s = ev.data as unknown as PaddleSubscription
+    if (row && isOtherSubscription(row, ev)) return otherSubscription(row, s, at)
+    // The stored subscription has ended and this is another one: its time is not comparable with the stored one's
+    // (review 4: a delayed created event for B must not be dropped because A's cancel came first). A live one takes
+    // over; an ended one is only noted.
+    if (row?.paddleSubscriptionId && s.id !== row.paddleSubscriptionId) {
+      if (staleOther(row, s.id, at)) return null
+      return s.status === 'canceled' ? otherSubscription(row, s, at) : replaceStored(row, s, at, ids)
+    }
+    if (row?.eventAt != null && at != null && at < row.eventAt) return null          // stale: a newer event of this subscription
+    return fromPaddleSubscription(row, s, at, ids)
   }
   if (ev.event_type === 'transaction.completed') {
     // The first payment: links customer and subscription; marks the plan active only if no subscription event did yet.

@@ -11,7 +11,7 @@ import { deletedUsers } from '@/lib/db/public-schema'
 import { runAsUser } from '@/lib/server/scope'
 import { priceIds, type PriceIds } from './config'
 import { cancelSubscription, getSubscription, type PaddleSubscription } from './paddle'
-import { ending, fromPaddleSubscription, secs, subState, updateSubscription, type SubState } from './webhook'
+import { ending, fromPaddleSubscription, replaceStored, secs, stampSeen, subState, updateSubscription, type SubState } from './webhook'
 import type { SubscriptionRow } from './access'
 
 export const RECONCILE_PAGE = 100
@@ -29,12 +29,12 @@ export function reconcileState(row: SubState, main: PaddleSubscription | null, o
   }
   for (const id of row.otherSubscriptionIds ?? []) {
     const s = others[id]
-    if (s && ending(s)) next = { ...next, otherSubscriptionIds: (next.otherSubscriptionIds ?? []).filter((x) => x !== id) }
+    if (s && ending(s)) next = { ...next, otherSubscriptionIds: (next.otherSubscriptionIds ?? []).filter((x) => x !== id), otherSubscriptionSeen: stampSeen(next.otherSubscriptionSeen, id, secs(s.updated_at)) }
   }
   // The stored subscription ended while a second one runs: the second one is what the account pays for now.
   if (next.status === 'canceled') {
     const runner = (next.otherSubscriptionIds ?? []).map((id) => others[id]).find((s) => s && !ending(s))
-    if (runner) next = fromPaddleSubscription(next, runner, secs(runner.updated_at) ?? next.eventAt, ids) ?? next
+    if (runner) next = replaceStored(next, runner, secs(runner.updated_at) ?? next.eventAt, ids) ?? next
   }
   return same(row, next) ? null : next
 }

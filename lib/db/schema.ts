@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { boolean, foreignKey, index, integer, pgTable, primaryKey, real, text, unique } from 'drizzle-orm/pg-core'
+import { boolean, foreignKey, index, integer, jsonb, pgTable, primaryKey, real, text, unique } from 'drizzle-orm/pg-core'
 
 const unixNow = sql`floor(extract(epoch from now()))::integer`
 
@@ -206,6 +206,9 @@ export const subscription = pgTable('subscription', {
   // 12-05: live subscriptions of this user other than paddle_subscription_id (a second checkout that went through);
   // cancelled together with the main one, never applied to the row.
   otherSubscriptionIds: text('other_subscription_ids').array(),
+  // Paddle subscription id → occurred_at of the last event seen for it, for every subscription that is not the stored
+  // one (also ended ones), so a late or retried older event cannot bring an ended one back.
+  otherSubscriptionSeen: jsonb('other_subscription_seen').$type<Record<string, number>>(),
   checkoutStartedAt: integer('checkout_started_at'),     // last checkout handed out (lib/billing/checkout.ts, 15 min lock)
   version: integer('version').notNull().default(0),     // 12-05: compare-and-set for Paddle state (lib/billing/webhook.ts updateSubscription)
   // Retention of free accounts (Phase 5, lib/billing/retention.ts): last dashboard visit (stamped at most daily) and

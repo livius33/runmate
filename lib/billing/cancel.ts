@@ -1,14 +1,26 @@
 // Cancellation (§312k BGB "Kündigungsbutton", Phase 4): cancels the current user's Paddle subscription at the end of
 // the paid period and records it; a second subscription (12-05) is cancelled with it. The in-app trial needs no cancellation (it ends by itself, no card on file).
 import { loadSubscription, clearEntitlementsCache } from './access'
-import { cancelSubscription } from './paddle'
-import { saveCancelled, updateSubscription } from './webhook'
+import { cancelSubscription, getSubscription, type PaddleSubscription } from './paddle'
+import { saveCancelled, stampSeen, updateSubscription } from './webhook'
 
 export type CancelResult =
   | { ok: true; kind: 'subscription'; endsAt: number | null; at: number }
   | { ok: true; kind: 'trial'; endsAt: number | null; at: number }
   | { ok: true; kind: 'none'; at: number }
   | { ok: false; error: string; failed: string[] }       // failed: the Paddle subscription ids still running
+
+// Paddle refuses to cancel a subscription that already ended (or, for the period end, that is already scheduled to):
+// on an error the subscription is looked up, and if it is already where it should be, that counts as done.
+async function cancelAtPaddle(id: string, when: 'next_billing_period' | 'immediately'): Promise<PaddleSubscription> {
+  try {
+    return await cancelSubscription(id, when)
+  } catch (err) {
+    const s = await getSubscription(id).catch(() => null)
+    if (s && (s.status === 'canceled' || (when === 'next_billing_period' && s.scheduled_change?.action === 'cancel'))) return s
+    throw err
+  }
+}
 
 // Every live subscription of the account: the stored one and any second one (12-05, `otherSubscriptionIds`).
 export async function cancelCurrent(when: 'next_billing_period' | 'immediately' = 'next_billing_period'): Promise<CancelResult> {
@@ -24,7 +36,7 @@ export async function cancelCurrent(when: 'next_billing_period' | 'immediately' 
   // Already ends with the paid period: asking Paddle again changes nothing (and a second form request lands here).
   if (mainLive && !(when === 'next_billing_period' && row.cancelAtPeriodEnd)) {
     try {
-      const s = await cancelSubscription(row.paddleSubscriptionId!, when)
+      const s = await cancelAtPaddle(row.paddleSubscriptionId!, when)
       const next = await saveCancelled(s)
       endsAt = when === 'immediately' ? at : next?.currentPeriodEnd ?? row.currentPeriodEnd
     } catch (err: any) {
@@ -36,7 +48,7 @@ export async function cancelCurrent(when: 'next_billing_period' | 'immediately' 
     const left: string[] = []
     for (const id of others) {
       try {
-        await cancelSubscription(id, when)
+        await cancelAtPaddle(id, when)
       } catch (err: any) {
         left.push(id)
         console.error('[billing/cancel] user=%s second subscription=%s failed: %s', row.userId, id, err?.message)
@@ -44,7 +56,12 @@ export async function cancelCurrent(when: 'next_billing_period' | 'immediately' 
     }
     failed.push(...left)
     const done = others.filter((id) => !left.includes(id))
-    await updateSubscription((r) => (r ? { ...r, otherSubscriptionIds: (r.otherSubscriptionIds ?? []).filter((id) => !done.includes(id)) } : null))
+    // Stamped as seen now, so an older "active" event arriving late does not put a cancelled one back.
+    await updateSubscription((r) => (r ? {
+      ...r,
+      otherSubscriptionIds: (r.otherSubscriptionIds ?? []).filter((id) => !done.includes(id)),
+      otherSubscriptionSeen: done.reduce((seen, id) => stampSeen(seen, id, at), r.otherSubscriptionSeen),
+    } : null))
   }
   clearEntitlementsCache()
   if (failed.length) {

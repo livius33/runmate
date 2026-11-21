@@ -29,6 +29,8 @@ beforeEach(() => {
   CANCEL_RETRY_MS.splice(0, CANCEL_RETRY_MS.length, 1, 1)          // keep the test fast; the count is what matters
   db.sub = { userId: 'user-d', status: 'active', tier: 'plus', interval: 'month', paddleSubscriptionId: 'sub_1', paddleCustomerId: 'ctm_1', priceId: 'pri_pm', currentPeriodEnd: 1, cancelAtPeriodEnd: false, eventAt: 1, updatedAt: 0 }
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    // A failed cancel is followed by a look-up (already ended?); here Paddle is down for that as well.
+    if (!String(url).endsWith('/cancel')) return new Response(JSON.stringify({ error: { code: 'internal_error' } }), { status: 500 })
     calls++
     if (fails.left-- > 0) return new Response(JSON.stringify({ error: { code: 'internal_error' } }), { status: 500 })
     return new Response(JSON.stringify({ data: { id: String(url).split('/')[4], status: 'canceled', customer_id: 'ctm_1', items: [{ price: { id: 'pri_pm' } }] } }))
