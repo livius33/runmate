@@ -14,6 +14,7 @@ import { RunTypeTag } from '@/components/runs/tags'
 import { Button } from '@/components/ui/button'
 import { Card, Inset } from '@/components/ui/card'
 import { Figure } from '@/components/ui/figure'
+import { Select } from '@/components/ui/select'
 import { StreamCharts, type StreamPoint } from '@/components/runs/StreamCharts'
 import { RunMap } from '@/components/runs/RunMap'
 import { SplitsChart } from '@/components/runs/SplitsChart'
@@ -90,12 +91,12 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
           <div className="flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
             <RunTypeTag type={run.runType} />
             <label className="sr-only" htmlFor="run-type">Lauftyp korrigieren</label>
-            <select id="run-type" value={run.runTypeSource === 'manual' ? run.runType : ''} disabled={setType.isPending}
+            <Select small id="run-type" value={run.runTypeSource === 'manual' ? run.runType : ''} disabled={setType.isPending}
               onChange={(e) => setType.mutate((e.target.value || null) as RunType | null)}
-              className="h-8 max-w-full rounded-control bg-card px-2 text-caption text-foreground shadow-hairline outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+              className="w-auto max-w-full text-caption">
               <option value="">{run.runTypeSource === 'plan' ? 'Typ aus dem Plan' : 'Typ automatisch erkannt'}</option>
               {RUN_TYPES.map((t) => <option key={t} value={t}>Korrigieren: {t}</option>)}
-            </select>
+            </Select>
             <span className="min-w-0 break-words">{run.name}{run.startTime ? ` · ${run.startTime.slice(0, 5)} Uhr` : ''}{data.temperature != null ? ` · ${fmtNum(data.temperature)} °C` : ''}</span>
           </div>
         </div>

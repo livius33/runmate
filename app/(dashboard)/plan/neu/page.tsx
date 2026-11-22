@@ -10,7 +10,7 @@ import { de } from 'date-fns/locale'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Power, RotateCcw, SlidersHorizontal, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button, Card, Chip, ChipButton, Figure, Inset, Input } from '@/components/ui'
+import { Button, Card, Chip, ChipButton, Figure, Inset, Input, Select } from '@/components/ui'
 import { TypeTag } from '@/components/plan/tags'
 import { fmtKm, fmtPace } from '@/lib/plan/format'
 import { clockText, parseClock, type SeasonGoal } from '@/lib/season/goals'
@@ -34,8 +34,6 @@ const PHASE: Record<string, string> = { base: 'Grundlage', build: 'Aufbau', peak
 const longDate = (d: string) => format(parseISO(d), 'EEEEEE. d. MMMM yyyy', { locale: de })
 const dayLabel = (d: string) => format(parseISO(d), 'EEEEEE d.M.', { locale: de })
 const km = (n: number | null | undefined) => (n == null ? '–' : fmtKm(n))
-// Native selects in the Input look (12-02; there is no Select primitive yet).
-const select = 'h-10 w-full min-w-0 rounded-control bg-card px-3 text-body-sm text-foreground shadow-hairline outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring'
 // A small segmented toggle inside the tuning groups: ink when it is the template's value, brand when it is your own.
 const toggle = (on: boolean, own: boolean) => cn('tap h-7 rounded-control px-2 text-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
   on ? (own ? 'bg-brand-soft text-brand-text ring-1 ring-inset ring-brand' : 'bg-foreground text-background') : 'bg-card text-muted-foreground shadow-hairline hover:text-foreground')
@@ -182,9 +180,9 @@ function NewPlan() {
             <div className="grid gap-4 text-body-sm">
               <label className="grid gap-1.5">
                 <span className="text-muted-foreground">Rennen</span>
-                <select value={goalId} onChange={(e) => setGoalId(e.target.value)} className={select}>
+                <Select value={goalId} onChange={(e) => setGoalId(e.target.value)}>
                   {ctx.data.goals.map((g) => <option key={g.id} value={g.id}>{g.name} · {longDate(g.date)}{g.goalS ? ` · Ziel ${clockText(g.goalS)}` : ''}{g.confirmed ? '' : ' (Datum offen)'}</option>)}
-                </select>
+                </Select>
               </label>
               <div className="grid gap-1.5">
                 <span className="text-muted-foreground">Vorlage</span>
@@ -352,9 +350,9 @@ function Compare({ t, tuning, id, setId }: { t: Template; tuning: Record<string,
     <div className="grid gap-2 rounded-card p-3 shadow-hairline">
       <div className="flex flex-wrap items-center gap-2 text-body-sm">
         <span className="text-muted-foreground">Vergleich mit</span>
-        <select value={other.id} onChange={(e) => setId(e.target.value)} className={cn(select, 'h-8 w-auto px-2')}>
+        <Select small value={other.id} onChange={(e) => setId(e.target.value)} className="w-auto">
           {t.own!.compare.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        </Select>
         <span className="text-caption text-muted-foreground">{rows.length ? `${rows.length} Werte anders` : 'gleiche Werte'}</span>
       </div>
       {rows.length > 0 && (

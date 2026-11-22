@@ -8,8 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserRound } from 'lucide-react'
 import type { HrZone } from '@/lib/analytics/hr'
 import { LTHR_ZONES_ENABLED, type ProfileField, type ResolvedProfile, type UserProfile } from '@/lib/profile'
-import { Button, Card, Field, Input, fieldDescribedBy } from '@/components/ui'
-import { Select } from './controls'
+import { Button, Card, Field, Input, Select, fieldDescribedBy } from '@/components/ui'
 
 type View = { stored: UserProfile | null; resolved: ResolvedProfile; zones: HrZone[]; raceHr: Record<'marathon' | 'half' | 'tenK', { cap: number; hard: number }> }
 

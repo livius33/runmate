@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Flag, Pencil, Plus } from 'lucide-react'
 import { useToday } from '@/lib/use-today'
 import { cn } from '@/lib/utils'
-import { Button, Card, Chip, Input, Inset } from '@/components/ui'
+import { Button, Card, Chip, Input, Inset, Select } from '@/components/ui'
 import { PlanAction, PlanStatePill, usePlanStatus } from '@/components/plan/NextPlan'
 import type { GoalPlanStatus } from '@/lib/plan/draft-store'
 import { blockFor, blocks } from '@/lib/plan/blocks'
@@ -287,20 +287,19 @@ function GoalForm({ goal, onCancel, onSave, onDelete, busy, error, today }: Form
     })
   }
 
-  // Labels wrap their control (no ids needed); the select copies the Input look, there is no Select primitive yet.
+  // Labels wrap their control (no ids needed).
   const field = 'grid gap-1.5 text-body-sm font-medium'
-  const select = 'h-10 w-full rounded-control bg-card px-3 text-body-sm font-normal text-foreground shadow-hairline outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring'
   return (
     <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
       <label className={field}>Art
-        <select className={select} value={kind} onChange={(e) => changeKind(e.target.value as GoalKind)}>
+        <Select className="font-normal" value={kind} onChange={(e) => changeKind(e.target.value as GoalKind)}>
           {KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
-        </select>
+        </Select>
       </label>
       <label className={field}>Bedeutung
-        <select className={select} value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
+        <Select className="font-normal" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
           {(['A', 'B'] as const).map((p) => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
-        </select>
+        </Select>
       </label>
       <label className={field}>Name
         <Input className="font-normal" value={name} maxLength={40} placeholder={KIND_LABEL[kind]} onChange={(e) => setName(e.target.value)} />
@@ -325,10 +324,10 @@ function GoalForm({ goal, onCancel, onSave, onDelete, busy, error, today }: Form
       {block && (
         <Inset className="grid gap-3 p-3 sm:col-span-2 sm:grid-cols-2">
           <label className={field}>Rolle im Plan ({block.race.name})
-            <select className={select} value={role} onChange={(e) => setRole(e.target.value as EventRole | '')}>
+            <Select className="font-normal" value={role} onChange={(e) => setRole(e.target.value as EventRole | '')}>
               <option value="">Vorschlag: {ROLE_LABEL[suggested!]}</option>
               {(['test', 'build', 'fun'] as const).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-            </select>
+            </Select>
           </label>
           {chosen === 'test' && (
             <label className={field}>Testtempo /km (leer = Zieltempo {goalPace})

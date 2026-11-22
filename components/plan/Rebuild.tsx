@@ -11,10 +11,10 @@ import { de } from 'date-fns/locale'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, Check, Eye, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button, Card, Input } from '@/components/ui'
+import { Button, Card, Input, Select } from '@/components/ui'
 import { PauseControl } from '@/components/plan/PauseControl'
 import { Upsell } from '@/components/billing/Entitlements'
-import { Days, Num, One, selectClass } from '@/components/plan/workshop/Onboarding'
+import { Days, Num, One } from '@/components/plan/workshop/Onboarding'
 import { WEEKDAYS, validProfile, type AthleteProfile, type Weekday } from '@/lib/plan/athlete-profile'
 import { clockText, parseClock } from '@/lib/season/goals'
 import { fmtKm } from '@/lib/plan/format'
@@ -140,9 +140,9 @@ function Levers({ state, today, onBlock, onNote }: { state: Live; today: string;
         </div>
         {state.blocks.length > 1 && (
           <label className="flex min-w-0 items-center gap-2 text-body-sm text-muted-foreground">Plan
-            <select value={block.id} onChange={(e) => onBlock(e.target.value)} className={cn(selectClass, 'h-8 w-auto px-2')}>
+            <Select small value={block.id} onChange={(e) => onBlock(e.target.value)} className="w-auto">
               {state.blocks.map((b) => <option key={b.id} value={b.id}>{b.name} · {dmy(b.raceDate)}</option>)}
-            </select>
+            </Select>
           </label>
         )}
       </div>
@@ -165,10 +165,10 @@ function Levers({ state, today, onBlock, onNote }: { state: Live; today: string;
             </div>
             <label className="grid gap-1.5 text-body-sm">
               <span className="text-muted-foreground">Methode</span>
-              <select className={selectClass} value={templateId} onChange={(e) => touch(setTemplateId)(e.target.value)}>
+              <Select value={templateId} onChange={(e) => touch(setTemplateId)(e.target.value)}>
                 {!block.templateId && <option value="">Bitte wählen</option>}
                 {state.templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.locked ? ' (Plus)' : ''}</option>)}
-              </select>
+              </Select>
               {state.templates.find((t) => t.id === templateId)?.summary && <span className="text-caption text-muted-foreground">{state.templates.find((t) => t.id === templateId)!.summary}</span>}
             </label>
             <label className="grid gap-1.5 text-body-sm">

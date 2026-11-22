@@ -8,8 +8,7 @@ import { AlertCircle, CheckCircle, Database, RefreshCw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import type { LastSync, SourceInfo } from '@/lib/sources/types'
-import { Button, Card, Chip, Field, Inset, Input, SectionHeader } from '@/components/ui'
-import { CheckRow } from './controls'
+import { Button, Card, CheckRow, Chip, Field, Inset, Input, SectionHeader } from '@/components/ui'
 
 // Data that changes after a sync or import (also components/HeaderSync.tsx).
 export const AFTER_SYNC = ['sources', 'running-stats', 'runs', 'run', 'analytics', 'running-fitness', 'plan-actuals', 'plan-engine', 'running-wellness']

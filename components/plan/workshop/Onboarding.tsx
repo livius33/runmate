@@ -11,7 +11,7 @@ import { Check, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { athlete } from '@/lib/athlete'
 import { fmtKm } from '@/lib/plan/format'
-import { Button, Card, Figure, Input } from '@/components/ui'
+import { Button, Card, Figure, Input, Select } from '@/components/ui'
 import {
   EXPERIENCE_LABEL, RANGES, WEEKDAYS, inRange, validProfile, type AthleteProfile, type Experience, type RangedField, type Weekday,
 } from '@/lib/plan/athlete-profile'
@@ -30,8 +30,7 @@ const STEPS = [
 const clock = (s: number | null) => (s == null || !Number.isFinite(s) ? '' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`)
 // 'm:ss' → seconds; NaN when typed but not readable (so the step stays blocked instead of silently dropping it).
 const parseClock = (t: string) => { if (!t.trim()) return null; const m = t.trim().match(/^(\d{1,2}):([0-5]\d)$/); return m ? Number(m[1]) * 60 + Number(m[2]) : NaN }
-// A native select in the Input look (12-02; there is no Select primitive yet). Rebuild.tsx uses it too.
-export const selectClass = 'h-10 w-full min-w-0 rounded-control bg-card px-3 text-body-sm text-foreground shadow-hairline outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring'
+
 // Label above a control (text-body-sm muted, as before) and a caption line under it.
 const labelBox = 'grid gap-1.5 text-body-sm'
 
@@ -390,10 +389,10 @@ export function One({ label, value, options, onChange, allowNone }: { label: str
   return (
     <label className={labelBox}>
       <span className="text-muted-foreground">{label}</span>
-      <select className={selectClass} value={value ?? ''} onChange={(e) => onChange(e.target.value ? (Number(e.target.value) as Weekday) : null)}>
+      <Select value={value ?? ''} onChange={(e) => onChange(e.target.value ? (Number(e.target.value) as Weekday) : null)}>
         {allowNone && <option value="">keiner</option>}
         {WEEKDAYS.filter((w) => options.includes(w.d)).map((w) => <option key={w.d} value={w.d}>{w.long}</option>)}
-      </select>
+      </Select>
     </label>
   )
 }
