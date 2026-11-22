@@ -21,8 +21,10 @@ async function patch(id: string, body: Record<string, unknown>) {
   if (!r.ok) throw new Error(d.error ?? 'Speichern fehlgeschlagen')
 }
 
-const seg = 'inline-flex rounded-control bg-card p-0.5 shadow-hairline'
-const btn = (on: boolean, danger = false) => cn('tap min-w-6 rounded-control px-2 py-1 text-caption font-medium tabular-nums',
+// Buttons 32 px high (the ChipButton height); ten RPE buttons plus the segment's padding make 324 px, which still fits
+// a 390 px phone (326 px inside the card). flex-wrap only as a guard for narrower screens.
+const seg = 'inline-flex flex-wrap rounded-control bg-card p-0.5 shadow-hairline'
+const btn = (on: boolean, danger = false) => cn('inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 text-caption font-medium tabular-nums',
   on ? (danger ? 'bg-destructive text-destructive-foreground' : 'bg-foreground text-background') : 'text-muted-foreground hover:text-foreground')
 
 export function RunFeedback({ id, value, onSaved, title = 'Wie war’s?', className }: {

@@ -132,18 +132,18 @@ export default function RunsPage() {
         ))}
       </div>
 
-      {/* Phones: one card per run */}
-      <ul className="flex flex-col gap-2 md:hidden">
-        {isLoading && <li className="text-body-sm text-muted-foreground">Läufe werden geladen…</li>}
-        {isError && <li className="text-body-sm text-error">Läufe konnten nicht geladen werden. Seite neu laden.</li>}
+      {/* Phones: one card, one hairline-divided row per run (64 px: 8 + 24 + 4 + 20 + 8) */}
+      <ul className="divide-y divide-border overflow-hidden rounded-card bg-card shadow-raised md:hidden">
+        {isLoading && <li className="px-4 py-3 text-body-sm text-muted-foreground">Läufe werden geladen…</li>}
+        {isError && <li className="px-4 py-3 text-body-sm text-error">Läufe konnten nicht geladen werden. Seite neu laden.</li>}
         {rows.slice(0, shown).map((r) => (
           <li key={r.id}>
-            <Link href={`/running/activities/${r.id}`} className="block rounded-card bg-card px-4 py-3 shadow-raised tabular-nums active:bg-secondary">
+            <Link href={`/running/activities/${r.id}`} className="block px-4 py-2 tabular-nums active:bg-secondary">
               <div className="flex items-center justify-between gap-2">
                 <span className="min-w-0 text-body-sm font-medium">{format(parseISO(r.date), 'EEE d. MMM yyyy', { locale: de })}</span>
                 <RunTypeTag type={r.runType} />
               </div>
-              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-body-sm">
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-body-sm">
                 <span className="font-semibold">{fmtNum(r.km, 1)} km</span>
                 <span>{fmtPace(r.paceS)} /km</span>
                 <span className="text-muted-foreground">{fmtClock(r.movingS)}</span>
@@ -159,9 +159,11 @@ export default function RunsPage() {
           <thead>
             <tr className="border-b border-border text-left text-caption text-muted-foreground">
               {COLUMNS.map((c) => (
-                <th key={c.label} className={cn('px-3 py-2.5 font-medium whitespace-nowrap', c.align === 'right' && 'text-right')}>
+                <th key={c.label} className={cn('font-medium whitespace-nowrap', c.key ? 'p-0' : 'px-3 py-2.5', c.align === 'right' && 'text-right')}>
                   {c.key ? (
-                    <button onClick={() => toggleSort(c.key!)} className="tap inline-flex items-center gap-1 hover:text-foreground">
+                    // The button fills the cell (36 px high), so the whole header cell sorts
+                    <button onClick={() => toggleSort(c.key!)}
+                      className={cn('flex w-full items-center gap-1 px-3 py-2.5 hover:text-foreground', c.align === 'right' && 'justify-end')}>
                       {c.label}
                       {sort.key === c.key && (sort.dir === 1 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                     </button>
