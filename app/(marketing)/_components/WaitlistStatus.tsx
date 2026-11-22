@@ -12,11 +12,11 @@ export function WaitlistStatus({ t, status }: { t: Dict; status: WaitlistStatusK
   return (
     <>
       <Header t={t} />
-      <main className="mx-auto max-w-[1200px] px-4 py-20 sm:px-6 sm:py-28">
-        <h1 className="font-display text-[clamp(2.4rem,5vw,3.75rem)] font-semibold leading-[1] tracking-[-0.035em]">{s.title}</h1>
-        <p className="mt-4 max-w-[52ch] text-[17px] leading-relaxed text-muted-foreground">{s.text}</p>
-        {retry && <WaitlistForm t={t} className="mt-8" />}
-        <Link href={t.locale === 'en' ? '/en' : '/'} className="mt-10 inline-flex text-sm font-medium text-brand underline-offset-4 hover:underline">{t.waitlist.back}</Link>
+      <main className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:py-24">
+        <h1 className="text-title sm:text-display">{s.title}</h1>
+        <p className="mt-3 max-w-[52ch] text-body text-muted-foreground">{s.text}</p>
+        {retry && <WaitlistForm t={t} className="mt-6" />}
+        <Link href={t.locale === 'en' ? '/en' : '/'} className="mt-8 inline-flex text-body-sm font-medium text-brand-text underline-offset-4 hover:underline">{t.waitlist.back}</Link>
       </main>
       <Footer t={t} />
     </>

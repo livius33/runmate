@@ -2,7 +2,8 @@
 // the pricing toggle are radio inputs styled with :has() (no JS); the FAQ is <details>.
 import Link from 'next/link'
 import { Check } from 'lucide-react'
-import { TypeTag } from '@/components/plan/ui'
+import { TypeTag } from '@/components/plan/tags'
+import { Card } from '@/components/ui/card'
 import type { Dict } from '@/lib/i18n'
 import type { MethodEntry, SampleWeek } from '@/lib/marketing/methods'
 import { portoCourse } from '@/lib/marketing/course'
@@ -17,17 +18,19 @@ const WEEKDAY = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 export function GeneratedWeek({ week, t }: { week: SampleWeek; t: Dict }) {
   const max = Math.max(...week.days.map((d) => d.km), 1)
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="text-[15px] font-semibold tracking-tight">{t.methods.week} · {week.phase}</div>
-        <div className="text-sm tabular-nums text-muted-foreground"><span className="font-display text-2xl font-semibold text-foreground">{week.km}</span> {t.methods.total}</div>
+    <Card as="div">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <div className="min-w-0">
+          <div className="text-body font-semibold">{t.methods.week} · {week.phase}</div>
+          <p className="text-caption text-muted-foreground">{t.methods.weekFor} {week.goal}</p>
+        </div>
+        <div className="text-body-sm tabular-nums text-muted-foreground"><span className="text-title text-foreground">{week.km}</span> {t.methods.total}</div>
       </div>
-      <p className="mt-0.5 text-xs text-muted-foreground">{t.methods.weekFor} {week.goal}</p>
       <ul className="mt-4 grid gap-2" lang="de">
         {week.days.map((d, i) => (
-          <li key={d.date} className="grid grid-cols-[1.75rem_6.5rem_1fr_3rem] items-center gap-2 text-sm sm:grid-cols-[2rem_7.5rem_1fr_3.5rem]">
-            <span className="text-muted-foreground">{WEEKDAY[i]}</span>
-            <span className="truncate"><TypeTag type={d.type} /></span>
+          <li key={d.date} className="grid grid-cols-[1.75rem_6.5rem_minmax(0,1fr)_3rem] items-center gap-2 text-body-sm sm:grid-cols-[2rem_7.5rem_minmax(0,1fr)_3.5rem]">
+            <span className="font-mono text-caption uppercase text-muted-foreground">{WEEKDAY[i]}</span>
+            <span className="min-w-0 truncate"><TypeTag type={d.type} /></span>
             <span className="h-2 rounded-full bg-secondary" title={d.title}>
               {d.km > 0 && <span className={cn('block h-full rounded-full', d.key ? 'bg-brand' : 'bg-foreground/60')} style={{ width: `${(d.km / max) * 100}%` }} />}
             </span>
@@ -35,7 +38,7 @@ export function GeneratedWeek({ week, t }: { week: SampleWeek; t: Dict }) {
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   )
 }
 
@@ -51,7 +54,7 @@ export function MethodTabs({ methods, t }: { methods: MethodEntry[]; t: Dict }) 
           {methods.map((m, i) => (
             <label key={m.id} className="shrink-0 cursor-pointer">
               <input type="radio" name="method" id={`mt-${m.id}`} defaultChecked={i === 0} className="peer sr-only" data-track="method_tab" />
-              <span className="inline-flex h-9 items-center rounded-full border border-border bg-card px-4 text-sm text-muted-foreground transition-colors hover:text-foreground peer-checked:border-brand peer-checked:bg-brand peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+              <span className="inline-flex h-9 items-center whitespace-nowrap rounded-control bg-card px-3 text-body-sm text-muted-foreground shadow-hairline transition-colors hover:text-foreground peer-checked:bg-foreground peer-checked:text-background peer-checked:shadow-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background">
                 {m.family} · {t.methods.distances[m.distances[0]]}
               </span>
             </label>
@@ -59,20 +62,20 @@ export function MethodTabs({ methods, t }: { methods: MethodEntry[]; t: Dict }) 
         </div>
       </fieldset>
       {methods.map((m) => (
-        <div key={m.id} data-panel={m.id} className="mt-6 hidden gap-6 md:grid-cols-12">
+        <div key={m.id} data-panel={m.id} className="mt-6 hidden gap-6 md:grid-cols-12 lg:gap-8">
           <div className="md:col-span-5">
-            <h3 className="font-display text-2xl font-semibold tracking-tight" lang="de">{m.name}</h3>
-            <p className="mt-3 text-[15px] leading-relaxed text-foreground/80" lang="de">{m.summary}</p>
-            <div className="mt-4 text-sm">
+            <h3 className="text-title" lang="de">{m.name}</h3>
+            <p className="mt-2 text-body text-muted-foreground" lang="de">{m.summary}</p>
+            <div className="mt-4 text-body-sm">
               <span className="text-muted-foreground">{t.methods.sources}: </span>
               {m.sources.slice(0, 2).map((s) => `${s.author} (${s.year})`).join('; ')}
             </div>
-            <Link href={`/methoden/${m.id}`} className="mt-5 inline-flex text-sm font-medium text-brand underline-offset-4 hover:underline">{t.methods.read}</Link>
+            <Link href={`/methoden/${m.id}`} className="mt-4 inline-flex text-body-sm font-medium text-brand-text underline-offset-4 hover:underline">{t.methods.read}</Link>
           </div>
           <div className="md:col-span-7">{m.week && <GeneratedWeek week={m.week} t={t} />}</div>
         </div>
       ))}
-      <p className="mt-6 max-w-2xl text-sm text-muted-foreground"><span className="font-medium text-foreground">{t.methods.own}.</span> {t.methods.ownText}</p>
+      <p className="mt-6 max-w-[68ch] text-body-sm text-muted-foreground"><span className="font-medium text-foreground">{t.methods.own}.</span> {t.methods.ownText}</p>
     </div>
   )
 }
@@ -81,52 +84,52 @@ export function Pricing({ t }: { t: Dict }) {
   const p = t.pricing
   const repo = repoUrl()
   const Points = ({ items }: { items: string[] }) => (
-    <ul className="mt-5 grid gap-2 text-sm">{items.map((x) => <li key={x} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden />{x}</li>)}</ul>
+    <ul className="mt-5 grid gap-2 text-body-sm">{items.map((x) => <li key={x} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden />{x}</li>)}</ul>
   )
   const Price = ({ month, year }: { month: string; year: string }) => (
     <div className="mt-4 flex items-baseline gap-1.5">
-      <span data-interval="month" className="font-display text-5xl font-semibold tracking-tight tabular-nums">{month}</span>
-      <span data-interval="month" className="text-sm text-muted-foreground">{p.perMonth}</span>
-      <span data-interval="year" className="font-display text-5xl font-semibold tracking-tight tabular-nums">{year}</span>
-      <span data-interval="year" className="text-sm text-muted-foreground">{p.perYear}</span>
+      <span data-interval="month" className="text-display tabular-nums">{month}</span>
+      <span data-interval="month" className="text-body-sm text-muted-foreground">{p.perMonth}</span>
+      <span data-interval="year" className="text-display tabular-nums">{year}</span>
+      <span data-interval="year" className="text-body-sm text-muted-foreground">{p.perYear}</span>
     </div>
   )
   return (
     <div className="mk-pricing">
-      <fieldset className="inline-flex rounded-full border border-border bg-card p-1 text-sm">
+      <fieldset className="inline-flex gap-1 rounded-control bg-card p-1 text-body-sm shadow-hairline">
         <legend className="sr-only">{p.month} / {p.year}</legend>
         {(['month', 'year'] as const).map((k) => (
           <label key={k} className="cursor-pointer">
             <input type="radio" name="bill" id={`bill-${k}`} defaultChecked={k === 'month'} className="peer sr-only" data-track={`pricing_${k}`} />
-            <span className="inline-flex h-8 items-center rounded-full px-4 text-muted-foreground peer-checked:bg-foreground peer-checked:text-background peer-focus-visible:ring-2 peer-focus-visible:ring-ring">{p[k]}</span>
+            <span className="inline-flex h-9 items-center rounded-[4px] px-3 text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-foreground peer-checked:text-background peer-focus-visible:ring-2 peer-focus-visible:ring-ring">{p[k]}</span>
           </label>
         ))}
       </fieldset>
-      <div className="mt-6 grid gap-4 lg:grid-cols-12">
+      <div className="mt-6 grid items-start gap-4 lg:grid-cols-12">
         {/* Hosted first on phones (the plan's mobile order), self-host first on wide screens */}
-        <div className="order-2 rounded-2xl border border-border bg-card p-6 lg:order-1 lg:col-span-4">
-          <h3 className="text-lg font-semibold">{p.selfHost.name}</h3>
-          <div className="mt-4 flex items-baseline gap-2"><span className="font-display text-5xl font-semibold tracking-tight">{p.selfHost.price}</span><span className="text-sm text-muted-foreground">{p.selfHost.note}</span></div>
+        <Card as="div" className="order-2 sm:p-6 lg:order-1 lg:col-span-4">
+          <h3 className="text-title-sm">{p.selfHost.name}</h3>
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-2"><span className="text-display tabular-nums">{p.selfHost.price}</span><span className="text-body-sm text-muted-foreground">{p.selfHost.note}</span></div>
           <Points items={p.selfHost.points} />
-          {repo && <a href={`${repo}#readme`} data-track="github_click" className="mt-6 inline-flex text-sm font-medium text-brand underline-offset-4 hover:underline">{p.selfHost.cta}</a>}
-        </div>
-        <div className="order-1 grid gap-4 rounded-2xl border border-border bg-card p-6 sm:grid-cols-2 lg:order-2 lg:col-span-8">
+          {repo && <a href={`${repo}#readme`} data-track="github_click" className="mt-6 inline-flex text-body-sm font-medium text-brand-text underline-offset-4 hover:underline">{p.selfHost.cta}</a>}
+        </Card>
+        <Card as="div" className="order-1 grid gap-6 sm:grid-cols-2 sm:p-6 lg:order-2 lg:col-span-8">
           {/* Free has one price whatever the toggle says; Plus follows it */}
           <div>
-            <h3 className="text-lg font-semibold">{p.free.name}</h3>
-            <div className="mt-4 flex items-baseline gap-2"><span className="font-display text-5xl font-semibold tracking-tight">{p.free.price}</span><span className="text-sm text-muted-foreground">{p.free.note}</span></div>
+            <h3 className="text-title-sm">{p.free.name}</h3>
+            <div className="mt-4 flex flex-wrap items-baseline gap-x-2"><span className="text-display tabular-nums">{p.free.price}</span><span className="text-body-sm text-muted-foreground">{p.free.note}</span></div>
             <Points items={p.free.points} />
           </div>
-          <div className="sm:border-l sm:border-border sm:pl-6">
-            <h3 className="text-lg font-semibold">Runmate {p.plus.name}</h3>
+          <div className="border-t border-border pt-6 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+            <h3 className="text-title-sm">Runmate {p.plus.name}</h3>
             <Price month={p.plus.month} year={p.plus.year} />
             <Points items={p.plus.points} />
           </div>
           <div className="grid gap-3 border-t border-border pt-5 sm:col-span-2 sm:grid-cols-[1fr_auto] sm:items-center">
-            <p className="text-sm text-muted-foreground">{p.trial} {p.always}</p>
+            <p className="text-body-sm text-muted-foreground">{p.trial} {p.always}</p>
             <PrimaryCta t={t} />
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   )
@@ -136,12 +139,12 @@ export function Faq({ t }: { t: Dict }) {
   return (
     <div className="divide-y divide-border border-y border-border">
       {t.faq.items.map((f) => (
-        <details key={f.q} className="group py-4">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium [&::-webkit-details-marker]:hidden">
+        <details key={f.q} className="group py-3">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-body font-medium [&::-webkit-details-marker]:hidden">
             {f.q}
-            <span aria-hidden className="text-xl leading-none text-muted-foreground transition-transform group-open:rotate-45">+</span>
+            <span aria-hidden className="shrink-0 text-title-sm font-normal leading-none text-muted-foreground transition-transform group-open:rotate-45">+</span>
           </summary>
-          <p className="mt-3 max-w-[68ch] text-[15px] leading-relaxed text-foreground/80">{f.a}</p>
+          <p className="mt-1 max-w-[68ch] text-body text-muted-foreground">{f.a}</p>
         </details>
       ))}
     </div>

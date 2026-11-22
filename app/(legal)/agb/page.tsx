@@ -123,7 +123,7 @@ export default function AgbPage() {
       </p>
 
       <h3>Muster-Widerrufsformular</h3>
-      <div className="rounded-xl border border-border p-4">
+      <div className="rounded-card p-4 shadow-hairline">
         <p>(Wenn du den Vertrag widerrufen willst, dann fülle bitte dieses Formular aus und sende es zurück.)</p>
         <p className="mt-2">– An <Ph>Name bzw. Firma, Anschrift, E-Mail-Adresse</Ph>:</p>
         <p>– Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag über den Kauf der folgenden
@@ -133,7 +133,7 @@ export default function AgbPage() {
         <p>– Anschrift des/der Verbraucher(s)</p>
         <p>– Unterschrift des/der Verbraucher(s) (nur bei Mitteilung auf Papier)</p>
         <p>– Datum</p>
-        <p className="mt-2 text-xs text-muted-foreground">(*) Unzutreffendes streichen.</p>
+        <p className="mt-2 text-caption text-muted-foreground">(*) Unzutreffendes streichen.</p>
       </div>
     </LegalPage>
   )

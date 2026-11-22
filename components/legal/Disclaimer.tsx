@@ -6,5 +6,5 @@ export const DISCLAIMER_TEXT =
   'oder Unsicherheit: Training unterbrechen und ärztlichen Rat einholen.'
 
 export function Disclaimer({ className }: { className?: string }) {
-  return <p className={`text-xs leading-relaxed text-muted-foreground ${className ?? ''}`}>{DISCLAIMER_TEXT}</p>
+  return <p className={`text-caption text-muted-foreground ${className ?? ''}`}>{DISCLAIMER_TEXT}</p>
 }

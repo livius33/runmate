@@ -31,8 +31,8 @@ async function contractOfSession(): Promise<{ signedIn: boolean; contract: strin
 export default async function KuendigenPage() {
   if (!billingEnabled()) {
     return (
-      <div className="grid gap-3 text-sm">
-        <h1 className="text-xl font-semibold">Verträge hier kündigen</h1>
+      <div className="grid gap-3 text-body-sm">
+        <h1 className="text-title">Verträge hier kündigen</h1>
         <p className="text-muted-foreground">Diese Runmate-Installation hat keine Abos – es gibt nichts zu kündigen.</p>
       </div>
     )
@@ -40,8 +40,8 @@ export default async function KuendigenPage() {
   const { signedIn, contract } = await contractOfSession()
   return (
     <div className="grid gap-4">
-      <h1 className="text-xl font-semibold">Verträge hier kündigen</h1>
-      <p className="text-sm text-muted-foreground">
+      <h1 className="text-title">Verträge hier kündigen</h1>
+      <p className="max-w-[68ch] text-body-sm text-muted-foreground">
         Hier kündigst du dein Abo von Runmate Plus. Eine ordentliche Kündigung wirkt zum Ende des bezahlten Zeitraums; bis
         dahin bleibt alles nutzbar. Danach läuft dein Konto kostenlos weiter: Daten, Analyse und ein Trainingsplan bleiben,
         die Funktionen von Plus enden. Export und Löschen gehen jederzeit.

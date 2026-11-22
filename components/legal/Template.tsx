@@ -3,17 +3,17 @@
 
 // "[PLATZHALTER: …]", highlighted.
 export function Ph({ children }: { children: React.ReactNode }) {
-  return <mark className="rounded bg-amber-100 px-1 text-amber-900">[PLATZHALTER: {children}]</mark>
+  return <mark className="rounded-[4px] bg-warning-soft px-1 text-warning">[PLATZHALTER: {children}]</mark>
 }
 
 export const REVIEW_NOTE = 'Vorlage – vor dem Livegang juristisch prüfen'
 
 export function LegalPage({ title, updated, children }: { title: string; updated: string; children: React.ReactNode }) {
   return (
-    <article className="legal grid gap-4 text-sm leading-relaxed [&_h2]:mt-6 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:font-medium [&_li]:ml-5 [&_li]:list-disc [&_ol>li]:list-decimal">
-      <p role="note" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900">{REVIEW_NOTE}</p>
-      <h1 className="text-xl font-semibold">{title}</h1>
-      <p className="text-xs text-muted-foreground">Stand: {updated}</p>
+    <article className="legal grid gap-3 text-body-sm [&_a]:underline-offset-2 [&_a:hover]:text-muted-foreground [&_h2]:mt-6 [&_h2]:text-body [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:font-medium [&_li]:ml-5 [&_li]:list-disc [&_ol>li]:list-decimal">
+      <p role="note" className="justify-self-start rounded-control border border-warning-border bg-warning-soft px-3 py-1.5 text-caption font-medium text-warning">{REVIEW_NOTE}</p>
+      <h1 className="mt-2 text-title">{title}</h1>
+      <p className="-mt-2 text-caption text-muted-foreground">Stand: {updated}</p>
       {children}
     </article>
   )

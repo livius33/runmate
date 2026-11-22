@@ -30,10 +30,10 @@ export default async function DemoLayout({ children }: { children: React.ReactNo
             <div className="flex min-h-screen bg-background">
               <AppSidebar />
               <div className="min-w-0 flex-1">
-                <div className="border-b border-brand/20 bg-brand-soft px-4 py-2 text-center text-xs text-foreground sm:px-6">
+                <div className="border-b border-border bg-brand-soft px-4 py-2 text-center text-caption text-foreground sm:px-6">
                   <strong className="font-semibold">Demo – nur ansehen.</strong> Eine erfundene Läuferin auf dem Weg zum Hamburg HM;
                   alle Daten sind synthetisch und werden jede Nacht neu erzeugt. Änderungen werden nicht gespeichert.{' '}
-                  <Link href="/sign-in" className="font-medium text-brand underline underline-offset-2">Eigenen Plan erstellen →</Link>
+                  <Link href="/sign-in" className="font-medium underline underline-offset-2 hover:no-underline">Eigenen Plan erstellen →</Link>
                 </div>
                 <AppHeader />
                 <main className="mx-auto max-w-[1400px] p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6"><ScopeReady>{children}</ScopeReady></main>

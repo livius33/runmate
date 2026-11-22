@@ -127,7 +127,7 @@ export default function DatenschutzPage() {
         nur die Planung ohne Auswertung deiner Läufe.
       </p>
 
-      <p className="text-xs text-muted-foreground">Siehe auch: <Link href="/impressum" className="underline">Impressum</Link> · <Link href="/agb" className="underline">AGB</Link></p>
+      <p className="text-caption text-muted-foreground">Siehe auch: <Link href="/impressum" className="underline">Impressum</Link> · <Link href="/agb" className="underline">AGB</Link></p>
     </LegalPage>
   )
 }

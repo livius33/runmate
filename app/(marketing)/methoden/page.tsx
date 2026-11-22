@@ -15,16 +15,17 @@ export default function MethodsIndex() {
   return (
     <>
       <Header t={t} />
-      <main className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 sm:py-20">
-        <h1 className="font-display text-[clamp(2.4rem,5vw,3.75rem)] font-semibold leading-[1] tracking-[-0.035em]">{t.methods.allTitle}</h1>
-        <p className="mt-4 max-w-[58ch] text-[17px] leading-relaxed text-muted-foreground">{t.methods.allSub}</p>
-        <ul className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-2">
+      <main className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:py-24">
+        <h1 className="text-title sm:text-display">{t.methods.allTitle}</h1>
+        <p className="mt-3 max-w-[58ch] text-body text-muted-foreground">{t.methods.allSub}</p>
+        {/* A wide grid of same-shaped tiles (equal height on purpose), 1 → 2 → 3 across */}
+        <ul className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {methodCatalogue().map((m) => (
-            <li key={m.id} className="bg-card">
-              <Link href={`/methoden/${m.id}`} className="block h-full p-6 hover:bg-secondary/50">
-                <div className="text-xs text-muted-foreground">{m.family} · {m.distances.map((d) => t.methods.distances[d]).join(', ')}</div>
-                <h2 className="mt-1 font-display text-xl font-semibold tracking-tight">{m.name}</h2>
-                <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{m.summary}</p>
+            <li key={m.id} className="min-w-0">
+              <Link href={`/methoden/${m.id}`} className="block h-full rounded-card bg-card p-5 shadow-raised transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div className="font-mono text-caption uppercase text-muted-foreground">{m.family} · {m.distances.map((d) => t.methods.distances[d]).join(', ')}</div>
+                <h2 className="mt-2 text-title-sm">{m.name}</h2>
+                <p className="mt-2 line-clamp-3 text-body-sm text-muted-foreground">{m.summary}</p>
               </Link>
             </li>
           ))}
