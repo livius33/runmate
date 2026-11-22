@@ -77,7 +77,7 @@ export function SessionDetails({ session, why = [], compact = false }: { session
         <div className="flex flex-wrap items-center gap-1.5 text-caption">
           {terms.map((t) => (
             <button key={t} type="button" onClick={() => setTerm(term === t ? null : t)} aria-expanded={term === t}
-              className={cn('tap inline-flex h-6 items-center gap-1 rounded-control px-2', term === t ? 'bg-secondary text-foreground shadow-hairline' : 'text-muted-foreground shadow-hairline hover:text-foreground')}>
+              className={cn("tap relative inline-flex h-6 items-center gap-1 rounded-control px-2 before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']", term === t ? 'bg-secondary text-foreground shadow-hairline' : 'text-muted-foreground shadow-hairline hover:text-foreground')}>
               {t} <HelpCircle className="h-3 w-3" />
             </button>
           ))}

@@ -171,7 +171,7 @@ export function CrossTrainingToday({ today }: { today: string }) {
     return (
       <p className="mt-3 border-t border-border pt-3 text-caption text-muted-foreground">
         Kraft, Schwimmen, Rad oder Gym heute?{' '}
-        <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-0.5 font-medium text-foreground hover:underline">
+        <button type="button" onClick={() => setAdding(true)} className="relative inline-flex items-center gap-0.5 font-medium text-foreground before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] hover:underline">
           <Plus className="h-3 w-3" /> Einheit eintragen
         </button>
       </p>
@@ -182,7 +182,7 @@ export function CrossTrainingToday({ today }: { today: string }) {
       {todays.map((r) => <CrossSessionLine key={r.id} row={r} onDelete={r.manual ? () => remove.mutate(r.id) : undefined} />)}
       {adding
         ? <CrossEntryForm date={today} onDone={() => setAdding(false)} onCancel={() => setAdding(false)} />
-        : <button type="button" onClick={() => setAdding(true)} className="self-start text-caption text-muted-foreground hover:text-foreground">+ weitere Einheit eintragen</button>}
+        : <button type="button" onClick={() => setAdding(true)} className="relative self-start text-caption text-muted-foreground before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] hover:text-foreground">+ weitere Einheit eintragen</button>}
     </div>
   )
 }

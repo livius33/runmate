@@ -203,11 +203,11 @@ function GoalCard({ item, plan, editing, onEdit, form }: { item: GoalItem; plan?
         <div className="ml-auto text-right">
           <div className={cn('font-semibold tabular-nums', minor ? 'text-body' : 'text-title-sm')}>{countdown(item.daysLeft)}</div>
           {g.fromPlan && g.priority === 'A'
-            ? <Link href="/race" className="tap mt-1 inline-block text-caption font-medium text-brand-text hover:underline">Renntag →</Link>
+            ? <Link href="/race" className="tap relative mt-1 inline-block text-caption font-medium text-brand-text before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] hover:underline">Renntag →</Link>
             : g.fromPlan
               ? <span className="mt-1 inline-block text-caption text-muted-foreground">im Trainingsplan</span>
               : !editing && !item.done && (
-                  <button onClick={onEdit} className="tap mt-1 inline-flex items-center gap-1 text-caption font-medium text-brand-text hover:underline">
+                  <button onClick={onEdit} className="tap relative mt-1 inline-flex items-center gap-1 text-caption font-medium text-brand-text before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] hover:underline">
                     <Pencil className="h-3 w-3" /> Bearbeiten
                   </button>
                 )}
