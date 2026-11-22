@@ -7,7 +7,8 @@ import { de } from 'date-fns/locale'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, Check, History, Lightbulb, RotateCcw, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Card, TypeTag } from '@/components/plan/ui'
+import { Button, Card, ChipButton, Input, Inset } from '@/components/ui'
+import { TypeTag } from '@/components/plan/tags'
 import { RebuildArea, RebuildHistoryRow, rebuildPost, useAfterRebuild, useRebuildState, type RebuildHistoryItem } from '@/components/plan/Rebuild'
 import { useToday } from '@/lib/use-today'
 import type { FeedbackHint } from '@/lib/feedback/rules'
@@ -79,7 +80,7 @@ export default function WorkshopPage() {
     onSuccess: () => { setNote('Neuaufbau zurückgenommen: der Plan ist wieder wie davor.'); afterRebuild() },
   })
 
-  if (prof.isLoading) return <p className="text-sm text-muted-foreground">Lädt…</p>
+  if (prof.isLoading) return <p className="text-body-sm text-muted-foreground">Lädt…</p>
   if (prof.data && (!prof.data.profile || typeof profileView === 'number')) {
     return (
       <div className="pb-10">
@@ -100,60 +101,61 @@ export default function WorkshopPage() {
   }
 
   const error = [apply, undo, undoRebuild].find((m) => m.isError)?.error as Error | undefined
+  // Layout (12-02): title, rebuild area and the period overview span the full width; suggestions and history sit in
+  // two independent columns from lg up, each card at its natural height.
   return (
-    <div className="flex flex-col gap-5 pb-10">
+    <div className="flex flex-col gap-4 pb-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link href="/plan" className="text-xs text-muted-foreground hover:text-foreground">← Plan</Link>
-          <h1 className="mt-1 text-2xl sm:text-[28px] font-semibold tracking-tight">Plan anpassen</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Den ganzen Plan ändern oder einzelne Vorschläge übernehmen. Du siehst vorher, was sich ändert und warum; nichts passiert ohne dich.</p>
+        <div className="min-w-0">
+          <Link href="/plan" className="tap text-caption text-muted-foreground hover:text-foreground">← Plan</Link>
+          <h1 className="mt-1 text-title sm:text-display">Plan anpassen</h1>
+          <p className="mt-1 text-body-sm text-muted-foreground">Den ganzen Plan ändern oder einzelne Vorschläge übernehmen. Du siehst vorher, was sich ändert und warum; nichts passiert ohne dich.</p>
         </div>
-        <button onClick={() => setProfileView('overview')} className="tap inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-secondary">
-          <Settings2 className="h-3.5 w-3.5" /> Trainingsprofil
-        </button>
+        <Button size="action" onClick={() => setProfileView('overview')}>
+          <Settings2 /> Trainingsprofil
+        </Button>
       </div>
 
-      {note && <p className="flex items-center gap-1.5 text-sm text-teal"><Check className="h-4 w-4" />{note}</p>}
-      {error && <p className="flex items-center gap-1.5 text-sm text-brand"><AlertTriangle className="h-4 w-4" />{error.message}</p>}
+      {note && <p className="flex items-center gap-1.5 text-body-sm text-teal-text"><Check className="h-4 w-4 shrink-0" />{note}</p>}
+      {error && <p className="flex items-center gap-1.5 text-body-sm text-error"><AlertTriangle className="h-4 w-4 shrink-0" />{error.message}</p>}
       {rebuild.data && <RebuildArea state={rebuild.data} today={today} onBlock={setBlockId} onNote={setNote} />}
-      {rebuild.isError && <p className="text-sm text-brand">Der Planstand konnte nicht geladen werden. Seite neu laden.</p>}
+      {rebuild.isError && <p className="text-body-sm text-error">Der Planstand konnte nicht geladen werden. Seite neu laden.</p>}
 
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Vorschläge und Verlauf</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">Zeitraum wählen und prüfen. Vorschläge ändern einzelne Tage, der Rest des Plans bleibt.</p>
+        <div className="min-w-0">
+          <h2 className="text-title-sm">Vorschläge und Verlauf</h2>
+          <p className="mt-0.5 text-body-sm text-muted-foreground">Zeitraum wählen und prüfen. Vorschläge ändern einzelne Tage, der Rest des Plans bleibt.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Zeitraum">
-        {CHOICES.map((c) => (
-          <button key={c.p} aria-pressed={choice.p === c.p}
-            onClick={() => setChoice(c.p === 'range' ? { p: 'range', from: range.from || undefined, to: range.to || undefined } : { p: c.p })}
-            className={cn('tap rounded-full border px-3 py-1.5 text-sm', choice.p === c.p ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
-            {c.label}
-          </button>
-        ))}
-        {choice.p === 'range' && (
-          <span className="flex flex-wrap items-center gap-1.5 text-sm">
-            <input type="date" value={range.from} onChange={(e) => { const r = { ...range, from: e.target.value }; setRange(r); setChoice({ p: 'range', from: r.from || undefined, to: r.to || undefined }) }} className="rounded-lg border border-border bg-card px-2 py-1" aria-label="Von" />
-            –
-            <input type="date" value={range.to} onChange={(e) => { const r = { ...range, to: e.target.value }; setRange(r); setChoice({ p: 'range', from: r.from || undefined, to: r.to || undefined }) }} className="rounded-lg border border-border bg-card px-2 py-1" aria-label="Bis" />
-          </span>
-        )}
-        </div>
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Zeitraum">
+            {CHOICES.map((c) => (
+              <ChipButton key={c.p} selected={choice.p === c.p}
+                onClick={() => setChoice(c.p === 'range' ? { p: 'range', from: range.from || undefined, to: range.to || undefined } : { p: c.p })}>
+                {c.label}
+              </ChipButton>
+            ))}
+            {choice.p === 'range' && (
+              <span className="flex flex-wrap items-center gap-1.5 text-body-sm text-foreground">
+                <Input small type="date" value={range.from} onChange={(e) => { const r = { ...range, from: e.target.value }; setRange(r); setChoice({ p: 'range', from: r.from || undefined, to: r.to || undefined }) }} className="w-auto" aria-label="Von" />
+                –
+                <Input small type="date" value={range.to} onChange={(e) => { const r = { ...range, to: e.target.value }; setRange(r); setChoice({ p: 'range', from: r.from || undefined, to: r.to || undefined }) }} className="w-auto" aria-label="Bis" />
+              </span>
+            )}
+          </div>
       </div>
 
-      {!ready && <p className="text-sm text-muted-foreground">Start- und Enddatum wählen.</p>}
-      {isLoading && ready && <p className="text-sm text-muted-foreground">Rechnet…</p>}
-      {isError && <p className="text-sm text-brand">Konnte nicht geladen werden. Seite neu laden.</p>}
+      {!ready && <p className="text-body-sm text-muted-foreground">Start- und Enddatum wählen.</p>}
+      {isLoading && ready && <p className="text-body-sm text-muted-foreground">Rechnet…</p>}
+      {isError && <p className="text-body-sm text-error">Konnte nicht geladen werden. Seite neu laden.</p>}
 
       {data && (
         <>
           <Overview d={data} />
-          <div className="grid items-start gap-5 lg:grid-cols-2">
-          <Card title="Vorschläge" aside={<span className="text-xs text-muted-foreground">{data.period.label}</span>}>
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+          <Card title="Vorschläge" aside={<span>{data.period.label}</span>}>
             {data.hints?.length > 0 && (
-              <ul className="mb-4 grid gap-2 text-sm" aria-label="Aus deinem Feedback">
+              <ul className="mb-4 grid gap-2 text-body-sm" aria-label="Aus deinem Feedback">
                 {data.hints.map((h) => (
-                  <li key={h.kind} className={cn('rounded-xl px-3.5 py-2.5', h.tone === 'warn' ? 'bg-amber-50 text-amber-900' : 'bg-teal-soft/70')}>
+                  <li key={h.kind} className={cn('rounded-card px-3.5 py-2.5', h.tone === 'warn' ? 'bg-warning-soft text-warning' : 'bg-teal-soft')}>
                     <span className="flex items-start gap-2">
                       {h.tone === 'warn' ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> : <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" />}
                       <span>{h.text}</span>
@@ -163,7 +165,7 @@ export default function WorkshopPage() {
               </ul>
             )}
             {data.suggestions.length === 0 ? (
-              <p className="flex items-start gap-2 text-sm"><Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" />
+              <p className="flex items-start gap-2 text-body-sm"><Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" />
                 Nichts zu ändern: Umfang, Form und Schlüsseleinheiten passen in diesem Zeitraum.</p>
             ) : (
               <ul className="grid gap-4">
@@ -171,7 +173,7 @@ export default function WorkshopPage() {
               </ul>
             )}
           </Card>
-          <Card title="Verlauf" aside={<History className="h-4 w-4 text-muted-foreground" />}>
+          <Card title="Verlauf" aside={<History className="h-4 w-4" />}>
             <HistoryList log={data.log} rebuilds={rebuild.data?.history ?? []} busy={undo.isPending || undoRebuild.isPending}
               onUndo={(id) => undo.mutate(id)} onUndoRebuild={(id) => undoRebuild.mutate(id)} />
           </Card>
@@ -185,20 +187,19 @@ export default function WorkshopPage() {
 // Rebuilds and taken-over suggestions in one list, newest first.
 function HistoryList({ log, rebuilds, busy, onUndo, onUndoRebuild }: { log: WorkshopLogEntry[]; rebuilds: RebuildHistoryItem[]; busy: boolean; onUndo: (id: string) => void; onUndoRebuild: (id: string) => void }) {
   const items = [...rebuilds.map((e) => ({ at: e.at, rebuild: e, entry: null })), ...log.map((e) => ({ at: e.at, rebuild: null, entry: e }))].sort((a, b) => b.at.localeCompare(a.at))
-  if (!items.length) return <p className="text-sm text-muted-foreground">Noch keine Änderungen über „Plan anpassen“.</p>
+  if (!items.length) return <p className="text-body-sm text-muted-foreground">Noch keine Änderungen über „Plan anpassen“.</p>
   return (
-    <ul className="grid gap-2 text-sm">
+    <ul className="grid gap-2 text-body-sm">
       {items.map(({ rebuild, entry: e }) => rebuild ? <RebuildHistoryRow key={rebuild.id} e={rebuild} busy={busy} onUndo={() => onUndoRebuild(rebuild.id)} /> : e && (
         <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
           <span className="min-w-0">
             <span className={cn('font-medium', e.undoneAt && 'text-muted-foreground line-through')}>{e.title}</span>
-            <span className="block text-xs text-muted-foreground">{format(parseISO(e.at), 'd.M. HH:mm')} · {e.period} · {Object.keys(e.after).length} Tag(e)</span>
+            <span className="block text-caption tabular-nums text-muted-foreground">{format(parseISO(e.at), 'd.M. HH:mm')} · {e.period} · {Object.keys(e.after).length} Tag(e)</span>
           </span>
-          {e.undoneAt ? <span className="text-xs text-muted-foreground">rückgängig</span> : (
-            <button onClick={() => onUndo(e.id)} disabled={busy}
-              className="tap inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-secondary disabled:opacity-50">
-              <RotateCcw className="h-3 w-3" /> Rückgängig
-            </button>
+          {e.undoneAt ? <span className="text-caption text-muted-foreground">rückgängig</span> : (
+            <Button size="sm" onClick={() => onUndo(e.id)} disabled={busy}>
+              <RotateCcw /> Rückgängig
+            </Button>
           )}
         </li>
       ))}
@@ -206,25 +207,27 @@ function HistoryList({ log, rebuilds, busy, onUndo, onUndoRebuild }: { log: Work
   )
 }
 
+const de2 = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 function Overview({ d }: { d: Data }) {
   const t = d.review.totals
   const f = d.review.fitness
   const r = d.review.recent
   return (
-    <Card title={d.period.label} aside={<span className="text-xs text-muted-foreground tabular-nums">{day(d.period.from)} – {day(d.period.to)}</span>}>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <Card title={d.period.label} aside={<span className="tabular-nums">{day(d.period.from)} – {day(d.period.to)}</span>}>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Kpi label="Geplant" value={`${fmtKm(t.plannedKm)} km`} />
         <Kpi label="Gelaufen" value={`${fmtKm(t.runKm)} km`} />
         <Kpi label="Noch offen" value={`${fmtKm(t.remainingKm)} km`} />
         <Kpi label="Verpasst / extra" value={`${fmtKm(t.missedKm)} / ${fmtKm(t.extraKm)} km`} tone={t.missedKm >= 5 ? 'warn' : undefined} />
         <Kpi label="Schlüsseleinheiten" value={`${d.review.key.done} gelaufen · ${d.review.key.open} offen`} sub={d.review.key.missed ? `${d.review.key.missed} verpasst` : undefined} tone={d.review.key.missed ? 'warn' : undefined} />
         <Kpi label="Form (TSB)" value={f.tsb == null ? '–' : String(Math.round(f.tsb)).replace('-', '−')} tone={f.tsb != null && f.tsb < -25 ? 'warn' : undefined} />
-        <Kpi label="ACWR" value={f.acwr == null ? '–' : f.acwr.toFixed(2).replace('.', ',')} tone={f.acwr != null && f.acwr > 1.5 ? 'warn' : undefined} />
+        <Kpi label="ACWR" value={f.acwr == null ? '–' : de2(f.acwr)} tone={f.acwr != null && f.acwr > 1.5 ? 'warn' : undefined} />
         <Kpi label={`Letzte ${r?.weeks ?? 3} Wochen`} value={r ? `${Math.round(r.ratio * 100)} % vom Plan` : '–'} sub={r ? `${fmtKm(r.runKm)} von ${fmtKm(r.plannedKm)} km` : undefined} />
       </div>
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[480px] text-sm tabular-nums">
-          <thead><tr className="text-left text-xs text-muted-foreground">
+        <table className="w-full min-w-[480px] text-body-sm tabular-nums">
+          <thead><tr className="text-left text-caption text-muted-foreground">
             <th className="py-1.5 pr-3 font-medium">Woche</th><th className="py-1.5 pr-3 text-right font-medium">Ziel</th>
             <th className="py-1.5 pr-3 text-right font-medium">Geplant</th><th className="py-1.5 pr-3 text-right font-medium">Gelaufen</th>
             <th className="py-1.5 text-right font-medium">Offen</th>
@@ -232,10 +235,10 @@ function Overview({ d }: { d: Data }) {
           <tbody>
             {d.review.weeks.map((w) => (
               <tr key={w.start} className="border-t border-border">
-                <td className="py-1.5 pr-3">{w.kw ? `KW ${w.kw}` : day(w.start)}{w.focus && <span className="ml-1.5 text-xs text-muted-foreground">{w.focus}</span>}</td>
+                <td className="py-1.5 pr-3">{w.kw ? `KW ${w.kw}` : day(w.start)}{w.focus && <span className="ml-1.5 text-caption text-muted-foreground">{w.focus}</span>}</td>
                 <td className="py-1.5 pr-3 text-right text-muted-foreground">{w.targetKm != null ? fmtKm(w.targetKm) : '–'}</td>
                 <td className="py-1.5 pr-3 text-right">{fmtKm(w.plannedKm)}</td>
-                <td className="py-1.5 pr-3 text-right">{fmtKm(w.runKm)}{w.missedKm > 0 && <span className="ml-1 text-xs text-brand">−{fmtKm(w.missedKm)}</span>}</td>
+                <td className="py-1.5 pr-3 text-right">{fmtKm(w.runKm)}{w.missedKm > 0 && <span className="ml-1 text-caption text-brand-text">−{fmtKm(w.missedKm)}</span>}</td>
                 <td className="py-1.5 text-right">{fmtKm(w.remainingKm)}</td>
               </tr>
             ))}
@@ -246,13 +249,14 @@ function Overview({ d }: { d: Data }) {
   )
 }
 
+// A figure in a quiet inset: values here are short phrases too ("2 gelaufen · 1 offen"), so 14 px, not Figure's 20 px.
 function Kpi({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'warn' }) {
   return (
-    <div className="rounded-xl bg-secondary/60 px-3 py-2">
-      <div className="text-[11px] text-muted-foreground">{label}</div>
-      <div className={cn('text-sm font-semibold tabular-nums', tone === 'warn' && 'text-brand')}>{value}</div>
-      {sub && <div className="text-[11px] text-muted-foreground tabular-nums">{sub}</div>}
-    </div>
+    <Inset className="min-w-0">
+      <div className="text-caption text-muted-foreground">{label}</div>
+      <div className={cn('text-body-sm font-semibold tabular-nums', tone === 'warn' && 'text-brand-text')}>{value}</div>
+      {sub && <div className="text-caption tabular-nums text-muted-foreground">{sub}</div>}
+    </Inset>
   )
 }
 
@@ -263,19 +267,18 @@ function SessionCell({ s }: { s: PlanSession | null }) {
 
 function SuggestionCard({ s, busy, onApply }: { s: Suggestion; busy: boolean; onApply: () => void }) {
   return (
-    <li className="rounded-xl border border-border p-3">
+    <li className="rounded-card p-3 shadow-hairline">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <span className="flex items-center gap-1.5 font-medium"><Lightbulb className="h-4 w-4 text-amber-600" />{s.title}</span>
-        <button onClick={onApply} disabled={busy}
-          className="tap inline-flex items-center gap-1 rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background disabled:opacity-50">
-          Übernehmen <ArrowRight className="h-3.5 w-3.5" />
-        </button>
+        <span className="flex min-w-0 items-center gap-1.5 font-medium"><Lightbulb className="h-4 w-4 shrink-0 text-warning" />{s.title}</span>
+        <Button size="sm" onClick={onApply} disabled={busy}>
+          Übernehmen <ArrowRight />
+        </Button>
       </div>
-      <ul className="mt-1.5 grid gap-0.5 text-xs text-muted-foreground">{s.why.map((w, i) => <li key={i}>{w}</li>)}</ul>
-      <ul className="mt-3 grid gap-1.5 text-sm">
+      <ul className="mt-1.5 grid gap-0.5 text-caption text-muted-foreground">{s.why.map((w, i) => <li key={i}>{w}</li>)}</ul>
+      <ul className="mt-3 grid gap-1.5 text-body-sm">
         {s.diff.map((r) => (
           <li key={r.date} className="grid gap-1 sm:grid-cols-[4.5rem_1fr_auto_1fr] sm:items-center sm:gap-2">
-            <span className="text-xs font-medium tabular-nums">{day(r.date)}</span>
+            <span className="text-caption font-medium tabular-nums">{day(r.date)}</span>
             <span className="min-w-0 text-muted-foreground line-through decoration-muted-foreground/40"><SessionCell s={r.before} /></span>
             <ArrowRight className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
             <SessionCell s={r.after} />
@@ -283,7 +286,7 @@ function SuggestionCard({ s, busy, onApply }: { s: Suggestion; busy: boolean; on
         ))}
       </ul>
       {s.weekKm.length > 0 && (
-        <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+        <p className="mt-2 text-caption tabular-nums text-muted-foreground">
           Woche danach: {s.weekKm.map((w) => `ab ${day(w.start)} ${fmtKm(w.before)} → ${fmtKm(w.after)} km`).join(' · ')}
         </p>
       )}

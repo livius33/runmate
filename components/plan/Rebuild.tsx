@@ -11,10 +11,10 @@ import { de } from 'date-fns/locale'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, Check, Eye, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Card } from '@/components/plan/ui'
+import { Button, Card, Input } from '@/components/ui'
 import { PauseControl } from '@/components/plan/PauseControl'
 import { Upsell } from '@/components/billing/Entitlements'
-import { Days, Num, One } from '@/components/plan/workshop/Onboarding'
+import { Days, Num, One, selectClass } from '@/components/plan/workshop/Onboarding'
 import { WEEKDAYS, validProfile, type AthleteProfile, type Weekday } from '@/lib/plan/athlete-profile'
 import { clockText, parseClock } from '@/lib/season/goals'
 import { fmtKm } from '@/lib/plan/format'
@@ -27,7 +27,8 @@ class PlusRequired extends Error {}
 
 const dm = (d: string) => format(parseISO(d), 'EEEEEE d.M.', { locale: de })
 const dmy = (d: string) => format(parseISO(d), 'd.M.yyyy')
-const field = 'w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums outline-none focus:border-foreground/60'
+// Eyebrow over a group inside a card (DESIGN.md caption-mono).
+const eyebrow = 'font-mono text-caption uppercase text-muted-foreground'
 
 export function useRebuildState(blockId?: string) {
   return useQuery<RebuildState>({
@@ -55,17 +56,17 @@ export function useAfterRebuild() {
 export function RebuildArea({ state, today, onBlock, onNote }: { state: RebuildState; today: string; onBlock: (id: string) => void; onNote: (text: string) => void }) {
   if (!state.block) {
     return (
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid items-start gap-4 lg:grid-cols-3">
         <Card title="Ganzen Plan ändern" className="lg:col-span-2">
-          <p className="max-w-2xl text-sm text-muted-foreground">
+          <p className="max-w-2xl text-body-sm text-muted-foreground">
             Zielzeit, Renntermin, Methode und Lauftage änderst du hier für einen laufenden Plan aus dem Generator. Im Moment läuft keiner mit einem Rennen vor dir.
           </p>
-          <Link href="/plan/neu" className="tap mt-3 inline-flex items-center gap-1 rounded-lg bg-foreground px-3 py-2 text-sm font-medium text-background">
-            Neuen Plan erstellen <ArrowRight className="h-4 w-4" />
-          </Link>
+          <Button asChild variant="primary" className="mt-3">
+            <Link href="/plan/neu">Neuen Plan erstellen <ArrowRight /></Link>
+          </Button>
         </Card>
         <Card title="Unterbrechung">
-          <p className="text-sm text-muted-foreground">Krank oder im Urlaub? Trag die Tage ein: die Einheiten fallen aus, der Wiedereinstieg wird geplant.</p>
+          <p className="text-body-sm text-muted-foreground">Krank oder im Urlaub? Trag die Tage ein: die Einheiten fallen aus, der Wiedereinstieg wird geplant.</p>
           <PauseControl today={today} rebuildLink={false} />
         </Card>
       </div>
@@ -131,51 +132,52 @@ function Levers({ state, today, onBlock, onNote }: { state: Live; today: string;
   return (
     <section className="grid gap-4" aria-label="Ganzen Plan ändern">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Ganzen Plan ändern</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+        <div className="min-w-0">
+          <h2 className="text-title-sm">Ganzen Plan ändern</h2>
+          <p className="mt-0.5 text-body-sm text-muted-foreground">
             {block.name}: alles bis {dm(block.cut)} bleibt, wie es ist. Ab dann rechnet Runmate den Plan mit deinen Angaben neu.
           </p>
         </div>
         {state.blocks.length > 1 && (
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">Plan
-            <select value={block.id} onChange={(e) => onBlock(e.target.value)} className="rounded-lg border border-border bg-card px-2 py-1.5 text-sm text-foreground">
+          <label className="flex min-w-0 items-center gap-2 text-body-sm text-muted-foreground">Plan
+            <select value={block.id} onChange={(e) => onBlock(e.target.value)} className={cn(selectClass, 'h-8 w-auto px-2')}>
               {state.blocks.map((b) => <option key={b.id} value={b.id}>{b.name} · {dmy(b.raceDate)}</option>)}
             </select>
           </label>
         )}
       </div>
 
-      {state.tooLate && <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{state.tooLate}</p>}
+      {state.tooLate && <p className="flex items-start gap-2 rounded-card bg-warning-soft px-3.5 py-2.5 text-body-sm text-warning"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{state.tooLate}</p>}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      {/* Three independent levers side by side from lg up; each card keeps its natural height (items-start). */}
+      <div className="grid items-start gap-4 lg:grid-cols-3">
         <Card title="Ziel und Rennen">
           <div className="grid gap-3">
             <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3">
-              <label className="grid min-w-0 gap-1 text-sm">
+              <label className="grid min-w-0 gap-1.5 text-body-sm">
                 <span className="text-muted-foreground">Zielzeit</span>
-                <input className={field} value={goal} placeholder={block.short ? '42:30' : '1:25:00'} inputMode="numeric" onChange={(e) => touch(setGoal)(e.target.value)} />
+                <Input className="tabular-nums" value={goal} placeholder={block.short ? '42:30' : '1:25:00'} inputMode="numeric" onChange={(e) => touch(setGoal)(e.target.value)} />
               </label>
-              <label className="grid min-w-0 gap-1 text-sm">
+              <label className="grid min-w-0 gap-1.5 text-body-sm">
                 <span className="text-muted-foreground">Renntermin</span>
-                <input type="date" className={field} value={raceDate} min={today} onChange={(e) => touch(setRaceDate)(e.target.value)} />
+                <Input type="date" className="min-w-0 tabular-nums" value={raceDate} min={today} onChange={(e) => touch(setRaceDate)(e.target.value)} />
               </label>
             </div>
-            <label className="grid gap-1 text-sm">
+            <label className="grid gap-1.5 text-body-sm">
               <span className="text-muted-foreground">Methode</span>
-              <select className={field} value={templateId} onChange={(e) => touch(setTemplateId)(e.target.value)}>
+              <select className={selectClass} value={templateId} onChange={(e) => touch(setTemplateId)(e.target.value)}>
                 {!block.templateId && <option value="">Bitte wählen</option>}
                 {state.templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.locked ? ' (Plus)' : ''}</option>)}
               </select>
-              {state.templates.find((t) => t.id === templateId)?.summary && <span className="text-xs text-muted-foreground">{state.templates.find((t) => t.id === templateId)!.summary}</span>}
+              {state.templates.find((t) => t.id === templateId)?.summary && <span className="text-caption text-muted-foreground">{state.templates.find((t) => t.id === templateId)!.summary}</span>}
             </label>
-            <label className="grid gap-1 text-sm">
+            <label className="grid gap-1.5 text-body-sm">
               <span className="text-muted-foreground">Spitzenumfang</span>
               <span className="flex items-center gap-2">
-                <input className={field} value={peak} placeholder="empfohlen" inputMode="decimal" onChange={(e) => touch(setPeak)(e.target.value)} />
-                <span className="shrink-0 text-xs text-muted-foreground">km/Woche</span>
+                <Input className="tabular-nums" value={peak} placeholder="empfohlen" inputMode="decimal" onChange={(e) => touch(setPeak)(e.target.value)} />
+                <span className="shrink-0 text-caption text-muted-foreground">km/Woche</span>
               </span>
-              <span className="text-xs text-muted-foreground">Leer = Runmate wählt die Spitze aus deinem Umfang und der Methode.</span>
+              <span className="text-caption text-muted-foreground">Leer = Runmate wählt die Spitze aus deinem Umfang und der Methode.</span>
             </label>
             <DataLine ok={state.data.goal.state === 'checked'} text={state.data.goal.text} />
           </div>
@@ -194,26 +196,26 @@ function Levers({ state, today, onBlock, onNote }: { state: Live; today: string;
                 <Num field="maxKmWeekday" label="Höchstens Mo–Fr" unit="km" value={profile.maxKmWeekday} onChange={(v) => setP({ ...profile, maxKmWeekday: v })} />
                 <Num field="maxKmWeekend" label="Höchstens Sa–So" unit="km" value={profile.maxKmWeekend} onChange={(v) => setP({ ...profile, maxKmWeekend: v })} />
               </div>
-              <p className="text-xs text-muted-foreground">Ein laufender Plan folgt neuen Angaben erst mit dem Neuaufbau. „Übernehmen“ speichert sie auch im Trainingsprofil.</p>
+              <p className="text-caption text-muted-foreground">Ein laufender Plan folgt neuen Angaben erst mit dem Neuaufbau. „Übernehmen“ speichert sie auch im Trainingsprofil.</p>
             </div>
           )}
         </Card>
 
         <Card title="Unterbrechung">
           <div className="grid gap-3">
-            <p className="text-sm text-muted-foreground">Krank oder im Urlaub? Trag die Tage ein: die Einheiten fallen aus, der Wiedereinstieg wird geplant.</p>
+            <p className="text-body-sm text-muted-foreground">Krank oder im Urlaub? Trag die Tage ein: die Einheiten fallen aus, der Wiedereinstieg wird geplant.</p>
             <div className="-mt-3"><PauseControl today={today} rebuildLink={false} /></div>
             {state.pause?.replan && (
-              <p className="rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900">
+              <p className="rounded-card bg-warning-soft px-3.5 py-2.5 text-body-sm text-warning">
                 Nach {state.pause.days} Tagen Pause passt der alte Aufbau nicht mehr. Die Vorschau zeigt den Plan vom Wiedereinstieg aus.
               </p>
             )}
             <div className="grid gap-1.5 border-t border-border pt-3">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Grundlage für den Neuaufbau</span>
-              <p className="text-sm">{state.base.km > 0 ? state.base.text : 'Aus den letzten 2 Wochen gibt es keine Läufe: bitte deinen aktuellen Umfang eintragen.'}</p>
-              <label className="flex items-center gap-2 text-sm">
-                <input className={cn(field, 'max-w-28')} value={current} placeholder={state.base.km > 0 ? fmtKm(state.base.km) : '–'} inputMode="decimal" aria-label="Eigener Startumfang" onChange={(e) => touch(setCurrent)(e.target.value)} />
-                <span className="text-xs text-muted-foreground">km/Woche, nur wenn der Wert nicht stimmt</span>
+              <span className={eyebrow}>Grundlage für den Neuaufbau</span>
+              <p className="text-body-sm">{state.base.km > 0 ? state.base.text : 'Aus den letzten 2 Wochen gibt es keine Läufe: bitte deinen aktuellen Umfang eintragen.'}</p>
+              <label className="flex items-center gap-2 text-body-sm">
+                <Input className="max-w-28 tabular-nums" value={current} placeholder={state.base.km > 0 ? fmtKm(state.base.km) : '–'} inputMode="decimal" aria-label="Eigener Startumfang" onChange={(e) => touch(setCurrent)(e.target.value)} />
+                <span className="text-caption text-muted-foreground">km/Woche, nur wenn der Wert nicht stimmt</span>
               </label>
             </div>
             <DataLine ok={state.data.base.state === 'good'} text={state.data.base.text} />
@@ -223,15 +225,15 @@ function Levers({ state, today, onBlock, onNote }: { state: Live; today: string;
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => preview.mutate()} disabled={!!invalid || preview.isPending || !!state.tooLate}
-          className="tap inline-flex items-center gap-1.5 rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50">
-          <Eye className="h-4 w-4" /> {preview.isPending ? 'Rechnet…' : 'Vorschau zeigen'}
-        </button>
-        <span className="text-sm text-muted-foreground">
+        {/* One ink action per view: "Vorschau zeigen" until a preview is shown, then "Übernehmen" in it. */}
+        <Button variant={preview.data ? 'secondary' : 'primary'} onClick={() => preview.mutate()} disabled={!!invalid || preview.isPending || !!state.tooLate}>
+          <Eye /> {preview.isPending ? 'Rechnet…' : 'Vorschau zeigen'}
+        </Button>
+        <span className="min-w-0 text-body-sm text-muted-foreground">
           {changed.length ? `Geändert: ${changed.join(', ')}.` : 'Nichts geändert: die Vorschau rechnet den Rest mit deinem aktuellen Stand neu.'}
         </span>
       </div>
-      {error && <p className="flex items-start gap-1.5 text-sm text-brand"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
+      {error && <p className="flex items-start gap-1.5 text-body-sm text-error"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
 
       {preview.data && (
         <Preview p={preview.data} locked={!state.canApply || plus} busy={apply.isPending} onApply={() => apply.mutate()} />
@@ -242,8 +244,8 @@ function Levers({ state, today, onBlock, onNote }: { state: Live; today: string;
 
 function DataLine({ ok, text }: { ok: boolean; text: string }) {
   return (
-    <p className="flex items-start gap-2 text-xs text-muted-foreground">
-      {ok ? <Check className="mt-px h-3.5 w-3.5 shrink-0 text-teal" /> : <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-amber-600" />}
+    <p className="flex items-start gap-2 text-caption text-muted-foreground">
+      {ok ? <Check className="mt-px h-3.5 w-3.5 shrink-0 text-teal" /> : <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-warning" />}
       <span>{text}</span>
     </p>
   )
@@ -264,10 +266,10 @@ const TOTALS: { label: string; of: (t: Totals) => string }[] = [
 function Preview({ p, locked, busy, onApply }: { p: RebuildPreview; locked: boolean; busy: boolean; onApply: () => void }) {
   const removed = [p.removed.manual && `${p.removed.manual} eigene Änderung${p.removed.manual === 1 ? '' : 'en'}`, p.removed.engine && `${p.removed.engine} automatische Anpassung${p.removed.engine === 1 ? '' : 'en'}`].filter(Boolean)
   return (
-    <Card title={`Vorschau: ${p.title}`} aside={<span className="text-xs text-muted-foreground tabular-nums">ab {dm(p.cut)}</span>}>
+    <Card title={`Vorschau: ${p.title}`} aside={<span className="tabular-nums">ab {dm(p.cut)}</span>}>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <table className="w-full self-start text-sm tabular-nums">
-          <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-1.5 pr-3 font-medium" /><th className="py-1.5 pr-3 font-medium">Bisher</th><th className="py-1.5 font-medium">Neu</th></tr></thead>
+        <table className="w-full self-start text-body-sm tabular-nums">
+          <thead><tr className="text-left text-caption text-muted-foreground"><th className="py-1.5 pr-3 font-medium" /><th className="py-1.5 pr-3 font-medium">Bisher</th><th className="py-1.5 font-medium">Neu</th></tr></thead>
           <tbody>
             {TOTALS.map((r) => {
               const a = r.of(p.before), b = r.of(p.after)
@@ -284,11 +286,11 @@ function Preview({ p, locked, busy, onApply }: { p: RebuildPreview; locked: bool
         <div className="grid gap-3 self-start">
           <WeekBars weeks={p.weeks} />
           <div>
-            <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Warum</h3>
-            <ul className="mt-1.5 grid gap-1 text-sm">{p.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
+            <h3 className={eyebrow}>Warum</h3>
+            <ul className="mt-1.5 grid gap-1 text-body-sm">{p.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
           </div>
           {p.warnings.length > 0 && (
-            <ul className="grid gap-1 rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900">
+            <ul className="grid gap-1 rounded-card bg-warning-soft px-3.5 py-2.5 text-body-sm text-warning">
               {p.warnings.map((w, i) => <li key={i} className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{w}</li>)}
             </ul>
           )}
@@ -296,22 +298,22 @@ function Preview({ p, locked, busy, onApply }: { p: RebuildPreview; locked: bool
       </div>
 
       <details className="mt-4 border-t border-border pt-3">
-        <summary className="cursor-pointer text-sm font-medium">Woche für Woche</summary>
-        <ul className="mt-2 grid gap-x-8 text-sm tabular-nums lg:grid-cols-2">
+        <summary className="tap cursor-pointer text-body-sm font-medium">Woche für Woche</summary>
+        <ul className="mt-2 grid gap-x-8 text-body-sm tabular-nums lg:grid-cols-2">
           {p.weeks.map((w) => <WeekLine key={w.start} w={w} />)}
         </ul>
       </details>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <p className="min-w-0 flex-1 basis-64 text-sm text-muted-foreground">
+        <p className="min-w-0 flex-1 basis-64 text-body-sm text-muted-foreground">
           {!p.changed ? 'Der Plan passt schon zu diesen Angaben: es gibt nichts zu übernehmen.'
             : removed.length ? `${removed.join(' und ')} ab dem ${dm(p.cut)} ${p.removed.manual + p.removed.engine === 1 ? 'entfällt' : 'entfallen'}: sie galten dem alten Plan. Mit „Rückgängig“ im Verlauf kommt alles zurück.`
             : 'Das lässt sich im Verlauf zurücknehmen.'}
         </p>
         {p.changed && !locked && (
-          <button type="button" onClick={onApply} disabled={busy} className="tap inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-            <Check className="h-4 w-4" /> {busy ? 'Übernimmt…' : 'Übernehmen'}
-          </button>
+          <Button variant="primary" onClick={onApply} disabled={busy}>
+            <Check /> {busy ? 'Übernimmt…' : 'Übernehmen'}
+          </Button>
         )}
       </div>
       {p.changed && locked && <Upsell feature="rebuild" className="mt-3" />}
@@ -333,10 +335,10 @@ function WeekBars({ weeks }: { weeks: WeekRow[] }) {
           </div>
         ))}
       </div>
-      <div className="mt-1 flex gap-1 text-[10px] text-muted-foreground tabular-nums sm:gap-1.5">
+      <div className="mt-1 flex gap-1 text-caption text-muted-foreground tabular-nums sm:gap-1.5">
         {weeks.map((w, i) => <span key={w.start} className={cn('min-w-0 flex-1 text-center', weeks.length > 10 && i % 2 === 1 && 'invisible sm:visible')}>{w.kw}</span>)}
       </div>
-      <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+      <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-caption text-muted-foreground">
         <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-muted-foreground/25" />bisher</span>
         <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-foreground" />neu</span>
         <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-foreground/45" />Erholung</span>
@@ -351,9 +353,9 @@ function WeekLine({ w }: { w: WeekRow }) {
   const same = !!w.before && !!w.after && w.before.km === w.after.km && w.before.keys.join() === w.after.keys.join()
   return (
     <li className="grid grid-cols-[3.25rem_3.5rem_minmax(0,1fr)] items-baseline gap-2 border-t border-border py-1.5 first:border-t-0 lg:[&:nth-child(2)]:border-t-0">
-      <span className="text-xs text-muted-foreground">KW {w.kw}</span>
+      <span className="text-caption text-muted-foreground">KW {w.kw}</span>
       <span className="text-right">
-        {w.before && !same && <span className="mr-1 text-xs text-muted-foreground line-through decoration-muted-foreground/40">{fmtKm(w.before.km)}</span>}
+        {w.before && !same && <span className="mr-1 text-caption text-muted-foreground line-through decoration-muted-foreground/40">{fmtKm(w.before.km)}</span>}
         <span className="font-medium">{w.after ? fmtKm(w.after.km) : '–'}</span>
       </span>
       <span className="min-w-0 truncate text-muted-foreground">
@@ -371,17 +373,17 @@ export function RebuildHistoryRow({ e, busy, onUndo }: { e: RebuildHistoryItem; 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="min-w-0">
           <span className={cn('font-medium', undone && 'text-muted-foreground line-through')}>{e.title}</span>
-          <span className="block text-xs text-muted-foreground">{format(parseISO(e.at), 'd.M. HH:mm')} · Neuaufbau ab {dm(e.cut)} · {fmtKm(e.before.peakKm)} → {fmtKm(e.after.peakKm)} km Spitze</span>
+          <span className="block text-caption tabular-nums text-muted-foreground">{format(parseISO(e.at), 'd.M. HH:mm')} · Neuaufbau ab {dm(e.cut)} · {fmtKm(e.before.peakKm)} → {fmtKm(e.after.peakKm)} km Spitze</span>
         </span>
-        {undone ? <span className="text-xs text-muted-foreground">rückgängig</span> : e.canUndo ? (
-          <button onClick={onUndo} disabled={busy} className="tap inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-secondary disabled:opacity-50">
-            <RotateCcw className="h-3 w-3" /> Rückgängig
-          </button>
+        {undone ? <span className="text-caption text-muted-foreground">rückgängig</span> : e.canUndo ? (
+          <Button size="sm" onClick={onUndo} disabled={busy}>
+            <RotateCcw /> Rückgängig
+          </Button>
         ) : null}
       </div>
       {!undone && (
-        <details className="mt-1 text-xs text-muted-foreground">
-          <summary className="cursor-pointer">Begründung</summary>
+        <details className="mt-1 text-caption text-muted-foreground">
+          <summary className="tap cursor-pointer">Begründung</summary>
           <ul className="mt-1 grid gap-0.5">{e.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
         </details>
       )}

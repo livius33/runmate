@@ -10,7 +10,9 @@ import { de } from 'date-fns/locale'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Power, RotateCcw, SlidersHorizontal, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Card, Pill, Stat, TypeTag } from '@/components/plan/ui'
+import { Button, Card, Chip, ChipButton, Figure, Inset, Input } from '@/components/ui'
+import { TypeTag } from '@/components/plan/tags'
+import { fmtKm, fmtPace } from '@/lib/plan/format'
 import { clockText, parseClock, type SeasonGoal } from '@/lib/season/goals'
 import type { Draft, DraftOverrides, DraftResult } from '@/lib/plan/generator/draft'
 import type { StoredDraft } from '@/lib/plan/draft-store'
@@ -31,15 +33,19 @@ const SOURCE: Record<string, string> = { mean4: 'Schnitt der letzten 4 Wochen', 
 const PHASE: Record<string, string> = { base: 'Grundlage', build: 'Aufbau', peak: 'Spitze', taper: 'Taper' }
 const longDate = (d: string) => format(parseISO(d), 'EEEEEE. d. MMMM yyyy', { locale: de })
 const dayLabel = (d: string) => format(parseISO(d), 'EEEEEE d.M.', { locale: de })
-const km = (n: number | null | undefined) => (n == null ? '–' : String(Math.round(n * 10) / 10).replace('.', ','))
-const fmtPace = (s: number) => `${Math.floor(Math.round(s) / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`
+const km = (n: number | null | undefined) => (n == null ? '–' : fmtKm(n))
+// Native selects in the Input look (12-02; there is no Select primitive yet).
+const select = 'h-10 w-full min-w-0 rounded-control bg-card px-3 text-body-sm text-foreground shadow-hairline outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring'
+// A small segmented toggle inside the tuning groups: ink when it is the template's value, brand when it is your own.
+const toggle = (on: boolean, own: boolean) => cn('tap h-7 rounded-control px-2 text-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+  on ? (own ? 'bg-brand-soft text-brand-text ring-1 ring-inset ring-brand' : 'bg-foreground text-background') : 'bg-card text-muted-foreground shadow-hairline hover:text-foreground')
 // A field value as shown in the editor and the comparison (shares in %, decimals with a comma).
 const showValue = (f: TField, v: number | boolean | string | null | undefined) => v == null ? '–' : typeof v === 'boolean' ? (v ? 'ja' : 'nein')
   : f.kind === 'choice' ? f.options?.find((o) => o.value === v)?.label ?? String(v)
   : f.kind === 'share' ? `${String(Math.round((v as number) * 1000) / 10).replace('.', ',')} %` : String(v).replace('.', ',')
 
 export default function NewPlanPage() {
-  return <Suspense fallback={<p className="text-sm text-muted-foreground">Lädt…</p>}><NewPlan /></Suspense>
+  return <Suspense fallback={<p className="text-body-sm text-muted-foreground">Lädt…</p>}><NewPlan /></Suspense>
 }
 
 function NewPlan() {
@@ -139,89 +145,91 @@ function NewPlan() {
     setText(Object.fromEntries(Object.entries(d.overrides).map(([k, v]) => [k, k === 'goalS' ? clockText(v as number) : String(v).replace('.', ',')])))
   }
 
-  if (ctx.isLoading) return <p className="text-sm text-muted-foreground">Lädt…</p>
-  if (ctx.isError || !ctx.data) return <p className="text-sm text-brand">Konnte nicht geladen werden. Seite neu laden.</p>
+  if (ctx.isLoading) return <p className="text-body-sm text-muted-foreground">Lädt…</p>
+  if (ctx.isError || !ctx.data) return <p className="text-body-sm text-error">Konnte nicht geladen werden. Seite neu laden.</p>
   const r = preview.data
   const draft = r?.ok ? (r as Draft) : null
 
+  // Layout (12-02): the two input cards side by side from lg up, each at its natural height; tuning, draft and going
+  // live span the full width below. The phone order is unchanged.
   return (
-    <div className="flex flex-col gap-5 pb-10">
-      <div>
-        <Link href="/season" className="text-xs text-muted-foreground hover:text-foreground">← Saison</Link>
-        <h1 className="mt-1 text-2xl sm:text-[28px] font-semibold tracking-tight">Neuer Plan</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Entwurf aus einer Vorlage und deinen Läufen. Dein laufender Plan ändert sich dadurch nicht.</p>
+    <div className="flex flex-col gap-4 pb-10">
+      <div className="min-w-0">
+        <Link href="/season" className="tap text-caption text-muted-foreground hover:text-foreground">← Saison</Link>
+        <h1 className="mt-1 text-title sm:text-display">Neuer Plan</h1>
+        <p className="mt-1 text-body-sm text-muted-foreground">Entwurf aus einer Vorlage und deinen Läufen. Dein laufender Plan ändert sich dadurch nicht.</p>
       </div>
 
       {ctx.data.drafts.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 text-sm">
-          <span className="text-xs text-muted-foreground">Gespeichert:</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-caption text-muted-foreground">Gespeichert:</span>
           {ctx.data.drafts.map(({ draft: d, result }) => {
             const g = ctx.data!.goals.find((x) => x.id === d.goalId)
             return (
-              <button key={d.id} onClick={() => load(d)} aria-pressed={d.id === draftId}
-                className={cn('tap rounded-full border px-3 py-1 text-xs', d.id === draftId ? 'border-foreground bg-foreground text-background' : 'border-border bg-card hover:bg-secondary')}>
+              <ChipButton key={d.id} onClick={() => load(d)} selected={d.id === draftId}>
                 {g?.name ?? 'Ziel gelöscht'} · {ctx.data!.templates.find((t) => t.id === d.templateId)?.name ?? d.templateId}{!result.ok && ' ⚠'}
-              </button>
+              </ChipButton>
             )
           })}
         </div>
       )}
 
       {ctx.data.goals.length === 0 ? (
-        <Card><p className="text-sm">Kein kommendes Hauptrennen. Lege es auf der <Link href="/season" className="text-brand hover:underline">Saison-Seite</Link> an.</p></Card>
+        <Card><p className="text-body-sm">Kein kommendes Hauptrennen. Lege es auf der <Link href="/season" className="text-brand-text hover:underline">Saison-Seite</Link> an.</p></Card>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid items-start gap-4 lg:grid-cols-2">
           <Card title="Rennen und Vorlage">
-            <div className="grid gap-4 text-sm">
-              <label className="grid gap-1">
+            <div className="grid gap-4 text-body-sm">
+              <label className="grid gap-1.5">
                 <span className="text-muted-foreground">Rennen</span>
-                <select value={goalId} onChange={(e) => setGoalId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2">
+                <select value={goalId} onChange={(e) => setGoalId(e.target.value)} className={select}>
                   {ctx.data.goals.map((g) => <option key={g.id} value={g.id}>{g.name} · {longDate(g.date)}{g.goalS ? ` · Ziel ${clockText(g.goalS)}` : ''}{g.confirmed ? '' : ' (Datum offen)'}</option>)}
                 </select>
               </label>
               <div className="grid gap-1.5">
                 <span className="text-muted-foreground">Vorlage</span>
-                {fitting.length === 0 && <p className="text-xs text-brand">Für dieses Rennen gibt es noch keine Vorlage.</p>}
+                {fitting.length === 0 && <p className="text-caption text-error">Für dieses Rennen gibt es noch keine Vorlage.</p>}
                 {fitting.map((t) => (
                   <button key={t.id} type="button" onClick={() => setTemplateId(t.id)} aria-pressed={t.id === templateId}
-                    className={cn('rounded-xl border px-3 py-2 text-left', t.id === templateId ? 'border-foreground bg-secondary' : 'border-border hover:border-foreground/40')}>
+                    className={cn('rounded-card px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      t.id === templateId ? 'bg-secondary ring-1 ring-inset ring-foreground' : 'bg-card shadow-hairline hover:bg-secondary')}>
                     <span className="flex flex-wrap items-baseline justify-between gap-x-2">
-                      <span className="font-medium">{t.name}{t.own?.name ? ` · ${t.own.name}` : ''}</span>
-                      {Object.keys(t.tuning).length > 0 && <span className="text-[11px] font-medium text-brand">{t.own ? `${Object.keys(t.tuning).length} eigene Werte` : 'Mein Ansatz'}</span>}
+                      <span className="min-w-0 font-medium">{t.name}{t.own?.name ? ` · ${t.own.name}` : ''}</span>
+                      {Object.keys(t.tuning).length > 0 && <span className="text-caption font-medium text-brand-text">{t.own ? `${Object.keys(t.tuning).length} eigene Werte` : 'Mein Ansatz'}</span>}
                     </span>
-                    <span className="block text-xs text-muted-foreground line-clamp-2">{t.summary}</span>
-                    <span className="mt-1 block text-[11px] tabular-nums text-muted-foreground">
+                    <span className="block text-caption text-muted-foreground line-clamp-2">{t.summary}</span>
+                    <span className="mt-1 block text-caption tabular-nums text-muted-foreground">
                       {t.keys.runs} Läufe · {t.keys.keyBuild} Qualität im Aufbau · Erholung alle {t.keys.recoveryEvery} Wochen
                       {t.keys.taperWeeks ? ` · Taper ${t.keys.taperWeeks} W` : ''} · Longrun ≤ {Math.round(t.keys.longShare * 100)} %{t.keys.raceInLong ? ' mit Renntempo' : ''}
                     </span>
                   </button>
                 ))}
               </div>
-              <label className="grid gap-1">
+              <label className="grid gap-1.5">
                 <span className="text-muted-foreground">Start (Montag der Woche)</span>
-                <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2" />
+                <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="tabular-nums" />
               </label>
             </div>
           </Card>
 
-          <Card title="Ausgangswerte" aside={<span className="text-xs text-muted-foreground">leer = gemessen</span>}>
-            <div className="grid gap-3 text-sm">
-              <Input label="Aktueller Umfang" unit="km/Woche" field="currentKm" text={text} setText={setText} draft={draft}
+          <Card title="Ausgangswerte" aside={<span>leer = gemessen</span>}>
+            <div className="grid gap-3 text-body-sm">
+              <Measured label="Aktueller Umfang" unit="km/Woche" field="currentKm" text={text} setText={setText} draft={draft}
                 hint={draft ? SOURCE[draft.inputs.currentKm.override ? 'manual' : draft.inputs.currentKmSource] : undefined} />
-              <Input label="Gehaltener Umfang (52 Wochen)" unit="km/Woche" field="provenKm" text={text} setText={setText} draft={draft} hint="höchster 4-Wochen-Schnitt" />
-              <Input label="Längster Lauf (30 Tage vor dem Start)" unit="km" field="longest30Km" text={text} setText={setText} draft={draft}
+              <Measured label="Gehaltener Umfang (52 Wochen)" unit="km/Woche" field="provenKm" text={text} setText={setText} draft={draft} hint="höchster 4-Wochen-Schnitt" />
+              <Measured label="Längster Lauf (30 Tage vor dem Start)" unit="km" field="longest30Km" text={text} setText={setText} draft={draft}
                 hint={draft && !draft.inputs.longest30Km.override && draft.inputs.longest30Source === 'profile' ? 'noch kein Lauf gemessen: aus deinem Profil'
                   : draft && !draft.inputs.longest30Km.override && draft.inputs.longest30Source === 'estimate' ? 'noch kein Lauf gemessen: Wochenumfang ÷ Lauftage'
                     : 'Läufe und geplante Läufe, ohne Rennen'} />
-              <Input label="Spitze" unit="km/Woche" field="peakKm" text={text} setText={setText} draft={draft} hint={draft ? `Empfehlung ${km(draft.skeleton.peak.recommendedKm)} km` : undefined} />
-              <label className="grid gap-1">
+              <Measured label="Spitze" unit="km/Woche" field="peakKm" text={text} setText={setText} draft={draft} hint={draft ? `Empfehlung ${km(draft.skeleton.peak.recommendedKm)} km` : undefined} />
+              <label className="grid gap-1.5">
                 <span className="text-muted-foreground">Zielzeit</span>
-                <input value={text.goalS ?? ''} onChange={(e) => setText({ ...text, goalS: e.target.value })} placeholder={goal?.goalS ? clockText(goal.goalS) : 'h:mm:ss'}
-                  className="rounded-lg border border-border bg-background px-3 py-2 tabular-nums" />
+                <Input value={text.goalS ?? ''} onChange={(e) => setText({ ...text, goalS: e.target.value })} placeholder={goal?.goalS ? clockText(goal.goalS) : 'h:mm:ss'}
+                  className="tabular-nums" />
               </label>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-caption text-muted-foreground">
                 Letztes Rennen: {draft?.inputs.recentRace ? `${km(draft.inputs.recentRace.distanceKm)} km in ${clockText(draft.inputs.recentRace.timeS)} (${dayLabel(draft.inputs.recentRace.date)})` : 'keins in den letzten 6 Monaten'}
-                {!ctx.data.profile && <> · <Link href="/plan/anpassen" className="text-brand hover:underline">Trainingsprofil</Link> fehlt: Standard-Lauftage (Fr Ruhe, Sa Longrun, Di/Do Qualität).</>}
+                {!ctx.data.profile && <> · <Link href="/plan/anpassen" className="text-brand-text hover:underline">Trainingsprofil</Link> fehlt: Standard-Lauftage (Fr Ruhe, Sa Longrun, Di/Do Qualität).</>}
               </p>
             </div>
           </Card>
@@ -230,50 +238,47 @@ function NewPlan() {
 
       {template && (
         <Card title={template.own ? 'Eigene Methode' : `Mein Ansatz · ${template.name}`} aside={
-          <button onClick={() => setTuneOpen(!tuneOpen)} className="tap inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-secondary">
-            <SlidersHorizontal className="h-3.5 w-3.5" /> {tuneOpen ? 'Schließen' : Object.keys(tuning).length ? `${Object.keys(tuning).length} eigene Werte` : 'Werte anpassen'}
-          </button>}>
+          <Button size="sm" onClick={() => setTuneOpen(!tuneOpen)}>
+            <SlidersHorizontal /> {tuneOpen ? 'Schließen' : Object.keys(tuning).length ? `${Object.keys(tuning).length} eigene Werte` : 'Werte anpassen'}
+          </Button>}>
           {!tuneOpen ? (
-            template.own ? <p className="text-sm text-muted-foreground">Neutrale Grundlage aus den Recherchen. Jeder Wert lässt sich setzen; die Sicherheitsgrenzen gelten immer.</p> :
-            <p className="text-sm text-muted-foreground">Die Vorlage bestimmt Läufe, Schlüsseleinheiten, Longrun, Erholung, Spitze und Taper. Hier setzt du eigene Werte;
+            template.own ? <p className="text-body-sm text-muted-foreground">Neutrale Grundlage aus den Recherchen. Jeder Wert lässt sich setzen; die Sicherheitsgrenzen gelten immer.</p> :
+            <p className="text-body-sm text-muted-foreground">Die Vorlage bestimmt Läufe, Schlüsseleinheiten, Longrun, Erholung, Spitze und Taper. Hier setzt du eigene Werte;
               die Sicherheitsgrenzen gelten immer.</p>
           ) : (
             <div className="grid gap-4">
               {template.own && (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
+                  <label className="grid gap-1.5 text-body-sm">
                     <span className="text-muted-foreground">Name deiner Methode</span>
-                    <input value={ownName} maxLength={60} onChange={(e) => setOwnName(e.target.value)} placeholder="Eigene Methode"
-                      className="rounded-lg border border-border bg-background px-3 py-2" />
+                    <Input value={ownName} maxLength={60} onChange={(e) => setOwnName(e.target.value)} placeholder="Eigene Methode" />
                   </label>
-                  <p className="self-end text-xs text-muted-foreground">Startpunkt: neutrale Werte aus den Recherchen, keine Buchmethode. Leere Felder = Grundlage.
+                  <p className="self-end text-caption text-muted-foreground">Startpunkt: neutrale Werte aus den Recherchen, keine Buchmethode. Leere Felder = Grundlage.
                     Geprüft wird wie bei jeder Vorlage.</p>
                 </div>
               )}
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {[...new Set(template.fields.map((f) => f.group))].map((g) => (
-                  <div key={g} className="grid content-start gap-2.5 rounded-xl bg-secondary/40 p-3">
-                    <span className="text-xs font-medium text-muted-foreground">{g}</span>
+                  <Inset key={g} className="grid content-start gap-2.5 p-3">
+                    <span className="text-caption font-medium text-muted-foreground">{g}</span>
                     {template.fields.filter((f) => f.group === g).map((f) => <TuneInput key={f.path} f={f} value={tune[f.path]}
                       paceS={f.path.startsWith('paces.offsets.') && draft ? draft.paces.racePaceS : undefined} onChange={(v) => setTune((t) => {
                       const next = { ...t }
                       if (v === undefined) delete next[f.path]; else next[f.path] = v
                       return next
                     })} />)}
-                  </div>
+                  </Inset>
                 ))}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => saveTune.mutate()} disabled={!tuneDirty || saveTune.isPending}
-                  className="tap inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background disabled:opacity-40">
-                  <Check className="h-3.5 w-3.5" /> {saveTune.isPending ? 'Speichert…' : template.own ? 'Methode speichern' : 'Ansatz speichern'}
-                </button>
-                <button onClick={() => setTune({})} disabled={!Object.keys(tune).length}
-                  className="tap inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs disabled:opacity-40">
-                  <RotateCcw className="h-3.5 w-3.5" /> {template.own ? 'Alles wie die Grundlage' : 'Alles wie in der Vorlage'}
-                </button>
-                <span className="text-xs text-muted-foreground">{tuneDirty ? 'Vorschau rechnet schon mit deinen Werten, gespeichert ist noch nichts.' : saveTune.isSuccess ? `Gespeichert: gilt für jeden Entwurf mit ${template.own ? 'deiner Methode' : 'dieser Vorlage'}.` : ''}</span>
-                {saveTune.isError && <span className="text-xs text-brand">{(saveTune.error as Error).message}</span>}
+                <Button size="action" onClick={() => saveTune.mutate()} disabled={!tuneDirty || saveTune.isPending}>
+                  <Check /> {saveTune.isPending ? 'Speichert…' : template.own ? 'Methode speichern' : 'Ansatz speichern'}
+                </Button>
+                <Button size="action" variant="ghost" onClick={() => setTune({})} disabled={!Object.keys(tune).length}>
+                  <RotateCcw /> {template.own ? 'Alles wie die Grundlage' : 'Alles wie in der Vorlage'}
+                </Button>
+                <span className="text-caption text-muted-foreground">{tuneDirty ? 'Vorschau rechnet schon mit deinen Werten, gespeichert ist noch nichts.' : saveTune.isSuccess ? `Gespeichert: gilt für jeden Entwurf mit ${template.own ? 'deiner Methode' : 'dieser Vorlage'}.` : ''}</span>
+                {saveTune.isError && <span className="text-caption text-error">{(saveTune.error as Error).message}</span>}
               </div>
               {template.own && !features.ownMethod && <Upsell feature="ownMethod" />}
               {template.own && template.own.compare.length > 0 && <Compare t={template} tuning={tuning} id={compareId} setId={setCompareId} />}
@@ -282,18 +287,17 @@ function NewPlan() {
         </Card>
       )}
 
-      {preview.isFetching && !r && <p className="text-sm text-muted-foreground">Rechnet…</p>}
-      {r && !r.ok && <p className="flex items-center gap-1.5 text-sm text-brand"><AlertTriangle className="h-4 w-4" />{(r as { error: string }).error}</p>}
+      {preview.isFetching && !r && <p className="text-body-sm text-muted-foreground">Rechnet…</p>}
+      {r && !r.ok && <p className="flex items-center gap-1.5 text-body-sm text-error"><AlertTriangle className="h-4 w-4 shrink-0" />{(r as { error: string }).error}</p>}
       {draft && <Review d={draft} stale={preview.isFetching} />}
 
       {draft && (
         <div className="flex flex-wrap items-center gap-3">
-          <button onClick={() => save.mutate()} disabled={save.isPending}
-            className="tap inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-            <Check className="h-4 w-4" /> {save.isPending ? 'Speichert…' : draftId ? 'Entwurf aktualisieren' : 'Entwurf speichern'}
-          </button>
-          {note && <span className="text-sm text-teal">{note}</span>}
-          {save.isError && <span className="text-sm text-brand">{(save.error as Error).message}</span>}
+          <Button variant="primary" onClick={() => save.mutate()} disabled={save.isPending}>
+            <Check /> {save.isPending ? 'Speichert…' : draftId ? 'Entwurf aktualisieren' : 'Entwurf speichern'}
+          </Button>
+          {note && <span className="min-w-0 text-body-sm text-teal-text">{note}</span>}
+          {save.isError && <span className="text-body-sm text-error">{(save.error as Error).message}</span>}
         </div>
       )}
 
@@ -302,36 +306,36 @@ function NewPlan() {
         const busy = live.isPending || offline.isPending
         const error = (live.error ?? offline.error) as Error | null
         return (
-          <Card title="Live schalten" aside={current ? <Pill className="border-teal/30 bg-teal-soft text-teal">live seit {dayLabel(current.liveAt.slice(0, 10))}</Pill> : undefined}>
+          <Card title="Live schalten" aside={current ? <Chip tone="teal">live seit {dayLabel(current.liveAt.slice(0, 10))}</Chip> : undefined}>
             {current ? (
-              <div className="grid gap-3 text-sm">
+              <div className="grid gap-3 text-body-sm">
                 <p>Dein laufender Plan für {current.name}: {longDate(current.planStart)} bis {longDate(current.end)}. Er bleibt so, auch wenn du diesen Entwurf änderst.</p>
                 {confirm === 'offline' ? (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-brand">Offline nehmen? Ab {dayLabel(current.planStart)} ist dann kein Plan mehr da.</span>
-                    <button onClick={() => offline.mutate(current.id)} disabled={busy} className="tap rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">Ja, offline nehmen</button>
-                    <button onClick={() => setConfirm(null)} className="tap rounded-lg border border-border px-3 py-1.5 text-xs">Abbrechen</button>
+                    <span className="text-brand-text">Offline nehmen? Ab {dayLabel(current.planStart)} ist dann kein Plan mehr da.</span>
+                    <Button variant="destructive" size="action" onClick={() => offline.mutate(current.id)} disabled={busy}>Ja, offline nehmen</Button>
+                    <Button size="action" onClick={() => setConfirm(null)}>Abbrechen</Button>
                   </div>
                 ) : (
-                  <button onClick={() => setConfirm('offline')} className="tap inline-flex w-fit items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-secondary"><Power className="h-3.5 w-3.5" /> Offline nehmen</button>
+                  <Button size="action" className="w-fit" onClick={() => setConfirm('offline')}><Power /> Offline nehmen</Button>
                 )}
               </div>
             ) : (
-              <div className="grid gap-3 text-sm">
+              <div className="grid gap-3 text-body-sm">
                 <p>Ab {longDate(draft.skeleton.weeks[0].start)} wird dieser Entwurf dein laufender Plan: Plan-Seite, Heute, Kalender und Engine lesen ihn dann.
                   Bis dahin bleibt alles, wie es ist. Danach ändert er sich nicht mehr mit Vorlage oder Profil.</p>
                 {confirm === 'live' ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">Speichern und live schalten?</span>
-                    <button onClick={() => live.mutate()} disabled={busy} className="tap rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">{busy ? 'Schaltet…' : 'Ja, live schalten'}</button>
-                    <button onClick={() => setConfirm(null)} className="tap rounded-lg border border-border px-3 py-1.5 text-xs">Abbrechen</button>
+                    <Button variant="primary" size="action" onClick={() => live.mutate()} disabled={busy}>{busy ? 'Schaltet…' : 'Ja, live schalten'}</Button>
+                    <Button size="action" onClick={() => setConfirm(null)}>Abbrechen</Button>
                   </div>
                 ) : (
-                  <button onClick={() => setConfirm('live')} className="tap inline-flex w-fit items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background"><Power className="h-3.5 w-3.5" /> Live schalten</button>
+                  <Button size="action" className="w-fit" onClick={() => setConfirm('live')}><Power /> Live schalten</Button>
                 )}
               </div>
             )}
-            {error && <p className="mt-2 text-sm text-brand">{error.message}</p>}
+            {error && <p className="mt-2 text-body-sm text-error">{error.message}</p>}
           </Card>
         )
       })()}
@@ -345,16 +349,16 @@ function Compare({ t, tuning, id, setId }: { t: Template; tuning: Record<string,
   const rows = t.fields.map((f) => ({ f, mine: tuning[f.path] ?? f.template, theirs: other.values[f.path] }))
     .filter((r) => r.theirs != null && r.mine !== r.theirs)
   return (
-    <div className="grid gap-2 rounded-xl border border-border p-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+    <div className="grid gap-2 rounded-card p-3 shadow-hairline">
+      <div className="flex flex-wrap items-center gap-2 text-body-sm">
         <span className="text-muted-foreground">Vergleich mit</span>
-        <select value={other.id} onChange={(e) => setId(e.target.value)} className="rounded-lg border border-border bg-background px-2 py-1 text-sm">
+        <select value={other.id} onChange={(e) => setId(e.target.value)} className={cn(select, 'h-8 w-auto px-2')}>
           {t.own!.compare.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <span className="text-xs text-muted-foreground">{rows.length ? `${rows.length} Werte anders` : 'gleiche Werte'}</span>
+        <span className="text-caption text-muted-foreground">{rows.length ? `${rows.length} Werte anders` : 'gleiche Werte'}</span>
       </div>
       {rows.length > 0 && (
-        <div className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-x-6 gap-y-1 text-caption sm:grid-cols-2 lg:grid-cols-3">
           {rows.map(({ f, mine, theirs }) => (
             <div key={f.path} className="flex items-baseline justify-between gap-2 border-b border-border/60 py-1">
               <span className="min-w-0 truncate text-muted-foreground" title={`${f.group} · ${f.label}`}>{f.group === 'Einheiten' || f.group === 'Intensität' || f.group === 'Tempo' ? f.label : `${f.group}: ${f.label}`}</span>
@@ -373,12 +377,12 @@ function TuneInput({ f, value, onChange, paceS }: { f: TField; value: string | b
   if (f.kind === 'choice') {
     const cur = typeof value === 'string' ? value : (f.template as string)
     return (
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-body-sm">
         <span className="min-w-0">{f.label}</span>
-        <span className="flex items-center gap-1">
+        <span className="flex flex-wrap items-center gap-1">
           {f.options!.map((o) => (
             <button key={o.value} type="button" aria-pressed={cur === o.value} onClick={() => onChange(o.value === f.template ? undefined : o.value)}
-              className={cn('tap rounded-md border px-2 py-0.5 text-xs', cur === o.value ? (own ? 'border-brand bg-brand-soft text-brand' : 'border-foreground bg-foreground text-background') : 'border-border')}>{o.label}</button>
+              className={toggle(cur === o.value, own)}>{o.label}</button>
           ))}
         </span>
       </div>
@@ -387,46 +391,47 @@ function TuneInput({ f, value, onChange, paceS }: { f: TField; value: string | b
   if (f.kind === 'bool') {
     const cur = typeof value === 'boolean' ? value : (f.template as boolean)
     return (
-      <div className="flex items-center justify-between gap-2 text-sm">
+      <div className="flex items-center justify-between gap-2 text-body-sm">
         <span className="min-w-0">{f.label}</span>
         <span className="flex items-center gap-1">
           {(['ja', 'nein'] as const).map((l) => (
             <button key={l} type="button" aria-pressed={cur === (l === 'ja')} onClick={() => onChange((l === 'ja') === f.template ? undefined : l === 'ja')}
-              className={cn('tap rounded-md border px-2 py-0.5 text-xs', cur === (l === 'ja') ? (own ? 'border-brand bg-brand-soft text-brand' : 'border-foreground bg-foreground text-background') : 'border-border')}>{l}</button>
+              className={toggle(cur === (l === 'ja'), own)}>{l}</button>
           ))}
         </span>
       </div>
     )
   }
   return (
-    <label className="grid gap-1 text-sm">
+    <label className="grid gap-1 text-body-sm">
       <span className="flex items-baseline justify-between gap-2">
         <span className="min-w-0">{f.label}</span>
-        {own && <button type="button" onClick={() => onChange(undefined)} className="text-[11px] text-muted-foreground hover:text-foreground">Vorlage {shown(f.template as number)}</button>}
+        {own && <button type="button" onClick={() => onChange(undefined)} className="tap shrink-0 text-caption text-muted-foreground hover:text-foreground">Vorlage {shown(f.template as number)}</button>}
       </span>
       <span className="flex items-center gap-2">
-        <input inputMode="decimal" value={typeof value === 'string' ? value : ''} placeholder={shown(f.template as number)} onChange={(e) => onChange(e.target.value)}
-          className={cn('w-full rounded-lg border bg-background px-2.5 py-1.5 tabular-nums', own ? 'border-brand' : 'border-border')} />
-        {f.unit && <span className="shrink-0 text-xs text-muted-foreground">{f.unit}</span>}
+        <Input small inputMode="decimal" value={typeof value === 'string' ? value : ''} placeholder={shown(f.template as number)} onChange={(e) => onChange(e.target.value)}
+          className={cn('tabular-nums', own && 'ring-1 ring-brand')} />
+        {f.unit && <span className="shrink-0 text-caption text-muted-foreground">{f.unit}</span>}
       </span>
-      {(f.hint || paceS) && <span className="text-[11px] text-muted-foreground">{[f.hint, paceS ? `= ${fmtPace(paceS + (own ? Number(String(value).replace(',', '.')) || 0 : f.template as number))}/km beim Ziel` : null].filter(Boolean).join(' · ')}</span>}
+      {(f.hint || paceS) && <span className="text-caption text-muted-foreground">{[f.hint, paceS ? `= ${fmtPace(paceS + (own ? Number(String(value).replace(',', '.')) || 0 : f.template as number))}/km beim Ziel` : null].filter(Boolean).join(' · ')}</span>}
     </label>
   )
 }
 
-function Input({ label, unit, field, text, setText, draft, hint }: {
+// A start value: empty means measured (the measured value is the placeholder).
+function Measured({ label, unit, field, text, setText, draft, hint }: {
   label: string; unit: string; field: Field; text: Partial<Record<Field, string>>; setText: (t: Partial<Record<Field, string>>) => void; draft: Draft | null; hint?: string
 }) {
   const measured = draft?.inputs[field].measured
   return (
-    <label className="grid gap-1">
+    <label className="grid gap-1.5">
       <span className="text-muted-foreground">{label}</span>
       <span className="flex items-center gap-2">
-        <input inputMode="decimal" value={text[field] ?? ''} onChange={(e) => setText({ ...text, [field]: e.target.value })}
-          placeholder={measured != null ? km(measured) : '–'} className="w-full rounded-lg border border-border bg-background px-3 py-2 tabular-nums" />
-        <span className="shrink-0 text-xs text-muted-foreground">{unit}</span>
+        <Input inputMode="decimal" value={text[field] ?? ''} onChange={(e) => setText({ ...text, [field]: e.target.value })}
+          placeholder={measured != null ? km(measured) : '–'} className="tabular-nums" />
+        <span className="shrink-0 text-caption text-muted-foreground">{unit}</span>
       </span>
-      {hint && <span className="text-xs text-muted-foreground">{text[field]?.trim() ? 'von dir gesetzt' : hint}</span>}
+      {hint && <span className="text-caption text-muted-foreground">{text[field]?.trim() ? 'von dir gesetzt' : hint}</span>}
     </label>
   )
 }
@@ -436,34 +441,35 @@ function Review({ d, stale }: { d: Draft; stale: boolean }) {
   const sessions = [...d.workouts.sessions, ...(d.recovery?.sessions ?? [])]   // incl. the recovery weeks after the race (07-22)
   const tests = sessions.filter((s) => s.test)
   return (
-    <div className={cn('flex flex-col gap-5 transition-opacity', stale && 'opacity-60')}>
-      <Card title="Entwurf">
+    // From lg up the draft summary and the notes sit side by side (each at its natural height); the weeks span the width.
+    <div className={cn('grid items-start gap-4 transition-opacity lg:grid-cols-12', stale && 'opacity-60')}>
+      <Card title="Entwurf" className={d.warnings.length > 0 ? 'lg:col-span-7' : 'lg:col-span-12'}>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat label="Wochen" value={d.skeleton.weeks.length} />
-          <Stat label="Spitze" value={km(d.skeleton.peakKm)} unit="km" />
-          <Stat label="Renntempo" value={d.paces.fmt[d.distance === 'marathon' ? 'marathon_pace' : d.distance === 'half' ? 'half_marathon_pace' : 'threshold']} unit="/km" />
-          <Stat label="Tests" value={tests.length ? tests.map((s) => dayLabel(s.date)).join(', ') : '–'} />
+          <Figure label="Wochen" value={d.skeleton.weeks.length} />
+          <Figure label="Spitze" value={km(d.skeleton.peakKm)} unit="km" />
+          <Figure label="Renntempo" value={d.paces.fmt[d.distance === 'marathon' ? 'marathon_pace' : d.distance === 'half' ? 'half_marathon_pace' : 'threshold']} unit="/km" />
+          <Figure label="Tests" value={tests.length ? tests.map((s) => dayLabel(s.date)).join(', ') : '–'} />
         </div>
-        <div className="mt-4 grid gap-1 text-sm">
-          <span className="text-xs font-medium text-muted-foreground">Warum diese Spitze</span>
+        <div className="mt-4 grid gap-1 text-body-sm">
+          <span className="font-mono text-caption uppercase text-muted-foreground">Warum diese Spitze</span>
           {d.skeleton.peak.why.map((line, i) => <p key={i} className={i === 0 ? 'font-medium' : 'text-muted-foreground'}>{line}</p>)}
         </div>
         <div className="mt-4 flex flex-wrap gap-1.5">
           {(['easy', 'long', 'threshold', 'intervals_vo2', 'half_marathon_pace', 'marathon_pace'] as const).map((p) => (
-            <Pill key={p}>{{ easy: 'Locker', long: 'Longrun', threshold: 'Schwelle', intervals_vo2: 'VO2max', half_marathon_pace: 'HM-Tempo', marathon_pace: 'M-Tempo' }[p]} {d.paces.fmt[p]}</Pill>
+            <Chip key={p} className="tabular-nums">{{ easy: 'Locker', long: 'Longrun', threshold: 'Schwelle', intervals_vo2: 'VO2max', half_marathon_pace: 'HM-Tempo', marathon_pace: 'M-Tempo' }[p]} {d.paces.fmt[p]}</Chip>
           ))}
         </div>
       </Card>
 
       {d.warnings.length > 0 && (
-        <Card title="Hinweise" aside={<span className="text-xs text-muted-foreground">{d.warnings.length}</span>}>
-          <ul className="grid gap-1.5 text-sm">
-            {d.warnings.map((w, i) => <li key={i} className="flex gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" /><span><span className="text-muted-foreground">{w.step}: </span>{w.text}</span></li>)}
+        <Card title="Hinweise" aside={<span className="tabular-nums">{d.warnings.length}</span>} className="lg:col-span-5">
+          <ul className="grid gap-1.5 text-body-sm">
+            {d.warnings.map((w, i) => <li key={i} className="flex gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" /><span><span className="text-muted-foreground">{w.step}: </span>{w.text}</span></li>)}
           </ul>
         </Card>
       )}
 
-      <Card title="Wochen">
+      <Card title="Wochen" className="lg:col-span-12">
         <div className="grid gap-1">
           {[...d.days.weeks, ...(d.recovery?.weeks ?? [])].map((w, i) => {
             const sk = d.skeleton.weeks[i] as (typeof d.skeleton.weeks)[number] | undefined
@@ -471,15 +477,15 @@ function Review({ d, stale }: { d: Draft; stale: boolean }) {
             const isOpen = open === w.start
             return (
               <div key={w.start} className="border-t border-border first:border-t-0">
-                <button onClick={() => setOpen(isOpen ? null : w.start)} className="tap flex w-full items-center gap-2 py-2 text-left text-sm">
+                <button onClick={() => setOpen(isOpen ? null : w.start)} className="tap flex w-full items-center gap-2 py-2 text-left text-body-sm">
                   {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
                   <span className="w-14 shrink-0 tabular-nums font-medium">KW {w.kw}</span>
-                  <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{dayLabel(w.start)}</span>
-                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{sk ? <>{PHASE[sk.phase]}{w.focus.includes('·') ? ` · ${w.focus.split(' · ').slice(1).join(' · ')}` : ''}</> : w.focus.replace(/ \([^)]*\)$/, '')}</span>
+                  <span className="w-16 shrink-0 text-caption text-muted-foreground tabular-nums">{dayLabel(w.start)}</span>
+                  <span className="min-w-0 flex-1 truncate text-caption text-muted-foreground">{sk ? <>{PHASE[sk.phase]}{w.focus.includes('·') ? ` · ${w.focus.split(' · ').slice(1).join(' · ')}` : ''}</> : w.focus.replace(/ \([^)]*\)$/, '')}</span>
                   <span className="shrink-0 tabular-nums">{km(w.km)} km</span>
                 </button>
                 {isOpen && (
-                  <ul className="grid gap-2 pb-3 pl-6 text-sm">
+                  <ul className="grid gap-2 pb-3 pl-6 text-body-sm">
                     {days.map((s) => <DayRow key={s.date} s={s} />)}
                   </ul>
                 )}
@@ -496,14 +502,14 @@ function DayRow({ s }: { s: PlanSession }) {
   return (
     <li className="grid gap-0.5">
       <span className="flex flex-wrap items-center gap-2">
-        <span className="w-14 shrink-0 text-xs tabular-nums text-muted-foreground">{dayLabel(s.date)}</span>
+        <span className="w-14 shrink-0 text-caption tabular-nums text-muted-foreground">{dayLabel(s.date)}</span>
         <TypeTag type={s.type} />
         {s.type !== 'rest' && <span className="tabular-nums">{km(s.km)} km</span>}
-        {s.key && <Star className="h-3.5 w-3.5 text-amber-600" aria-label="Schlüsseleinheit" />}
-        {s.test && <Pill className="border-brand text-brand">{s.test}</Pill>}
-        {s.strength && <Pill className="border-dashed">Kettlebell {s.strength.minMin}–{s.strength.maxMin} Min.{s.strength.optional ? ' (optional)' : ''}</Pill>}
+        {s.key && <Star className="h-3.5 w-3.5 text-warning" aria-label="Schlüsseleinheit" />}
+        {s.test && <Chip tone="brand">{s.test}</Chip>}
+        {s.strength && <Chip tone="neutral" className="border border-dashed border-border">Kettlebell {s.strength.minMin}–{s.strength.maxMin} Min.{s.strength.optional ? ' (optional)' : ''}</Chip>}
       </span>
-      {s.notes && s.type !== 'rest' && <span className="pl-16 text-xs text-muted-foreground">{s.notes}</span>}
+      {s.notes && s.type !== 'rest' && <span className="pl-16 text-caption text-muted-foreground">{s.notes}</span>}
     </li>
   )
 }

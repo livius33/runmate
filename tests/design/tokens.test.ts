@@ -24,15 +24,9 @@ const EXCEPTIONS: { file: string; rules: Rule[]; why: string }[] = [
 
 // Not yet on the tokens (12-02 rollout). Remove a file once it is migrated; never add one.
 const NOT_YET_MIGRATED = [
-  'app/(dashboard)/plan/anpassen/page.tsx',
-  'app/(dashboard)/plan/neu/page.tsx',
-  'app/(dashboard)/race/page.tsx',
-  'app/(dashboard)/season/page.tsx',
   'components/HeaderSync.tsx',
   'components/legal/CancelForm.tsx',
-  'components/plan/Rebuild.tsx',
   'components/plan/ui.tsx',
-  'components/plan/workshop/Onboarding.tsx',
   'components/runs/Comparison.tsx',
   'components/runs/SplitsChart.tsx',
   'components/runs/StreamCharts.tsx',
