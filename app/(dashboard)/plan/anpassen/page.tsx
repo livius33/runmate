@@ -227,19 +227,21 @@ function Overview({ d }: { d: Data }) {
         <Kpi label={`Letzte ${r?.weeks ?? 3} Wochen`} value={r ? `${Math.round(r.ratio * 100)} % vom Plan` : '–'} sub={r ? `${fmtKm(r.runKm)} von ${fmtKm(r.plannedKm)} km` : undefined} />
       </div>
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[480px] text-body-sm tabular-nums">
+        {/* Fits 326 px (390 phone minus page and card padding) without scrolling: tighter cells on phones, the phase
+            label under the week number, missed km under the run km. */}
+        <table className="w-full text-body-sm tabular-nums">
           <thead><tr className="text-left text-caption text-muted-foreground">
-            <th className="py-1.5 pr-3 font-medium">Woche</th><th className="py-1.5 pr-3 text-right font-medium">Ziel</th>
-            <th className="py-1.5 pr-3 text-right font-medium">Geplant</th><th className="py-1.5 pr-3 text-right font-medium">Gelaufen</th>
+            <th className="py-1.5 pr-2 font-medium sm:pr-3">Woche</th><th className="py-1.5 pr-2 text-right font-medium sm:pr-3">Ziel</th>
+            <th className="py-1.5 pr-2 text-right font-medium sm:pr-3">Geplant</th><th className="py-1.5 pr-2 text-right font-medium sm:pr-3">Gelaufen</th>
             <th className="py-1.5 text-right font-medium">Offen</th>
           </tr></thead>
           <tbody>
             {d.review.weeks.map((w) => (
-              <tr key={w.start} className="border-t border-border">
-                <td className="py-1.5 pr-3">{w.kw ? `KW ${w.kw}` : day(w.start)}{w.focus && <span className="ml-1.5 text-caption text-muted-foreground">{w.focus}</span>}</td>
-                <td className="py-1.5 pr-3 text-right text-muted-foreground">{w.targetKm != null ? fmtKm(w.targetKm) : '–'}</td>
-                <td className="py-1.5 pr-3 text-right">{fmtKm(w.plannedKm)}</td>
-                <td className="py-1.5 pr-3 text-right">{fmtKm(w.runKm)}{w.missedKm > 0 && <span className="ml-1 text-caption text-brand-text">−{fmtKm(w.missedKm)}</span>}</td>
+              <tr key={w.start} className="border-t border-border align-top">
+                <td className="py-1.5 pr-2 sm:pr-3">{w.kw ? `KW ${w.kw}` : day(w.start)}{w.focus && <span className="block break-words text-caption text-muted-foreground sm:ml-1.5 sm:inline">{w.focus}</span>}</td>
+                <td className="py-1.5 pr-2 text-right text-muted-foreground sm:pr-3">{w.targetKm != null ? fmtKm(w.targetKm) : '–'}</td>
+                <td className="py-1.5 pr-2 text-right sm:pr-3">{fmtKm(w.plannedKm)}</td>
+                <td className="py-1.5 pr-2 text-right sm:pr-3">{fmtKm(w.runKm)}{w.missedKm > 0 && <span className="block text-caption text-brand-text sm:ml-1 sm:inline">−{fmtKm(w.missedKm)}</span>}</td>
                 <td className="py-1.5 text-right">{fmtKm(w.remainingKm)}</td>
               </tr>
             ))}

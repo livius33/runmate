@@ -133,9 +133,11 @@ function RaceDayTools() {
             <p className="mt-1 text-body-sm">{kind === 'A'
               ? `Die ersten ${fmtKm(plan[0].to)} km in ${fmtPace(plan[0].paceS)}, dann ${fmtPace(plan[1].paceS)}.`
               : `${fmtPace(RACE.fallbackPaceS)} gleichmäßig.`}{plan[1]?.hrCap ? ` HF bis km ${Math.round(plan[1].to)} unter ${plan[1].hrCap}.` : ''}</p>
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {/* One row of tiles, never an orphan: up to three segments share the row even at 390 px, four go 2 + 2. */}
+            <div className={cn('mt-4 grid gap-2', TILE_COLS[plan.length] ?? 'grid-cols-1 sm:grid-cols-3')}>
               {plan.map((s, i) => (
-                <Inset key={s.from}>
+                <Inset key={s.from} className="max-sm:px-2.5">
+
                   <div className="text-caption tabular-nums text-muted-foreground">km {fmtKm(s.from)}–{fmtKm(s.to)}</div>
                   <div className="text-body font-semibold tabular-nums">{fmtPace(s.paceS)}/km</div>
                   <div className="text-caption text-muted-foreground">{s.hrCap ? `HF < ${s.hrCap}` : i === plan.length - 1 ? 'alles, was da ist' : 'nach Tempo'}</div>
@@ -206,6 +208,8 @@ function RaceDayTools() {
     </div>
   )
 }
+
+const TILE_COLS: Record<number, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4' }
 
 function Row({ big, text }: { big: string; text: string }) {
   return (
