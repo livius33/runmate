@@ -28,12 +28,7 @@ const NOT_YET_MIGRATED = [
   'app/(dashboard)/plan/neu/page.tsx',
   'app/(dashboard)/race/page.tsx',
   'app/(dashboard)/season/page.tsx',
-  'app/(dashboard)/settings/page.tsx',
-  'app/onboarding/page.tsx',
   'components/HeaderSync.tsx',
-  'components/Offline.tsx',
-  'components/billing/BillingNotice.tsx',
-  'components/billing/Entitlements.tsx',
   'components/legal/CancelForm.tsx',
   'components/plan/Rebuild.tsx',
   'components/plan/ui.tsx',
@@ -42,13 +37,6 @@ const NOT_YET_MIGRATED = [
   'components/runs/SplitsChart.tsx',
   'components/runs/StreamCharts.tsx',
   'components/settings/BillingCard.tsx',
-  'components/settings/CalendarCard.tsx',
-  'components/settings/GarminSource.tsx',
-  'components/settings/HealthCard.tsx',
-  'components/settings/HealthConsentCard.tsx',
-  'components/settings/ImportCard.tsx',
-  'components/settings/MyDataCard.tsx',
-  'components/settings/ProfileCard.tsx',
 ]
 
 function files(dir: string): string[] {

@@ -9,7 +9,8 @@ import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Check, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Card } from '@/components/plan/ui'
+import { Button, Card, ChipButton, Field, Inset, Input, fieldDescribedBy } from '@/components/ui'
+import { CheckRow, Select } from '@/components/settings/controls'
 import { HealthConsentCard } from '@/components/settings/HealthConsentCard'
 import { GarminSource } from '@/components/settings/GarminSource'
 import { HealthCard } from '@/components/settings/HealthCard'
@@ -26,10 +27,9 @@ import { fmtPace } from '@/lib/plan/generator/paces'
 import { parseClock, type SeasonGoal } from '@/lib/season/goals'
 
 type View = OnboardingView & { notes?: string[] }
-const box = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums outline-none focus:border-foreground/60'
-const primary = 'rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50'
-const secondary = 'rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-secondary disabled:opacity-50'
 const longDate = (d: string) => format(parseISO(d), 'EEEE, d. MMMM yyyy', { locale: de })
+// Fieldset legends: the small uppercase mono eyebrow.
+const legend = 'mb-2 font-mono text-caption uppercase text-muted-foreground'
 
 async function post(body: unknown): Promise<View> {
   const r = await fetch('/api/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -47,31 +47,31 @@ export default function OnboardingPage() {
     onSuccess: (v) => { qc.setQueryData(['onboarding'], v); setNotes(v.notes ?? []); window.scrollTo({ top: 0 }) },
   })
   const finish = useMutation({ mutationFn: () => post({ type: 'finish' }), onSuccess: () => { window.location.href = '/plan' } })
-  if (!view) return <p className="text-sm text-muted-foreground">Lädt…</p>
+  if (!view) return <p className="text-body-sm text-muted-foreground">Lädt…</p>
   const send = (body: unknown) => step.mutate(body)
   const current = view.current
   const index = current ? view.steps.indexOf(current) : view.steps.length
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 pb-10">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Willkommen bei Runmate</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Ein paar Schritte, dann steht dein erster Plan. Alles lässt sich später in den Einstellungen ändern.</p>
+        <h1 className="text-title">Willkommen bei Runmate</h1>
+        <p className="mt-1 text-body-sm text-muted-foreground">Ein paar Schritte, dann steht dein erster Plan. Alles lässt sich später in den Einstellungen ändern.</p>
       </div>
-      <ol className="flex flex-wrap gap-2 text-xs" aria-label="Fortschritt">
-        {view.steps.map((s, i) => {
+      <ol className="flex flex-wrap gap-2 text-caption" aria-label="Fortschritt">
+        {view.steps.map((s: Step, i) => {
           const done = view.state.done.includes(s), skipped = view.state.skipped.includes(s)
           return (
             <li key={s} aria-current={s === current ? 'step' : undefined}
-              className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1',
-                s === current ? 'border-brand bg-brand-soft font-medium text-brand' : done ? 'border-border text-foreground' : 'border-border text-muted-foreground')}>
+              className={cn('flex h-7 items-center gap-1.5 rounded-control px-2.5',
+                s === current ? 'bg-brand-soft font-medium text-brand-text' : done ? 'bg-card text-foreground shadow-hairline' : 'bg-card text-muted-foreground shadow-hairline')}>
               {done ? <Check className="h-3.5 w-3.5 text-teal" /> : <span className="tabular-nums">{i + 1}</span>}
               {STEP_LABEL[s]}{skipped ? ' · übersprungen' : SKIPPABLE.includes(s) ? ' · optional' : ''}
             </li>
           )
         })}
       </ol>
-      {notes.map((n) => <p key={n} className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">{n}</p>)}
+      {notes.map((n) => <Inset key={n} className="px-4 py-3 text-body-sm">{n}</Inset>)}
 
       {current === 'consent' && <ConsentStep onNext={() => send({ type: 'complete', step: 'consent' })} />}
       {current === 'profile' && <ProfileStep view={view} busy={step.isPending} onSave={(profile) => send({ type: 'complete', step: 'profile', profile })} />}
@@ -79,11 +79,11 @@ export default function OnboardingPage() {
       {current === 'goal' && <GoalStep view={view} busy={step.isPending} onLive={() => send({ type: 'complete', step: 'goal' })} onBase={() => send({ type: 'skip', step: 'goal' })} />}
       {!current && <DoneStep view={view} busy={finish.isPending} onFinish={() => finish.mutate()} />}
 
-      {(step.error ?? finish.error) && <p className="text-sm text-red-600">{((step.error ?? finish.error) as Error).message}</p>}
+      {(step.error ?? finish.error) && <p role="alert" className="text-body-sm text-error">{((step.error ?? finish.error) as Error).message}</p>}
       {index > 0 && (
-        <button onClick={() => send({ type: 'back' })} disabled={step.isPending} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ChevronLeft className="h-4 w-4" /> Zurück
-        </button>
+        <Button variant="ghost" className="-ml-2 w-fit" onClick={() => send({ type: 'back' })} disabled={step.isPending}>
+          <ChevronLeft /> Zurück
+        </Button>
       )}
     </div>
   )
@@ -94,13 +94,13 @@ export default function OnboardingPage() {
 function ConsentStep({ onNext }: { onNext: () => void }) {
   const { data } = useQuery<HealthConsentStatus>({ queryKey: ['health-consent'], queryFn: () => fetch('/api/consent/health').then((r) => r.json()) })
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+    <div className="flex flex-col gap-4">
+      <p className="text-body-sm text-muted-foreground">
         Runmate arbeitet mit Herzfrequenz, Schlaf und Gewicht – das sind Gesundheitsdaten. Dafür brauchen wir deine
         ausdrückliche Einwilligung, getrennt von den AGB. Du kannst sie jederzeit in den Einstellungen widerrufen.
       </p>
       <HealthConsentCard />
-      <button onClick={onNext} disabled={!data?.granted} className={primary}>Weiter</button>
+      <Button variant="primary" className="w-fit" onClick={onNext} disabled={!data?.granted}>Weiter</Button>
     </div>
   )
 }
@@ -136,85 +136,88 @@ function ProfileStep({ view, busy, onSave }: { view: View; busy: boolean; onSave
     weightKg: num(weight), timezone: timezone.trim() || null, weeklyKm: num(weeklyKm), longestRunKm: num(longest), experience: experience || null,
     runDays, longRunDay,
   })
+  const ageHint = guess ? 'Ohne HFmax schätzen wir sie: 208 − 0,7 × Alter. Die echte HFmax kann gut 10 Schläge abweichen.' : undefined
+  const raceHint = 'Daraus schätzen wir dein Schwellentempo. Ohne Zeit kommen die Trainingstempi aus deiner Zielzeit.'
+  const weightHint = 'Nur für die Kohlenhydrat-Mengen vor dem Rennen.'
+  const longestHint = 'Von dort wächst dein Longrun, solange Runmate noch keine Läufe von dir kennt.'
+  const tzHint = 'Von deinem Browser übernommen; bestimmt, wann für dich „heute“ ist.'
   return (
     <Card title="Dein Profil">
       <form className="grid gap-5" onSubmit={(e) => { e.preventDefault(); submit() }}>
         <fieldset className="grid gap-3 sm:grid-cols-2">
-          <legend className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Puls</legend>
+          <legend className={legend}>Puls</legend>
           {/* The checkbox has its own label: inside the field's label a click on its text would focus the field instead. */}
-          <div className="grid content-start gap-1 text-sm">
-            <label className="grid gap-1">HFmax (Schläge/min)
-              <input inputMode="numeric" className={box} value={hrMaxUnknown ? (estimate ? `≈ ${estimate}` : '') : hrMax} disabled={hrMaxUnknown}
+          <div className="grid content-start gap-1.5">
+            <Field id="ob-hrmax" label="HFmax (Schläge/min)">
+              <Input id="ob-hrmax" inputMode="numeric" className="tabular-nums" value={hrMaxUnknown ? (estimate ? `≈ ${estimate}` : '') : hrMax} disabled={hrMaxUnknown}
                 onChange={(e) => setHrMax(e.target.value)} placeholder="z. B. 188" />
-            </label>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <input type="checkbox" checked={hrMaxUnknown} onChange={(e) => setHrMaxUnknown(e.target.checked)} /> weiß ich nicht – aus dem Alter schätzen
-            </label>
+            </Field>
+            <CheckRow className="text-caption text-muted-foreground" checked={hrMaxUnknown} onChange={(e) => setHrMaxUnknown(e.target.checked)}>
+              weiß ich nicht – aus dem Alter schätzen
+            </CheckRow>
           </div>
-          <label className="grid content-start gap-1 text-sm">Alter{guess ? ' (für die Schätzung)' : ' (optional)'}
-            <input inputMode="numeric" className={box} value={age} onChange={(e) => setAge(e.target.value)} required={guess} />
-            {guess && <span className="text-xs text-muted-foreground">Ohne HFmax schätzen wir sie: 208 − 0,7 × Alter. Die echte HFmax kann gut 10 Schläge abweichen.</span>}
-          </label>
-          <div className="grid content-start gap-1 text-sm">
-            <label className="grid gap-1">Ruhepuls
-              <input inputMode="numeric" className={box} value={hrRestUnknown ? '' : hrRest} disabled={hrRestUnknown} onChange={(e) => setHrRest(e.target.value)} placeholder="morgens im Bett, z. B. 52" />
-            </label>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <input type="checkbox" checked={hrRestUnknown} onChange={(e) => setHrRestUnknown(e.target.checked)} /> weiß ich nicht – Beispielwert nutzen (markiert)
-            </label>
+          <Field id="ob-age" label={`Alter${guess ? ' (für die Schätzung)' : ' (optional)'}`} hint={ageHint} className="content-start">
+            <Input id="ob-age" inputMode="numeric" className="tabular-nums" value={age} onChange={(e) => setAge(e.target.value)} required={guess}
+              aria-describedby={fieldDescribedBy('ob-age', undefined, ageHint)} />
+          </Field>
+          <div className="grid content-start gap-1.5">
+            <Field id="ob-hrrest" label="Ruhepuls">
+              <Input id="ob-hrrest" inputMode="numeric" className="tabular-nums" value={hrRestUnknown ? '' : hrRest} disabled={hrRestUnknown} onChange={(e) => setHrRest(e.target.value)} placeholder="morgens im Bett, z. B. 52" />
+            </Field>
+            <CheckRow className="text-caption text-muted-foreground" checked={hrRestUnknown} onChange={(e) => setHrRestUnknown(e.target.checked)}>
+              weiß ich nicht – Beispielwert nutzen (markiert)
+            </CheckRow>
           </div>
-          <label className="grid gap-1 text-sm">Gewicht in kg (optional)
-            <input inputMode="decimal" className={box} value={weight} onChange={(e) => setWeight(e.target.value)} />
-            <span className="text-xs text-muted-foreground">Nur für die Kohlenhydrat-Mengen vor dem Rennen.</span>
-          </label>
+          <Field id="ob-weight" label="Gewicht in kg (optional)" hint={weightHint} className="content-start">
+            <Input id="ob-weight" inputMode="decimal" className="tabular-nums" value={weight} onChange={(e) => setWeight(e.target.value)}
+              aria-describedby={fieldDescribedBy('ob-weight', undefined, weightHint)} />
+          </Field>
         </fieldset>
 
         <fieldset className="grid gap-3 sm:grid-cols-2">
-          <legend className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Form</legend>
-          <label className="grid gap-1 text-sm">Bestzeit oder letztes Rennen (optional)
-            <select className={box} value={raceDistance} onChange={(e) => setRaceDistance(e.target.value as RaceDistance | '')}>
+          <legend className={legend}>Form</legend>
+          <Field id="ob-race" label="Bestzeit oder letztes Rennen (optional)" className="content-start">
+            <Select id="ob-race" value={raceDistance} onChange={(e) => setRaceDistance(e.target.value as RaceDistance | '')}>
               <option value="">keins</option>
               {(Object.keys(RACE_LABEL) as RaceDistance[]).map((d) => <option key={d} value={d}>{RACE_LABEL[d]}</option>)}
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm">Zeit
-            <input className={box} value={raceTime} onChange={(e) => setRaceTime(e.target.value)} placeholder="h:mm:ss oder mm:ss" disabled={!raceDistance} />
-            <span className="text-xs text-muted-foreground">Daraus schätzen wir dein Schwellentempo. Ohne Zeit kommen die Trainingstempi aus deiner Zielzeit.</span>
-          </label>
-          <label className="grid gap-1 text-sm">Kilometer pro Woche zurzeit
-            <input inputMode="decimal" className={box} value={weeklyKm} onChange={(e) => setWeeklyKm(e.target.value)} placeholder="z. B. 35" />
-          </label>
-          <label className="grid gap-1 text-sm">Längster Lauf der letzten 4 Wochen (optional)
-            <input inputMode="decimal" className={box} value={longest} onChange={(e) => setLongest(e.target.value)} placeholder="in km, z. B. 12" />
-            <span className="text-xs text-muted-foreground">Von dort wächst dein Longrun, solange Runmate noch keine Läufe von dir kennt.</span>
-          </label>
-          <label className="grid gap-1 text-sm">Lauferfahrung
-            <select className={box} value={experience} onChange={(e) => setExperience(e.target.value as Experience | '')}>
+            </Select>
+          </Field>
+          <Field id="ob-racetime" label="Zeit" hint={raceHint} className="content-start">
+            <Input id="ob-racetime" className="tabular-nums" value={raceTime} onChange={(e) => setRaceTime(e.target.value)} placeholder="h:mm:ss oder mm:ss" disabled={!raceDistance}
+              aria-describedby={fieldDescribedBy('ob-racetime', undefined, raceHint)} />
+          </Field>
+          <Field id="ob-weeklykm" label="Kilometer pro Woche zurzeit" className="content-start">
+            <Input id="ob-weeklykm" inputMode="decimal" className="tabular-nums" value={weeklyKm} onChange={(e) => setWeeklyKm(e.target.value)} placeholder="z. B. 35" />
+          </Field>
+          <Field id="ob-longest" label="Längster Lauf der letzten 4 Wochen (optional)" hint={longestHint} className="content-start">
+            <Input id="ob-longest" inputMode="decimal" className="tabular-nums" value={longest} onChange={(e) => setLongest(e.target.value)} placeholder="in km, z. B. 12"
+              aria-describedby={fieldDescribedBy('ob-longest', undefined, longestHint)} />
+          </Field>
+          <Field id="ob-experience" label="Lauferfahrung" className="content-start">
+            <Select id="ob-experience" value={experience} onChange={(e) => setExperience(e.target.value as Experience | '')}>
               <option value="">keine Angabe</option>
               {(Object.keys(EXPERIENCE_LABEL) as Experience[]).map((x) => <option key={x} value={x}>{EXPERIENCE_LABEL[x].label} ({EXPERIENCE_LABEL[x].description})</option>)}
-            </select>
-          </label>
+            </Select>
+          </Field>
         </fieldset>
 
         <fieldset className="grid gap-3">
-          <legend className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Woche</legend>
+          <legend className={legend}>Woche</legend>
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Lauftage">
             {WEEKDAYS.map(({ d, short }) => (
-              <button key={d} type="button" onClick={() => toggle(d)} aria-pressed={runDays.includes(d)}
-                className={cn('w-11 rounded-lg border py-1.5 text-sm', runDays.includes(d) ? 'border-brand bg-brand-soft font-medium text-brand' : 'border-border text-muted-foreground')}>{short}</button>
+              <ChipButton key={d} selected={runDays.includes(d)} onClick={() => toggle(d)} className="w-11 justify-center">{short}</ChipButton>
             ))}
           </div>
-          <label className="grid gap-1 text-sm sm:max-w-xs">Longrun am
-            <select className={box} value={longRunDay} onChange={(e) => setLongRunDay(Number(e.target.value) as Weekday)}>
+          <Field id="ob-longrunday" label="Longrun am" className="sm:max-w-xs">
+            <Select id="ob-longrunday" value={longRunDay} onChange={(e) => setLongRunDay(Number(e.target.value) as Weekday)}>
               {WEEKDAYS.filter((w) => runDays.includes(w.d)).map((w) => <option key={w.d} value={w.d}>{w.long}</option>)}
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm sm:max-w-xs">Zeitzone
-            <input className={box} value={timezone} onChange={(e) => setTimezone(e.target.value)} />
-            <span className="text-xs text-muted-foreground">Von deinem Browser übernommen; bestimmt, wann für dich „heute“ ist.</span>
-          </label>
+            </Select>
+          </Field>
+          <Field id="ob-timezone" label="Zeitzone" hint={tzHint} className="sm:max-w-xs">
+            <Input id="ob-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} aria-describedby={fieldDescribedBy('ob-timezone', undefined, tzHint)} />
+          </Field>
         </fieldset>
-        <button type="submit" disabled={busy || !runDays.length} className={cn(primary, 'w-fit')}>Speichern und weiter</button>
+        <Button type="submit" variant="primary" className="w-fit" disabled={busy || !runDays.length}>Speichern und weiter</Button>
       </form>
     </Card>
   )
@@ -228,8 +231,8 @@ function SourceStep({ busy, onNext, onSkip }: { busy: boolean; onNext: () => voi
   const pull = sources.filter((s) => s.available && s.capabilities.mode === 'pull')
   const otherRunSource = sources.some((s) => s.id !== 'apple-health' && s.available && s.capabilities.runs && s.capabilities.mode !== 'upload' && s.status.connected)
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+    <div className="flex flex-col gap-4">
+      <p className="text-body-sm text-muted-foreground">
         Woher sollen deine Läufe kommen? Verbinde eine Quelle oder lade Dateien hoch (z. B. den Garmin-Export). Mit deinen
         bisherigen Läufen misst Runmate deinen aktuellen Umfang, statt ihn zu schätzen. Das geht auch später in den Einstellungen.
       </p>
@@ -237,8 +240,8 @@ function SourceStep({ busy, onNext, onSkip }: { busy: boolean; onNext: () => voi
       <HealthCard otherRunSource={otherRunSource} />
       <ImportCard />
       <div className="flex flex-wrap gap-2">
-        <button onClick={onNext} disabled={busy} className={primary}>Weiter</button>
-        <button onClick={onSkip} disabled={busy} className={secondary}>Überspringen</button>
+        <Button variant="primary" onClick={onNext} disabled={busy}>Weiter</Button>
+        <Button onClick={onSkip} disabled={busy}>Überspringen</Button>
       </div>
     </div>
   )
@@ -255,6 +258,18 @@ async function json<T>(url: string, method: string, body?: unknown): Promise<T> 
   const d = await r.json().catch(() => ({}))
   if (!r.ok || d?.ok === false) throw new Error(d.error ?? 'Fehlgeschlagen')
   return d as T
+}
+
+// One of the two ways into the plan: a large toggle card, brand-tinted when chosen.
+function ModeChoice({ selected, onClick, title, children }: { selected: boolean; onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={selected}
+      className={cn('rounded-card p-4 text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        selected ? 'bg-brand-soft ring-2 ring-brand' : 'bg-card shadow-raised hover:bg-secondary')}>
+      <span className="block text-body-sm font-semibold">{title}</span>
+      <span className="mt-1 block text-caption text-muted-foreground">{children}</span>
+    </button>
+  )
 }
 
 function GoalStep({ view, busy, onLive, onBase }: { view: View; busy: boolean; onLive: () => void; onBase: () => void }) {
@@ -298,82 +313,88 @@ function GoalStep({ view, busy, onLive, onBase }: { view: View; busy: boolean; o
     onSuccess: onLive,
   })
   const error = (saveGoal.error ?? makePreview.error ?? goLive.error) as Error | null
+  const templateHint = fitting.find((t) => t.id === templateId)?.summary
+  const kmHint = 'Noch keine Läufe da – der Plan beginnt bei diesem Umfang.'
+  const longestHint = 'Von dort wächst der Longrun, höchstens 10 % auf einmal. Leer: dein Wochenumfang geteilt durch deine Lauftage.'
 
   if (view.live.length) {
     return (
       <Card title="Dein Plan ist live">
-        <p className="text-sm">{view.live[0].name}: ab {longDate(view.live[0].planStart)}.</p>
-        <button onClick={onLive} disabled={busy} className={cn(primary, 'mt-4')}>Weiter</button>
+        <p className="text-body-sm">{view.live[0].name}: ab {longDate(view.live[0].planStart)}.</p>
+        <Button variant="primary" className="mt-4" onClick={onLive} disabled={busy}>Weiter</Button>
       </Card>
     )
   }
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <button onClick={() => setMode('race')} aria-pressed={mode === 'race'}
-          className={cn('rounded-2xl border p-4 text-left', mode === 'race' ? 'border-brand bg-brand-soft' : 'border-border bg-card')}>
-          <span className="block text-sm font-semibold">Auf ein Rennen hin</span>
-          <span className="mt-1 block text-xs text-muted-foreground">Rennen, Zielzeit und Methode wählen; Runmate rechnet den Plan bis zum Renntag.</span>
-        </button>
-        <button onClick={() => setMode('base')} aria-pressed={mode === 'base'}
-          className={cn('rounded-2xl border p-4 text-left', mode === 'base' ? 'border-brand bg-brand-soft' : 'border-border bg-card')}>
-          <span className="block text-sm font-semibold">Erstmal ohne Ziel</span>
-          <span className="mt-1 block text-xs text-muted-foreground">Grundlage: lockere Wochen auf deinem Niveau, eine Schlüsseleinheit, jede vierte Woche leichter.</span>
-        </button>
+        <ModeChoice selected={mode === 'race'} onClick={() => setMode('race')} title="Auf ein Rennen hin">
+          Rennen, Zielzeit und Methode wählen; Runmate rechnet den Plan bis zum Renntag.
+        </ModeChoice>
+        <ModeChoice selected={mode === 'base'} onClick={() => setMode('base')} title="Erstmal ohne Ziel">
+          Grundlage: lockere Wochen auf deinem Niveau, eine Schlüsseleinheit, jede vierte Woche leichter.
+        </ModeChoice>
       </div>
 
       {mode === 'base' && (
         <Card title="Grundlage ohne Ziel">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body-sm text-muted-foreground">
             Ab {longDate(view.nextMonday)} plant Runmate immer vier Wochen voraus: Umfang auf dem Niveau deiner letzten
             Wochen{view.hasRuns ? '' : ` (bis Läufe da sind: ${view.athlete?.weeklyKm ?? 30} km aus deinem Profil)`}, höchstens 5 % mehr pro Woche.
             Sobald du ein Rennen anlegst und einen Plan übernimmst, löst er die Grundlage ab.
           </p>
-          <button onClick={onBase} disabled={busy} className={cn(primary, 'mt-4')}>Grundlage starten</button>
+          <Button variant="primary" className="mt-4" onClick={onBase} disabled={busy}>Grundlage starten</Button>
         </Card>
       )}
 
       {mode === 'race' && (
         <Card title="Dein Rennen">
           <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); saveGoal.mutate() }}>
-            <label className="grid gap-1 text-sm">Name<input className={box} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required placeholder="z. B. Herbst-Halbmarathon" /></label>
-            <label className="grid gap-1 text-sm">Datum<input type="date" className={box} value={date} onChange={(e) => setDate(e.target.value)} required /></label>
-            <label className="grid gap-1 text-sm">Distanz
-              <select className={box} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+            <Field id="ob-goal-name" label="Name">
+              <Input id="ob-goal-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required placeholder="z. B. Herbst-Halbmarathon" />
+            </Field>
+            <Field id="ob-goal-date" label="Datum">
+              <Input id="ob-goal-date" type="date" className="tabular-nums" value={date} onChange={(e) => setDate(e.target.value)} required />
+            </Field>
+            <Field id="ob-goal-kind" label="Distanz">
+              <Select id="ob-goal-kind" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
                 {GOAL_KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">Zielzeit<input className={box} value={goalTime} onChange={(e) => setGoalTime(e.target.value)} required placeholder="h:mm oder h:mm:ss" /></label>
-            <button type="submit" disabled={saveGoal.isPending || !!goalId} className={cn(primary, 'w-fit')}>{goalId ? 'Gespeichert' : 'Rennen speichern'}</button>
+              </Select>
+            </Field>
+            <Field id="ob-goal-time" label="Zielzeit">
+              <Input id="ob-goal-time" className="tabular-nums" value={goalTime} onChange={(e) => setGoalTime(e.target.value)} required placeholder="h:mm oder h:mm:ss" />
+            </Field>
+            {/* Ink while it is the next step; once saved the plan's own action takes over as the one primary. */}
+            <Button type="submit" variant={goalId ? 'secondary' : 'primary'} className="w-fit" disabled={saveGoal.isPending || !!goalId}>{goalId ? 'Gespeichert' : 'Rennen speichern'}</Button>
           </form>
           {goalId && ctx.data && (
             <div className="mt-5 grid gap-3 border-t border-border pt-4">
-              <label className="grid gap-1 text-sm">Methode
-                <select className={box} value={templateId} onChange={(e) => { setTemplateId(e.target.value); setPreview(null) }}>
+              <Field id="ob-template" label="Methode" hint={templateHint}>
+                <Select id="ob-template" value={templateId} onChange={(e) => { setTemplateId(e.target.value); setPreview(null) }}
+                  aria-describedby={fieldDescribedBy('ob-template', undefined, templateHint)}>
                   {fitting.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-                <span className="text-xs text-muted-foreground">{fitting.find((t) => t.id === templateId)?.summary}</span>
-              </label>
+                </Select>
+              </Field>
               {!view.hasRuns && (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid content-start gap-1 text-sm">Kilometer pro Woche zurzeit
-                    <input inputMode="decimal" className={box} value={currentKm} onChange={(e) => { setCurrentKm(e.target.value); setPreview(null) }} required />
-                    <span className="text-xs text-muted-foreground">Noch keine Läufe da – der Plan beginnt bei diesem Umfang.</span>
-                  </label>
-                  <label className="grid content-start gap-1 text-sm">Längster Lauf der letzten 4 Wochen
-                    <input inputMode="decimal" className={box} value={longestKm} onChange={(e) => { setLongestKm(e.target.value); setPreview(null) }} placeholder="in km" />
-                    <span className="text-xs text-muted-foreground">Von dort wächst der Longrun, höchstens 10 % auf einmal. Leer: dein Wochenumfang geteilt durch deine Lauftage.</span>
-                  </label>
+                  <Field id="ob-current-km" label="Kilometer pro Woche zurzeit" hint={kmHint} className="content-start">
+                    <Input id="ob-current-km" inputMode="decimal" className="tabular-nums" value={currentKm} onChange={(e) => { setCurrentKm(e.target.value); setPreview(null) }} required
+                      aria-describedby={fieldDescribedBy('ob-current-km', undefined, kmHint)} />
+                  </Field>
+                  <Field id="ob-longest-km" label="Längster Lauf der letzten 4 Wochen" hint={longestHint} className="content-start">
+                    <Input id="ob-longest-km" inputMode="decimal" className="tabular-nums" value={longestKm} onChange={(e) => { setLongestKm(e.target.value); setPreview(null) }} placeholder="in km"
+                      aria-describedby={fieldDescribedBy('ob-longest-km', undefined, longestHint)} />
+                  </Field>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">Start: {longDate(ctx.data.defaultStart)}.</p>
-              <button onClick={() => makePreview.mutate()} disabled={makePreview.isPending || !templateId} className={cn(secondary, 'w-fit')}>Entwurf ansehen</button>
+              <p className="text-caption text-muted-foreground">Start: {longDate(ctx.data.defaultStart)}.</p>
+              <Button className="w-fit" onClick={() => makePreview.mutate()} disabled={makePreview.isPending || !templateId}>Entwurf ansehen</Button>
             </div>
           )}
           {preview?.ok && <DraftPreview draft={preview} />}
-          {preview?.ok && <button onClick={() => goLive.mutate()} disabled={goLive.isPending || busy} className={cn(primary, 'mt-4')}>Plan übernehmen</button>}
-          {preview && !preview.ok && <p className="mt-3 text-sm text-red-600">{preview.error}</p>}
-          {error && <p className="mt-3 text-sm text-red-600">{error.message}</p>}
+          {preview?.ok && <Button variant="primary" className="mt-4" onClick={() => goLive.mutate()} disabled={goLive.isPending || busy}>Plan übernehmen</Button>}
+          {preview && !preview.ok && <p role="alert" className="mt-3 text-body-sm text-error">{preview.error}</p>}
+          {error && <p role="alert" className="mt-3 text-body-sm text-error">{error.message}</p>}
         </Card>
       )}
     </div>
@@ -388,8 +409,8 @@ function DraftPreview({ draft }: { draft: Extract<DraftResult, { ok: true }> }) 
   const de = (n: number) => String(n).replace('.', ',')
   return (
     <div className="mt-5 grid gap-3 border-t border-border pt-4">
-      <p className="text-sm">{weeks.length} Wochen, Spitze {de(peak)} km{long ? `, längster Longrun ${de(long)} km` : ''}. Renntempo {fmtPace(draft.paces.racePaceS)}/km, locker {draft.paces.fmt.easy}/km.</p>
-      <ul className="grid gap-1.5 text-sm">
+      <p className="text-body-sm tabular-nums">{weeks.length} Wochen, Spitze {de(peak)} km{long ? `, längster Longrun ${de(long)} km` : ''}. Renntempo {fmtPace(draft.paces.racePaceS)}/km, locker {draft.paces.fmt.easy}/km.</p>
+      <ul className="grid gap-1.5 text-body-sm">
         {weeks.map((w, i) => (
           <li key={w.start} className="grid grid-cols-[3rem_1fr] gap-2">
             <span className="tabular-nums text-muted-foreground">W{i + 1}</span>
@@ -398,7 +419,7 @@ function DraftPreview({ draft }: { draft: Extract<DraftResult, { ok: true }> }) 
         ))}
       </ul>
       {draft.warnings.length > 0 && (
-        <ul className="grid gap-1 text-xs text-muted-foreground">{draft.warnings.map((w) => <li key={w.text}>Hinweis ({w.step}): {w.text}</li>)}</ul>
+        <ul className="grid gap-1 text-caption text-muted-foreground">{draft.warnings.map((w) => <li key={w.text}>Hinweis ({w.step}): {w.text}</li>)}</ul>
       )}
     </div>
   )
@@ -410,15 +431,15 @@ function DoneStep({ view, busy, onFinish }: { view: View; busy: boolean; onFinis
   const e = useEntitlements()
   return (
     <Card title="Fertig">
-      <p className="text-sm">
+      <p className="text-body-sm">
         {view.state.goal === 'base' ? `Deine Grundlage beginnt am ${longDate(view.baseStart ?? view.nextMonday)}.`
           : view.live[0] ? `${view.live[0].name}: dein Plan beginnt am ${longDate(view.live[0].planStart)}.` : 'Alles eingerichtet.'}
         {view.state.skipped.includes('source') ? ' Eine Datenquelle verbindest du jederzeit unter Einstellungen → Datenquellen.' : ''}
       </p>
       {e.state === 'trial' && e.trialEndsAt && (
-        <p className="mt-2 text-sm text-muted-foreground">Deine Testphase läuft bis {format(new Date(e.trialEndsAt * 1000), 'd. MMMM yyyy', { locale: de })} – ohne Zahlungsdaten. Danach geht es kostenlos weiter.</p>
+        <p className="mt-2 text-body-sm text-muted-foreground">Deine Testphase läuft bis {format(new Date(e.trialEndsAt * 1000), 'd. MMMM yyyy', { locale: de })} – ohne Zahlungsdaten. Danach geht es kostenlos weiter.</p>
       )}
-      <button onClick={onFinish} disabled={busy} className={cn(primary, 'mt-4')}>Zum Plan</button>
+      <Button variant="primary" className="mt-4" onClick={onFinish} disabled={busy}>Zum Plan</Button>
     </Card>
   )
 }

@@ -6,6 +6,7 @@ import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
 import { batches, prepareUploads, type Rejected } from '@/lib/sources/file/browser'
+import { Button, Card, SectionHeader } from '@/components/ui'
 import { AFTER_SYNC } from './GarminSource'
 
 interface Totals { inserted: number; replaced: number; repaired: number; duplicates: number; skipped: number; errors: Rejected[] }
@@ -53,9 +54,9 @@ export function ImportCard() {
   }
 
   return (
-    <section className="grid gap-3 rounded-2xl border border-border bg-card p-5">
-      <h3 className="flex items-center gap-2 text-[15px] font-semibold"><Upload className="h-4 w-4 text-brand" /> Datei-Import</h3>
-      <p className="text-sm text-muted-foreground">
+    <Card stack>
+      <SectionHeader as="h3" title={<span className="flex items-center gap-2"><Upload className="h-4 w-4 shrink-0 text-brand" /> Datei-Import</span>} />
+      <p className="text-body-sm text-muted-foreground">
         .FIT, .GPX oder .TCX-Dateien (je höchstens 20 MB) – oder den kompletten Garmin-Datenexport als .ZIP
         (Garmin-Konto → Datenverwaltung → Daten exportieren). Aktivitäten, die schon da sind (gleicher Start ±2 Minuten,
         Distanz ±3 %), werden übersprungen, egal aus welcher Quelle – außer die Datei ist reicher (z. B. mit Puls- und
@@ -64,21 +65,21 @@ export function ImportCard() {
       </p>
       <input ref={input} type="file" multiple accept=".fit,.gpx,.tcx,.zip" className="hidden"
         onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; if (files.length) run(files) }} />
-      <button onClick={() => input.current?.click()} disabled={busy} className="w-fit rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white disabled:opacity-60">
+      <Button size="action" className="w-fit" onClick={() => input.current?.click()} disabled={busy}>
         {busy ? 'Importiere…' : 'Dateien wählen'}
-      </button>
-      {progress && <p className="text-xs text-muted-foreground">{progress}</p>}
+      </Button>
+      {progress && <p className="text-caption tabular-nums text-muted-foreground">{progress}</p>}
       {totals && (
-        <div className="grid gap-1 text-xs">
-          <p>{totals.inserted} neu{totals.replaced > 0 && ` · ${totals.replaced} ersetzt`}{totals.repaired > 0 && ` · ${totals.repaired} vervollständigt`} · {totals.duplicates} schon vorhanden · {totals.skipped} andere Sportarten übersprungen</p>
+        <div className="grid gap-1 text-caption">
+          <p className="tabular-nums">{totals.inserted} neu{totals.replaced > 0 && ` · ${totals.replaced} ersetzt`}{totals.repaired > 0 && ` · ${totals.repaired} vervollständigt`} · {totals.duplicates} schon vorhanden · {totals.skipped} andere Sportarten übersprungen</p>
           {totals.errors.length > 0 && (
-            <details className="text-red-400">
+            <details className="text-error">
               <summary className="cursor-pointer">{totals.errors.length} {totals.errors.length === 1 ? 'Datei' : 'Dateien'} nicht oder nicht vollständig importiert</summary>
               <ul className="mt-1 grid gap-0.5">{totals.errors.slice(0, 50).map((e, i) => <li key={i}>{e.message.startsWith(e.name) ? e.message : `${e.name}: ${e.message}`}</li>)}</ul>
             </details>
           )}
         </div>
       )}
-    </section>
+    </Card>
   )
 }

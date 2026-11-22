@@ -8,6 +8,8 @@ import { AlertCircle, CheckCircle, Database, RefreshCw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import type { LastSync, SourceInfo } from '@/lib/sources/types'
+import { Button, Card, Chip, Field, Inset, Input, SectionHeader } from '@/components/ui'
+import { CheckRow } from './controls'
 
 // Data that changes after a sync or import (also components/HeaderSync.tsx).
 export const AFTER_SYNC = ['sources', 'running-stats', 'runs', 'run', 'analytics', 'running-fitness', 'plan-actuals', 'plan-engine', 'running-wellness']
@@ -40,21 +42,25 @@ function ConnectForm({ source, onDone }: { source: SourceInfo; onDone: () => voi
     onSuccess: () => { setPassword(''); onDone(); qc.invalidateQueries({ queryKey: ['sources'] }) },
     onError: () => setPassword(''),
   })
+  const id = `${source.id}-connect`
   return (
-    <form className="grid gap-2 rounded-lg border border-border p-3 text-xs sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); connect.mutate() }}>
-      <input className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" type="email" autoComplete="username" placeholder="Garmin-E-Mail"
-        value={username} onChange={(e) => setUsername(e.target.value)} required />
-      <input className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" type="password" autoComplete="current-password" placeholder="Garmin-Passwort"
-        value={password} onChange={(e) => setPassword(e.target.value)} required />
-      <label className="flex items-start gap-2 text-muted-foreground sm:col-span-2">
-        <input type="checkbox" className="mt-0.5" checked={consent} onChange={(e) => setConsent(e.target.checked)} required />
-        <span className="grid gap-1">{(source.consent ?? []).map((t) => <span key={t}>{t}</span>)}</span>
-      </label>
-      <button type="submit" disabled={connect.isPending || !consent} className="w-fit rounded-md bg-brand px-3 py-1.5 text-white disabled:opacity-50">
-        {connect.isPending ? 'Melde an…' : 'Verbinden'}
-      </button>
-      {connect.isError && <p className="text-red-400 sm:col-span-2">{(connect.error as Error).message}</p>}
-    </form>
+    <Inset className="p-3">
+      <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); connect.mutate() }}>
+        <Field id={`${id}-user`} label="Garmin-E-Mail">
+          <Input id={`${id}-user`} type="email" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+        </Field>
+        <Field id={`${id}-password`} label="Garmin-Passwort">
+          <Input id={`${id}-password`} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </Field>
+        <CheckRow className="text-caption text-muted-foreground sm:col-span-2" checked={consent} onChange={(e) => setConsent(e.target.checked)} required>
+          <span className="grid gap-1">{(source.consent ?? []).map((t) => <span key={t}>{t}</span>)}</span>
+        </CheckRow>
+        <Button type="submit" size="action" className="w-fit" disabled={connect.isPending || !consent}>
+          {connect.isPending ? 'Melde an…' : 'Verbinden'}
+        </Button>
+        {connect.isError && <p role="alert" className="text-caption text-error sm:col-span-2">{(connect.error as Error).message}</p>}
+      </form>
+    </Inset>
   )
 }
 
@@ -89,45 +95,41 @@ export function GarminSource({ source }: { source: SourceInfo }) {
   const err = source.status.error
   const last = source.lastSync
   return (
-    <section className="grid gap-3 rounded-2xl border border-border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-[15px] font-semibold">
-          {source.label}
-          {source.experimental && <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-normal text-muted-foreground">experimentell</span>}
-        </h3>
-        {connected && !err && <span className="flex items-center gap-1.5 text-xs text-green-500"><CheckCircle className="h-3.5 w-3.5" /> Verbunden</span>}
-        {connected && err && <span className="flex items-center gap-1.5 text-xs text-red-400"><AlertCircle className="h-3.5 w-3.5" /> Problem</span>}
-        {!connected && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><AlertCircle className="h-3.5 w-3.5" /> Nicht verbunden</span>}
-      </div>
-      <p className="text-sm text-muted-foreground">{source.description}</p>
-      {err && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">{err.message}</p>}
+    <Card stack>
+      <SectionHeader as="h3"
+        title={<span className="flex flex-wrap items-center gap-2">{source.label}{source.experimental && <Chip tone="neutral">experimentell</Chip>}</span>}
+        aside={connected && !err ? <span className="flex items-center gap-1.5 text-teal-text"><CheckCircle className="h-3.5 w-3.5" /> Verbunden</span>
+          : connected && err ? <span className="flex items-center gap-1.5 text-error"><AlertCircle className="h-3.5 w-3.5" /> Problem</span>
+          : <span className="flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5" /> Nicht verbunden</span>} />
+      <p className="text-body-sm text-muted-foreground">{source.description}</p>
+      {err && <p className="rounded-card bg-destructive/10 px-3 py-2 text-caption text-error">{err.message}</p>}
 
       {!connected || editing ? (
         <ConnectForm source={source} onDone={() => setEditing(false)} />
       ) : (
         <>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <button onClick={() => sync.mutate()} disabled={sync.isPending} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 hover:bg-secondary/80 disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${sync.isPending ? 'animate-spin' : ''}`} /> Synchronisieren
-            </button>
-            <button onClick={() => full.mutate()} disabled={full.isPending} className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 hover:bg-secondary/80 disabled:opacity-50">
-              <Database className={`h-3.5 w-3.5 ${full.isPending ? 'animate-pulse' : ''}`} /> Gesamte Historie laden
-            </button>
-            <button onClick={() => setEditing(true)} className="rounded-md px-3 py-1.5 text-muted-foreground hover:bg-secondary/60">Zugangsdaten ändern</button>
-            <button onClick={() => disconnect.mutate()} disabled={disconnect.isPending} className="rounded-md px-3 py-1.5 text-muted-foreground hover:bg-secondary/60">Trennen und Zugangsdaten löschen</button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="action" onClick={() => sync.mutate()} disabled={sync.isPending}>
+              <RefreshCw className={sync.isPending ? 'animate-spin' : ''} /> Synchronisieren
+            </Button>
+            <Button size="action" onClick={() => full.mutate()} disabled={full.isPending}>
+              <Database className={full.isPending ? 'animate-pulse' : ''} /> Gesamte Historie laden
+            </Button>
+            <Button variant="ghost" size="action" onClick={() => setEditing(true)}>Zugangsdaten ändern</Button>
+            <Button variant="destructive" size="action" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>Trennen und Zugangsdaten löschen</Button>
           </div>
-          {sync.isError && <p className="text-xs text-red-400">{(sync.error as Error).message}</p>}
+          {sync.isError && <p className="text-caption text-error">{(sync.error as Error).message}</p>}
           {sync.isSuccess && sync.data.remaining > 0 && (
-            <p className="text-xs text-muted-foreground">Noch {sync.data.remaining} {sync.data.remaining === 1 ? 'Lauf' : 'Läufe'} ohne Detaildaten, erneut synchronisieren.</p>
+            <p className="text-caption text-muted-foreground">Noch {sync.data.remaining} {sync.data.remaining === 1 ? 'Lauf' : 'Läufe'} ohne Detaildaten, erneut synchronisieren.</p>
           )}
-          {history && <p className={`text-xs ${full.isError ? 'text-red-400' : 'text-muted-foreground'}`}>{history}</p>}
+          {history && <p className={`text-caption ${full.isError ? 'text-error' : 'text-muted-foreground'}`}>{history}</p>}
         </>
       )}
       {last && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-caption text-muted-foreground">
           Letzte Synchronisierung: vor {formatDistanceToNow(new Date(last.at), { locale: de })} · {syncCounts(last)}
         </p>
       )}
-    </section>
+    </Card>
   )
 }

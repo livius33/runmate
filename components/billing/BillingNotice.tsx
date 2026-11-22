@@ -15,8 +15,8 @@ export function BillingNotice() {
   const text = show ? stateNotice(e, now) : null
   if (!text) return null
   return (
-    <p className="mb-4 rounded-xl border border-border bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
-      {text} <Link href="/settings#abo" className="font-medium text-brand hover:underline">Abo ansehen</Link>
+    <p className="mb-4 rounded-card bg-secondary px-4 py-2 text-caption text-muted-foreground shadow-hairline">
+      {text} <Link href="/settings#abo" className="tap font-medium text-brand-text hover:underline">Abo ansehen</Link>
     </p>
   )
 }
