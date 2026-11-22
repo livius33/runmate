@@ -9,7 +9,7 @@ import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Check, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button, Card, CheckRow, ChipButton, Field, Inset, Input, Select, fieldDescribedBy } from '@/components/ui'
+import { Button, Card, CheckRow, Field, Inset, Input, Select, fieldDescribedBy } from '@/components/ui'
 import { HealthConsentCard } from '@/components/settings/HealthConsentCard'
 import { GarminSource } from '@/components/settings/GarminSource'
 import { HealthCard } from '@/components/settings/HealthCard'
@@ -19,6 +19,7 @@ import { SKIPPABLE, STEP_LABEL, type Step } from '@/lib/onboarding/flow'
 import { HRMAX_AGE, RACE_LABEL, estimateHrMax, type ProfileInput, type RaceDistance } from '@/lib/onboarding/profile'
 import type { OnboardingView } from '@/lib/onboarding/store'
 import { EXPERIENCE_LABEL, WEEKDAYS, type Experience, type Weekday } from '@/lib/plan/athlete-profile'
+import { WeekdayPicker } from '@/components/plan/WeekdayPicker'
 import type { HealthConsentStatus } from '@/lib/legal/consent-text'
 import type { SourcesResponse } from '@/lib/sources/types'
 import type { DraftResult } from '@/lib/plan/generator/draft'
@@ -202,11 +203,7 @@ function ProfileStep({ view, busy, onSave }: { view: View; busy: boolean; onSave
 
         <fieldset className="grid gap-3">
           <legend className={legend}>Woche</legend>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Lauftage">
-            {WEEKDAYS.map(({ d, short }) => (
-              <ChipButton key={d} selected={runDays.includes(d)} onClick={() => toggle(d)} className="w-11 justify-center">{short}</ChipButton>
-            ))}
-          </div>
+          <WeekdayPicker label="Lauftage" value={runDays} onToggle={toggle} />
           <Field id="ob-longrunday" label="Longrun am" className="sm:max-w-xs">
             <Select id="ob-longrunday" value={longRunDay} onChange={(e) => setLongRunDay(Number(e.target.value) as Weekday)}>
               {WEEKDAYS.filter((w) => runDays.includes(w.d)).map((w) => <option key={w.d} value={w.d}>{w.long}</option>)}

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { athlete } from '@/lib/athlete'
 import { fmtKm } from '@/lib/plan/format'
 import { Button, Card, Figure, Input, Select } from '@/components/ui'
+import { WeekdayPicker } from '@/components/plan/WeekdayPicker'
 import {
   EXPERIENCE_LABEL, RANGES, WEEKDAYS, inRange, validProfile, type AthleteProfile, type Experience, type RangedField, type Weekday,
 } from '@/lib/plan/athlete-profile'
@@ -372,15 +373,7 @@ export function Days({ label, value, onToggle }: { label: string; value: Weekday
   return (
     <div className={labelBox}>
       <span className="text-muted-foreground">{label}</span>
-      <div className="grid max-w-[21.5rem] grid-cols-7 gap-1.5">
-        {WEEKDAYS.map((w) => (
-          <button key={w.d} type="button" onClick={() => onToggle(w.d)} aria-pressed={value.includes(w.d)} aria-label={w.long}
-            className={cn('tap h-9 rounded-control text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              value.includes(w.d) ? 'bg-foreground text-background' : 'bg-card text-foreground shadow-hairline hover:bg-secondary')}>
-            {w.short}
-          </button>
-        ))}
-      </div>
+      <WeekdayPicker label={label} value={value} onToggle={onToggle} />
     </div>
   )
 }
