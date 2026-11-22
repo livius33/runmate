@@ -18,7 +18,9 @@ const ALL_FIELDS: { key: ProfileField; label: string; hint?: string; type?: 'num
   { key: 'hrMax', label: 'HFmax', type: 'number' },
   { key: 'hrRest', label: 'Ruhepuls', type: 'number' },
   { key: 'lthr', label: 'LTHR (Schwellenpuls)', type: 'number', hint: 'optional, für das LTHR-Zonenmodell' },
-  { key: 'pbTime', label: 'Marathon-Bestzeit', hint: 'h:mm oder h:mm:ss' },
+  // Neutral label: the stored best time has no distance (the race is named in pbRace), so a half-marathon runner is
+  // not asked for a marathon time.
+  { key: 'pbTime', label: 'Bestzeit', hint: 'h:mm oder h:mm:ss' },
   { key: 'pbRace', label: 'Bestzeit-Rennen' },
   { key: 'pbHr', label: 'Ø Puls der Bestzeit', type: 'number' },
   { key: 'vo2max', label: 'VO2max', type: 'number' },
