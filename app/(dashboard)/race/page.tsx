@@ -107,15 +107,14 @@ function RaceDayTools() {
   const col = 'contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4'
   return (
     <div className="flex flex-col gap-4 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-title sm:text-display">{RACE.name}</h1>
-          <p className="mt-1 text-body-sm text-muted-foreground">
-            {format(parseISO(RACE.date), 'EEEE, d. MMMM yyyy', { locale: de })} · Start {RACE.startTime ?? 'noch offen'}
-            {daysLeft > 0 ? ` · noch ${daysLeft} ${daysLeft === 1 ? 'Tag' : 'Tage'}` : daysLeft === 0 ? ' · heute!' : ''}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Plan wählen">
+      {/* Title row: from sm up the plan toggle sits on the title's baseline; on phones it follows the date line. */}
+      <div className="grid gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline">
+        <h1 className="min-w-0 text-title">{RACE.name}</h1>
+        <p className="text-body-sm text-muted-foreground sm:col-start-1">
+          {format(parseISO(RACE.date), 'EEEE, d. MMMM yyyy', { locale: de })} · Start {RACE.startTime ?? 'noch offen'}
+          {daysLeft > 0 ? ` · noch ${daysLeft} ${daysLeft === 1 ? 'Tag' : 'Tage'}` : daysLeft === 0 ? ' · heute!' : ''}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1 sm:col-start-2 sm:row-start-1 sm:mt-0" role="group" aria-label="Plan wählen">
           {(['A', 'B'] as PlanKind[]).map((k) => (
             <ChipButton key={k} selected={kind === k} onClick={() => setChosen(k)} className="tabular-nums">
               {k === 'A' ? `Plan A · ${fmtClock(RACE.goalS)}` : `Plan B · ${fmtClock(RACE.fallbackS)}`}

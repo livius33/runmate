@@ -235,7 +235,7 @@ export function ProfileOverview({ profile: p, events, connections, onEdit, onBac
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <button onClick={onBack} className="tap text-caption text-muted-foreground hover:text-foreground">← Plan anpassen</button>
-          <h1 className="mt-1 text-title sm:text-display">Trainingsprofil</h1>
+          <h1 className="mt-1 text-title">Trainingsprofil</h1>
           <p className="mt-1 text-body-sm text-muted-foreground">Deine Angaben aus dem Onboarding. Jeder Bereich lässt sich einzeln ändern.</p>
         </div>
         {p.savedAt && <span className="text-caption text-muted-foreground">Gespeichert am {format(parseISO(p.savedAt), 'd. MMM yyyy, HH:mm', { locale: de })}</span>}

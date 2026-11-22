@@ -105,15 +105,16 @@ export default function WorkshopPage() {
   // two independent columns from lg up, each card at its natural height.
   return (
     <div className="flex flex-col gap-4 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <Link href="/plan" className="tap text-caption text-muted-foreground hover:text-foreground">← Plan</Link>
-          <h1 className="mt-1 text-title sm:text-display">Plan anpassen</h1>
-          <p className="mt-1 text-body-sm text-muted-foreground">Den ganzen Plan ändern oder einzelne Vorschläge übernehmen. Du siehst vorher, was sich ändert und warum; nichts passiert ohne dich.</p>
+      {/* Title row: from sm up the action sits on the title's baseline; on phones it follows the intro line. */}
+      <div>
+        <Link href="/plan" className="tap text-caption text-muted-foreground hover:text-foreground">← Plan</Link>
+        <div className="mt-1 grid gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline">
+          <h1 className="min-w-0 text-title">Plan anpassen</h1>
+          <p className="text-body-sm text-muted-foreground sm:col-start-1">Den ganzen Plan ändern oder einzelne Vorschläge übernehmen. Du siehst vorher, was sich ändert und warum; nichts passiert ohne dich.</p>
+          <Button size="action" className="mt-2 justify-self-start sm:col-start-2 sm:row-start-1 sm:mt-0" onClick={() => setProfileView('overview')}>
+            <Settings2 /> Trainingsprofil
+          </Button>
         </div>
-        <Button size="action" onClick={() => setProfileView('overview')}>
-          <Settings2 /> Trainingsprofil
-        </Button>
       </div>
 
       {note && <p className="flex items-center gap-1.5 text-body-sm text-teal-text"><Check className="h-4 w-4 shrink-0" />{note}</p>}

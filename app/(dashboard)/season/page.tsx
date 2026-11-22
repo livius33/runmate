@@ -83,15 +83,14 @@ export default function SeasonPage() {
   // block card sits beside it at its natural height; on phones the base block follows the timeline as before.
   return (
     <div className="flex flex-col gap-4 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0 max-w-3xl">
-          <h1 className="text-title sm:text-display">Saison</h1>
-          <p className="mt-1.5 text-body-sm text-muted-foreground">
-            Deine Rennen und Läufe. Hauptrennen bekommen einen Aufbaublock, Nebenrennen und Läufe stehen im Block, in den sie fallen.
-          </p>
-        </div>
+      {/* Title row: from sm up the action sits on the title's baseline; on phones it follows the intro line. */}
+      <div className="grid gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline">
+        <h1 className="min-w-0 text-title">Saison</h1>
+        <p className="max-w-3xl text-body-sm text-muted-foreground sm:col-start-1">
+          Deine Rennen und Läufe. Hauptrennen bekommen einen Aufbaublock, Nebenrennen und Läufe stehen im Block, in den sie fallen.
+        </p>
         {edit?.mode !== 'new' && (
-          <Button variant="primary" onClick={() => open({ mode: 'new' })}>
+          <Button variant="primary" className="mt-2 justify-self-start sm:col-start-2 sm:row-start-1 sm:mt-0" onClick={() => open({ mode: 'new' })}>
             <Plus /> Rennen oder Lauf hinzufügen
           </Button>
         )}

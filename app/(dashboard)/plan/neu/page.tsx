@@ -154,7 +154,7 @@ function NewPlan() {
     <div className="flex flex-col gap-4 pb-10">
       <div className="min-w-0">
         <Link href="/season" className="tap text-caption text-muted-foreground hover:text-foreground">← Saison</Link>
-        <h1 className="mt-1 text-title sm:text-display">Neuer Plan</h1>
+        <h1 className="mt-1 text-title">Neuer Plan</h1>
         <p className="mt-1 text-body-sm text-muted-foreground">Entwurf aus einer Vorlage und deinen Läufen. Dein laufender Plan ändert sich dadurch nicht.</p>
       </div>
 

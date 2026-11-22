@@ -23,7 +23,7 @@ export function PlanHeader({ today }: { today: string }) {
         {race.code}
       </div>
       <div className="min-w-0">
-        <h1 className="text-title sm:text-display">{`${race.name} Plan`}</h1>
+        <h1 className="text-title">{`${race.name} Plan`}</h1>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
           <span>Renntag</span>
           <Chip tone="brand">
@@ -58,7 +58,7 @@ function BaseHeader({ today }: { today: string }) {
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
       <div className="h-14 w-14 shrink-0 grid place-items-center rounded-card bg-teal text-title-sm text-white">GL</div>
       <div className="min-w-0">
-        <h1 className="text-title sm:text-display">Grundlage</h1>
+        <h1 className="text-title">Grundlage</h1>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
           <span>Woche</span>
           <Chip tone="teal" className="tabular-nums">{idx > 0 ? idx : '–'}</Chip>
@@ -92,7 +92,7 @@ function RecoveryHeader({ today }: { today: string }) {
         {block.race.code}
       </div>
       <div className="min-w-0">
-        <h1 className="text-title sm:text-display">{`Erholung nach ${block.race.shortName}`}</h1>
+        <h1 className="text-title">{`Erholung nach ${block.race.shortName}`}</h1>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
           <span>Woche</span>
           <Chip tone="teal" className="tabular-nums">
