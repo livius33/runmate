@@ -1,16 +1,74 @@
+# GitHub checks a pull request once, right before the merge; everything else is checked locally
+# (`npm run check`). The jobs run on a pull request only when it carries the label `bereit`
+# (`gh pr edit <nr> --add-label bereit`). Without the label they show as "skipped": that is NOT green,
+# merge only on "pass". No run on push to main; instead a weekly run on main (Monday night, skipped when
+# a green weekly/manual run already checked the same main commit within 7 days) and workflow_dispatch.
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "17 2 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
-  test:
+  # Weekly/manual runs only: decides whether main needs checking again.
+  weekly-gate:
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Newest first. A run whose jobs were all skipped is "success" too, so only the newest run
+          # whose test job itself succeeded counts.
+          candidates=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?status=success&per_page=30" \
+            | jq -r '.workflow_runs[]
+                | select(.event == "schedule" or .event == "workflow_dispatch")
+                | [.id, .head_sha, ((now - (.created_at | fromdateiso8601)) <= 7 * 86400)] | @tsv')
+          run=true
+          while IFS=$'\t' read -r id sha recent; do
+            [ -n "$id" ] || continue
+            test_ok=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" \
+              --jq '[.jobs[] | select(.name == "test" and .conclusion == "success")] | length')
+            [ "$test_ok" -gt 0 ] || continue
+            if [ "$sha" = "$GITHUB_SHA" ] && [ "$recent" = "true" ]; then
+              echo "Run $id already checked $GITHUB_SHA within 7 days; skipping."
+              run=false
+            fi
+            break
+          done <<< "$candidates"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: weekly-gate
+    # !cancelled(): the gate is skipped on pull requests, which would otherwise skip this job too.
+    if: >-
+      ${{ !cancelled() && (
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'bereit') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'bereit')) ||
+      (github.event_name != 'pull_request' && needs.weekly-gate.outputs.run == 'true')) }}
+    # Per job, not per workflow: a skipped run (another label added) must not cancel the real one,
+    # and the two jobs must not cancel each other.
+    concurrency:
+      group: ci-test-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,7 +80,18 @@ jobs:
       - run: npx vitest run
 
   secrets:
+    needs: weekly-gate
+    if: >-
+      ${{ !cancelled() && (
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'bereit') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'bereit')) ||
+      (github.event_name != 'pull_request' && needs.weekly-gate.outputs.run == 'true')) }}
+    concurrency:
+      group: ci-secrets-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
