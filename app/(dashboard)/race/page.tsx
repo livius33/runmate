@@ -9,7 +9,7 @@ import { useToday } from '@/lib/use-today'
 import Link from 'next/link'
 import { NO_BLOCK, hasBlocks, raceOf } from '@/lib/plan/blocks'
 import { useAppHref } from '@/components/AppBase'
-import { fmtClock, fmtPace } from '@/lib/plan/format'
+import { fmtClock, fmtKm, fmtPace } from '@/lib/plan/format'
 import { effectiveSessions, type Overrides } from '@/lib/plan/effective'
 import { EMPTY_ENGINE, type EngineState } from '@/lib/plan/engine'
 import type { DatedRun } from '@/lib/plan/pace-check'
@@ -18,7 +18,7 @@ import { checkpoints, clockAt, decidePlan, gelPlan, racePlan, type PlanKind } fr
 import type { DayActual } from '@/app/api/running/plan-actuals/route'
 import { cn } from '@/lib/utils'
 import { RaceAnalysis } from '@/components/runs/RaceAnalysis'
-import { Card } from '@/components/plan/ui'
+import { Button, Card, Chip, ChipButton, Inset } from '@/components/ui'
 import { CourseMap } from '@/components/plan/CourseMap'
 import { parseGpx, type Course } from '@/lib/plan/course'
 import { usePauses } from '@/components/plan/PauseControl'
@@ -34,13 +34,13 @@ export default function RaceDayPage() {
   if (raceOf(today).date === NO_BLOCK.race.date) {
     return (
       <div className="mx-auto max-w-xl py-6">
-        <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-sm">
-          <p className="font-medium">Noch kein Rennen.</p>
-          <p className="mt-1 text-muted-foreground">
+        <Card>
+          <p className="text-body-sm font-medium">Noch kein Rennen.</p>
+          <p className="mt-1 text-body-sm text-muted-foreground">
             Leg in der Saison ein Rennen an und übernimm einen Plan dafür. Dann stehen hier Renntempo, Zwischenzeiten, Gels und der Ablauf für deinen Renntag.
           </p>
-          <Link href={href('/season')} className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Zur Saison</Link>
-        </div>
+          <Button asChild variant="primary" className="mt-3"><Link href={href('/season')}>Zur Saison</Link></Button>
+        </Card>
       </div>
     )
   }
@@ -97,72 +97,61 @@ function RaceDayTools() {
 
   if (!hasBlocks()) return (
     <Card title="Renntag">
-      <p className="text-sm text-muted-foreground">Noch kein Rennen geplant: Die Renntag-Seite erscheint, sobald ein Trainingsblock mit Zielrennen aktiv ist.</p>
+      <p className="text-body-sm text-muted-foreground">Noch kein Rennen geplant: Die Renntag-Seite erscheint, sobald ein Trainingsblock mit Zielrennen aktiv ist.</p>
     </Card>
   )
 
-  // Phone: one column in race-morning order. Wide screens: plan + morning side by side,
-  // splits + gels below, course map at the bottom.
+  // Layout (12-02): title and race analysis full width. From lg up two independent columns (7 / 5), every card at its
+  // natural height: plan and splits left, morning and gels right. On phones the column wrappers dissolve (`contents`)
+  // and `order` keeps the race-morning order (plan, morning, splits, gels). Course map full width at the bottom.
+  const col = 'contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4'
   return (
-    <div className="flex flex-col gap-5 pb-10">
+    <div className="flex flex-col gap-4 pb-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-[28px] font-semibold tracking-tight">{RACE.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="min-w-0">
+          <h1 className="text-title sm:text-display">{RACE.name}</h1>
+          <p className="mt-1 text-body-sm text-muted-foreground">
             {format(parseISO(RACE.date), 'EEEE, d. MMMM yyyy', { locale: de })} · Start {RACE.startTime ?? 'noch offen'}
             {daysLeft > 0 ? ` · noch ${daysLeft} ${daysLeft === 1 ? 'Tag' : 'Tage'}` : daysLeft === 0 ? ' · heute!' : ''}
           </p>
         </div>
-        <div className="flex gap-1" role="group" aria-label="Plan wählen">
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Plan wählen">
           {(['A', 'B'] as PlanKind[]).map((k) => (
-            <button key={k} onClick={() => setChosen(k)} aria-pressed={kind === k}
-              className={cn('rounded-full border px-3 py-1 text-xs', kind === k ? 'border-foreground bg-foreground text-background' : 'border-border text-muted-foreground')}>
+            <ChipButton key={k} selected={kind === k} onClick={() => setChosen(k)} className="tabular-nums">
               {k === 'A' ? `Plan A · ${fmtClock(RACE.goalS)}` : `Plan B · ${fmtClock(RACE.fallbackS)}`}
-            </button>
+            </ChipButton>
           ))}
         </div>
       </div>
 
       {raceRun && <RaceAnalysis runId={raceRun.id} initialPlan={kind} />}
 
-      <div className="grid gap-5 lg:grid-cols-12">
-        <section className="min-w-0 rounded-2xl border border-border border-l-4 border-l-brand bg-card p-4 sm:p-5 lg:col-span-7">
-          <div className="flex items-center gap-2 text-sm font-semibold text-brand"><Flag className="h-4 w-4" /> Plan {kind}</div>
-          <p className="mt-2 text-[34px] font-semibold leading-tight tabular-nums">{fmtClock(goal, true)}</p>
-          <p className="mt-1 text-sm">{kind === 'A'
-            ? `Die ersten ${plan[0].to.toLocaleString('de-DE')} km in ${fmtPace(plan[0].paceS)}, dann ${fmtPace(plan[1].paceS)}.`
-            : `${fmtPace(RACE.fallbackPaceS)} gleichmäßig.`}{plan[1]?.hrCap ? ` HF bis km ${Math.round(plan[1].to)} unter ${plan[1].hrCap}.` : ''}</p>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {plan.map((s, i) => (
-              <div key={s.from} className="rounded-xl bg-secondary/60 px-3 py-2">
-                <div className="text-xs text-muted-foreground tabular-nums">km {kmDe(s.from)}–{kmDe(s.to)}</div>
-                <div className="text-base font-semibold tabular-nums">{fmtPace(s.paceS)}/km</div>
-                <div className="text-xs text-muted-foreground">{s.hrCap ? `HF < ${s.hrCap}` : i === plan.length - 1 ? 'alles, was da ist' : 'nach Tempo'}</div>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-muted-foreground">{decision.reason}{chosen && chosen !== decision.kind ? ' (von dir umgestellt)' : ''}</p>
-          {decision.warning && <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700"><AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />{decision.warning}</p>}
-        </section>
-
-        <div className="min-w-0 lg:col-span-5">
-          <Card title="Morgen">
-            {[
-              [WAKE_TIME, 'Aufstehen'],
-              [BREAKFAST_TIME, 'Frühstück: Weißbrot mit Honig, Banane'],
-              [clockAt(-30 * 60, start), 'Im Startbereich, Toilette, locker einlaufen'],
-              [clockAt(-15 * 60, start), 'Erstes Gel mit Wasser'],
-              [start, RACE.startTime ? 'Start' : 'Start (Uhrzeit noch offen)'],
-            ].map(([t, what]) => <Row key={t} big={t} text={what} />)}
+      <div className="grid items-start gap-4 lg:grid-cols-12">
+        <div className={cn(col, 'lg:col-span-7')}>
+          <Card className="border-l-4 border-l-brand max-lg:order-1">
+            <div className="flex items-center gap-2 text-body-sm font-semibold text-brand-text"><Flag className="h-4 w-4" /> Plan {kind}</div>
+            <p className="mt-2 text-display tabular-nums">{fmtClock(goal, true)}</p>
+            <p className="mt-1 text-body-sm">{kind === 'A'
+              ? `Die ersten ${fmtKm(plan[0].to)} km in ${fmtPace(plan[0].paceS)}, dann ${fmtPace(plan[1].paceS)}.`
+              : `${fmtPace(RACE.fallbackPaceS)} gleichmäßig.`}{plan[1]?.hrCap ? ` HF bis km ${Math.round(plan[1].to)} unter ${plan[1].hrCap}.` : ''}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {plan.map((s, i) => (
+                <Inset key={s.from}>
+                  <div className="text-caption tabular-nums text-muted-foreground">km {fmtKm(s.from)}–{fmtKm(s.to)}</div>
+                  <div className="text-body font-semibold tabular-nums">{fmtPace(s.paceS)}/km</div>
+                  <div className="text-caption text-muted-foreground">{s.hrCap ? `HF < ${s.hrCap}` : i === plan.length - 1 ? 'alles, was da ist' : 'nach Tempo'}</div>
+                </Inset>
+              ))}
+            </div>
+            <p className="mt-3 text-caption text-muted-foreground">{decision.reason}{chosen && chosen !== decision.kind ? ' (von dir umgestellt)' : ''}</p>
+            {decision.warning && <p className="mt-2 flex items-start gap-1.5 text-caption text-warning"><AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />{decision.warning}</p>}
           </Card>
-        </div>
 
-        <div className="min-w-0 lg:col-span-7">
-          <Card title="Zwischenzeiten" aside={<span className="text-xs text-muted-foreground">Uhrzeit bei Start {start}</span>}>
+          <Card title="Zwischenzeiten" aside={<span>Uhrzeit bei Start {start}</span>} className="max-lg:order-3">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm tabular-nums">
+              <table className="w-full text-body-sm tabular-nums">
                 <thead>
-                  <tr className="text-left text-xs text-muted-foreground">
+                  <tr className="text-left text-caption text-muted-foreground">
                     <th className="pb-2 font-normal">Punkt</th>
                     <th className="pb-2 font-normal">Laufzeit</th>
                     <th className="pb-2 font-normal">Uhrzeit</th>
@@ -175,11 +164,11 @@ function RaceDayTools() {
                   {points.map((c) => (
                     <tr key={c.label} className="border-t border-border">
                       <td className="py-2 pr-3 whitespace-nowrap">{c.label}</td>
-                      <td className="py-2 pr-3 text-base font-semibold whitespace-nowrap">{c.time}</td>
+                      <td className="py-2 pr-3 text-body font-semibold whitespace-nowrap">{c.time}</td>
                       <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">{c.clock}</td>
                       <td className="py-2 pr-3 whitespace-nowrap">{fmtPace(c.paceS)}</td>
                       <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">{c.hrCap ? `< ${c.hrCap}` : c.km > plan[plan.length - 1].from ? 'alles' : '–'}</td>
-                      <td className="py-2 text-right">{gelKm.has(c.km) ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">Gel</span> : ''}</td>
+                      <td className="py-2 text-right">{gelKm.has(c.km) ? <Chip tone="warning">Gel</Chip> : ''}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -188,20 +177,30 @@ function RaceDayTools() {
           </Card>
         </div>
 
-        <div className="min-w-0 lg:col-span-5">
-          <Card title="Gels" aside={
-            <button onClick={() => setMoreGels(!moreGels)} className="text-xs text-muted-foreground underline underline-offset-2">
+        <div className={cn(col, 'lg:col-span-5')}>
+          <Card title="Morgen" className="max-lg:order-2">
+            {[
+              [WAKE_TIME, 'Aufstehen'],
+              [BREAKFAST_TIME, 'Frühstück: Weißbrot mit Honig, Banane'],
+              [clockAt(-30 * 60, start), 'Im Startbereich, Toilette, locker einlaufen'],
+              [clockAt(-15 * 60, start), 'Erstes Gel mit Wasser'],
+              [start, RACE.startTime ? 'Start' : 'Start (Uhrzeit noch offen)'],
+            ].map(([t, what]) => <Row key={t} big={t} text={what} />)}
+          </Card>
+
+          <Card title="Gels" className="max-lg:order-4" aside={
+            <Button variant="ghost" size="sm" onClick={() => setMoreGels(!moreGels)} className="-mr-2">
               {moreGels ? 'Standard' : 'mehr (geübter Magen)'}
-            </button>
+            </Button>
           }>
             {gels.gels.map((g) => <Row key={g.label} big={g.clock} text={g.label === 'vor dem Start' ? 'vor dem Start' : `bei ${g.label}`} />)}
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 text-caption text-muted-foreground">
               {gels.gels.length} × 25 g ≈ {gels.gPerHour} g pro Stunde, jedes Gel mit Wasser an der nächsten Verpflegungsstelle.
             </p>
           </Card>
         </div>
 
-        {RACE.gpxPath && <div className="min-w-0 lg:col-span-12">
+        {RACE.gpxPath && <div className="min-w-0 max-lg:order-5 lg:col-span-12">
           <CourseMap race={RACE} course={course ?? null} status={courseLoading ? 'loading' : course ? 'ready' : 'missing'} />
         </div>}
       </div>
@@ -209,13 +208,11 @@ function RaceDayTools() {
   )
 }
 
-const kmDe = (km: number) => km.toLocaleString('de-DE', { maximumFractionDigits: 1 })
-
 function Row({ big, text }: { big: string; text: string }) {
   return (
     <div className="flex items-baseline gap-3 border-t border-border py-2 first:border-t-0">
-      <span className="w-16 shrink-0 text-xl font-semibold tabular-nums">{big}</span>
-      <span className="text-sm">{text}</span>
+      <span className="w-16 shrink-0 text-title-sm tabular-nums">{big}</span>
+      <span className="min-w-0 text-body-sm">{text}</span>
     </div>
   )
 }

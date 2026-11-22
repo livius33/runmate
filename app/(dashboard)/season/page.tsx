@@ -9,11 +9,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Flag, Pencil, Plus } from 'lucide-react'
 import { useToday } from '@/lib/use-today'
 import { cn } from '@/lib/utils'
-import { Card, Pill } from '@/components/plan/ui'
+import { Button, Card, Chip, Input, Inset } from '@/components/ui'
 import { PlanAction, PlanStatePill, usePlanStatus } from '@/components/plan/NextPlan'
 import type { GoalPlanStatus } from '@/lib/plan/draft-store'
 import { blockFor, blocks } from '@/lib/plan/blocks'
-import { fmtPace } from '@/lib/plan/format'
+import { fmtKm, fmtPace } from '@/lib/plan/format'
 import { ROLE_LABEL, defaultRole, eventBlock, eventEffect, eventError, eventRules, eventWarning, roleOf } from '@/lib/plan/events'
 import {
   DEFAULT_PRIORITY, KINDS, KIND_LABEL, PRIORITY_LABEL, allGoals, clockText, distanceOf, goalText, isShort, parseClock,
@@ -79,33 +79,41 @@ export default function SeasonPage() {
   )
   const items = seasonTimeline(goals, today)
 
+  // Layout (12-02): title row full width. From lg up the timeline takes the wide left column (8 / 12) and the base
+  // block card sits beside it at its natural height; on phones the base block follows the timeline as before.
   return (
-    <div className="flex flex-col gap-5 pb-10 max-w-3xl">
+    <div className="flex flex-col gap-4 pb-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-[28px] font-semibold tracking-tight">Saison</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+        <div className="min-w-0 max-w-3xl">
+          <h1 className="text-title sm:text-display">Saison</h1>
+          <p className="mt-1.5 text-body-sm text-muted-foreground">
             Deine Rennen und Läufe. Hauptrennen bekommen einen Aufbaublock, Nebenrennen und Läufe stehen im Block, in den sie fallen.
           </p>
         </div>
         {edit?.mode !== 'new' && (
-          <button onClick={() => open({ mode: 'new' })} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">
-            <Plus className="h-4 w-4" /> Rennen oder Lauf hinzufügen
-          </button>
+          <Button variant="primary" onClick={() => open({ mode: 'new' })}>
+            <Plus /> Rennen oder Lauf hinzufügen
+          </Button>
         )}
       </div>
 
-      {edit?.mode === 'new' && (
-        <Card title="Neues Rennen oder neuer Lauf"><GoalForm {...formProps} /></Card>
-      )}
+      <div className="grid items-start gap-4 lg:grid-cols-12">
+        <div className="flex min-w-0 flex-col gap-3 lg:col-span-8">
+          {edit?.mode === 'new' && (
+            <Card title="Neues Rennen oder neuer Lauf"><GoalForm {...formProps} /></Card>
+          )}
 
-      <ol className="flex flex-col gap-3">
-        {items.map((item) => item.type === 'goal'
-          ? <li key={item.goal.id}>{card(item)}</li>
-          : <li key={`${item.from.id}-${item.to.id}`}><BlockRow item={item} card={card} /></li>)}
-      </ol>
+          <ol className="flex flex-col gap-3">
+            {items.map((item) => item.type === 'goal'
+              ? <li key={item.goal.id}>{card(item)}</li>
+              : <li key={`${item.from.id}-${item.to.id}`}><BlockRow item={item} card={card} /></li>)}
+          </ol>
+        </div>
 
-      <BaseBlockCard onChange={() => { qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'season' && q.queryKey[0] !== 'base-block' }); router.refresh() }} />
+        <div className="min-w-0 lg:col-span-4">
+          <BaseBlockCard onChange={() => { qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'season' && q.queryKey[0] !== 'base-block' }); router.refresh() }} />
+        </div>
+      </div>
     </div>
   )
 }
@@ -130,31 +138,29 @@ function BaseBlockCard({ onChange }: { onChange: () => void }) {
   const capText = cap ?? (st.capKm != null ? String(st.capKm) : '')
   return (
     <Card title="Grundlage zwischen den Blöcken" aside={
-      <button onClick={() => put.mutate({ paused: !st.paused })} disabled={put.isPending}
-        className="tap rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-secondary disabled:opacity-50">{st.paused ? 'Fortsetzen' : 'Pausieren'}</button>}>
-      <div className="grid gap-3 text-sm">
+      <Button size="sm" onClick={() => put.mutate({ paused: !st.paused })} disabled={put.isPending}>{st.paused ? 'Fortsetzen' : 'Pausieren'}</Button>}>
+      <div className="grid gap-3 text-body-sm">
         <p className="text-muted-foreground">{st.paused
           ? 'Pausiert: zwischen den Blöcken steht kein Plan.'
           : 'Wo kein Zielblock plant, plant Runmate Grundlage: Umfang der letzten Wochen, höchstens 5 % mehr pro Woche bis zu deinem gehaltenen Umfang, eine Schlüsseleinheit, jede vierte Woche leichter. Immer 4 Wochen voraus.'}</p>
         {!st.paused && (weeks.length ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
             {weeks.map((w) => (
-              <div key={w.start} className={cn('rounded-xl border px-3 py-2', w.cutback ? 'border-border bg-secondary/40' : 'border-border')}>
-                <div className="flex items-baseline justify-between gap-2"><span className="font-medium tabular-nums">KW {w.kw}</span><span className="tabular-nums">{String(w.km).replace('.', ',')} km</span></div>
-                <div className="text-xs text-muted-foreground">{w.cutback ? 'leichtere Woche' : w.focus.replace(/ \([^)]*\)$/, '')}</div>
+              <div key={w.start} className={cn('rounded-card px-3 py-2', w.cutback ? 'bg-secondary' : 'shadow-hairline')}>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-2"><span className="font-medium tabular-nums">KW {w.kw}</span><span className="tabular-nums">{fmtKm(w.km)} km</span></div>
+                <div className="text-caption text-muted-foreground">{w.cutback ? 'leichtere Woche' : w.focus.replace(/ \([^)]*\)$/, '')}</div>
               </div>
             ))}
           </div>
-        ) : <p className="text-xs text-muted-foreground">Gerade keine Lücke: die Zielblöcke schließen aneinander an.</p>)}
+        ) : <p className="text-caption text-muted-foreground">Gerade keine Lücke: die Zielblöcke schließen aneinander an.</p>)}
         <label className="flex flex-wrap items-center gap-2">
           <span className="text-muted-foreground">Höchstens</span>
-          <input inputMode="numeric" value={capText} onChange={(e) => setCap(e.target.value)} placeholder="gehaltener Umfang"
-            className="w-36 rounded-lg border border-border bg-background px-2.5 py-1.5 tabular-nums" />
-          <span className="text-xs text-muted-foreground">km pro Woche</span>
-          <button onClick={() => put.mutate({ capKm: capText.trim() ? Number(capText.trim().replace(',', '.')) : null })} disabled={cap == null || put.isPending}
-            className="tap rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background disabled:opacity-40">Speichern</button>
+          <Input inputMode="numeric" value={capText} onChange={(e) => setCap(e.target.value)} placeholder="gehaltener Umfang"
+            className="w-36 tabular-nums" />
+          <span className="text-caption text-muted-foreground">km pro Woche</span>
+          <Button size="action" onClick={() => put.mutate({ capKm: capText.trim() ? Number(capText.trim().replace(',', '.')) : null })} disabled={cap == null || put.isPending}>Speichern</Button>
         </label>
-        {put.isError && <p className="text-xs text-brand">{(put.error as Error).message}</p>}
+        {put.isError && <p className="text-caption text-error">{(put.error as Error).message}</p>}
       </div>
     </Card>
   )
@@ -175,36 +181,34 @@ function GoalCard({ item, plan, editing, onEdit, form }: { item: GoalItem; plan?
   const block = eventBlock(g, blocks())
   const role = block && !eventError(g, block) ? roleOf(g, block) : null
   return (
-    <Card className={cn(item.current && 'border-brand/40 ring-1 ring-brand/20', minor && 'p-3 sm:p-4')}>
+    <Card className={cn(item.current && 'border-l-4 border-l-brand', minor && 'p-3 sm:p-4')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Flag className={cn('h-4 w-4', minor ? 'text-muted-foreground' : 'text-brand')} />
-            <h2 className={cn('font-semibold tracking-tight', minor ? 'text-sm' : 'text-[15px]')}>{g.name}</h2>
-            <Pill className="text-muted-foreground">{KIND_LABEL[g.kind]}</Pill>
-            {minor && <Pill className="text-muted-foreground">{PRIORITY_LABEL.B}</Pill>}
-            {role && <Pill className="border-brand/20 bg-brand-soft text-brand">{ROLE_LABEL[role]}</Pill>}
-            {item.current && <Pill className="border-brand/20 bg-brand-soft text-brand font-medium">Jetzt</Pill>}
+            <Flag className={cn('h-4 w-4 shrink-0', minor ? 'text-muted-foreground' : 'text-brand')} />
+            <h2 className={cn('min-w-0 font-semibold', minor ? 'text-body-sm' : 'text-body')}>{g.name}</h2>
+            <Chip>{KIND_LABEL[g.kind]}</Chip>
+            {minor && <Chip>{PRIORITY_LABEL.B}</Chip>}
+            {role && <Chip tone="brand">{ROLE_LABEL[role]}</Chip>}
+            {item.current && <Chip tone="brand">Jetzt</Chip>}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-body-sm">
             <span>{dateLabel(g.date)}</span>
-            <Pill className={g.confirmed ? 'border-teal/20 bg-teal-soft text-teal' : 'border-amber-200 bg-amber-50 text-amber-700'}>
-              {g.confirmed ? 'bestätigt' : 'Platzhalter'}
-            </Pill>
+            <Chip tone={g.confirmed ? 'teal' : 'warning'}>{g.confirmed ? 'bestätigt' : 'Platzhalter'}</Chip>
           </div>
-          <div className="mt-1.5 text-sm text-muted-foreground">
+          <div className="mt-1.5 text-body-sm text-muted-foreground">
             Ziel <b className="font-medium text-foreground tabular-nums">{goalText(g)}</b>
             {g.kind === 'backyard' && <span> · Runden à 6,706 km, jede volle Stunde</span>}
           </div>
         </div>
-        <div className="text-right">
-          <div className={cn('font-semibold tabular-nums tracking-tight', minor ? 'text-base' : 'text-xl')}>{countdown(item.daysLeft)}</div>
+        <div className="ml-auto text-right">
+          <div className={cn('font-semibold tabular-nums', minor ? 'text-body' : 'text-title-sm')}>{countdown(item.daysLeft)}</div>
           {g.fromPlan && g.priority === 'A'
-            ? <Link href="/race" className="mt-1 inline-block text-xs font-medium text-brand hover:underline">Renntag →</Link>
+            ? <Link href="/race" className="tap mt-1 inline-block text-caption font-medium text-brand-text hover:underline">Renntag →</Link>
             : g.fromPlan
-              ? <span className="mt-1 inline-block text-xs text-muted-foreground">im Trainingsplan</span>
+              ? <span className="mt-1 inline-block text-caption text-muted-foreground">im Trainingsplan</span>
               : !editing && !item.done && (
-                  <button onClick={onEdit} className="tap mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline">
+                  <button onClick={onEdit} className="tap mt-1 inline-flex items-center gap-1 text-caption font-medium text-brand-text hover:underline">
                     <Pencil className="h-3 w-3" /> Bearbeiten
                   </button>
                 )}
@@ -212,7 +216,7 @@ function GoalCard({ item, plan, editing, onEdit, form }: { item: GoalItem; plan?
       </div>
       {plan && ['marathon', 'half', '10k'].includes(g.kind) && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">Trainingsplan <PlanStatePill state={plan.state} /></span>
+          <span className="flex items-center gap-2 text-caption text-muted-foreground">Trainingsplan <PlanStatePill state={plan.state} /></span>
           <PlanAction status={plan} />
         </div>
       )}
@@ -283,81 +287,83 @@ function GoalForm({ goal, onCancel, onSave, onDelete, busy, error, today }: Form
     })
   }
 
-  const input = 'mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30'
+  // Labels wrap their control (no ids needed); the select copies the Input look, there is no Select primitive yet.
+  const field = 'grid gap-1.5 text-body-sm font-medium'
+  const select = 'h-10 w-full rounded-control bg-card px-3 text-body-sm font-normal text-foreground shadow-hairline outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring'
   return (
     <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-      <label className="text-xs text-muted-foreground">Art
-        <select className={input} value={kind} onChange={(e) => changeKind(e.target.value as GoalKind)}>
+      <label className={field}>Art
+        <select className={select} value={kind} onChange={(e) => changeKind(e.target.value as GoalKind)}>
           {KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
         </select>
       </label>
-      <label className="text-xs text-muted-foreground">Bedeutung
-        <select className={input} value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
+      <label className={field}>Bedeutung
+        <select className={select} value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
           {(['A', 'B'] as const).map((p) => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
         </select>
       </label>
-      <label className="text-xs text-muted-foreground">Name
-        <input className={input} value={name} maxLength={40} placeholder={KIND_LABEL[kind]} onChange={(e) => setName(e.target.value)} />
+      <label className={field}>Name
+        <Input className="font-normal" value={name} maxLength={40} placeholder={KIND_LABEL[kind]} onChange={(e) => setName(e.target.value)} />
       </label>
-      <label className="text-xs text-muted-foreground">Datum
-        <input type="date" className={input} value={date} onChange={(e) => setDate(e.target.value)} />
+      <label className={field}>Datum
+        <Input type="date" className="font-normal" value={date} onChange={(e) => setDate(e.target.value)} />
       </label>
       {kind === 'other' && (
-        <label className="text-xs text-muted-foreground">Strecke in km
-          <input className={cn(input, 'tabular-nums')} inputMode="decimal" placeholder="z. B. 15" value={distance} onChange={(e) => setDistance(e.target.value)} />
+        <label className={field}>Strecke in km
+          <Input className="font-normal tabular-nums" inputMode="decimal" placeholder="z. B. 15" value={distance} onChange={(e) => setDistance(e.target.value)} />
         </label>
       )}
-      <label className="text-xs text-muted-foreground">
+      <label className={field}>
         {backyard ? 'Ziel: Runden (leer = offen)' : `Zielzeit ${isShort(kind) ? 'mm:ss' : 'h:mm:ss'} (leer = offen)`}
-        <input className={cn(input, 'tabular-nums')} inputMode={backyard ? 'numeric' : 'text'}
+        <Input className="font-normal tabular-nums" inputMode={backyard ? 'numeric' : 'text'}
           placeholder={backyard ? 'z. B. 24' : isShort(kind) ? 'z. B. 38:30' : 'z. B. 1:24:30'} value={target} onChange={(e) => setTarget(e.target.value)} />
       </label>
-      <label className="flex items-center gap-2 self-end pb-2 text-sm">
+      <label className="flex min-h-10 items-center gap-2 self-end text-body-sm">
         <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="h-4 w-4 accent-[hsl(var(--brand))]" />
         Gebucht (bestätigt)
       </label>
       {block && (
-        <div className="sm:col-span-2 grid gap-3 rounded-lg border border-border bg-muted/40 p-3 sm:grid-cols-2">
-          <label className="text-xs text-muted-foreground">Rolle im Plan ({block.race.name})
-            <select className={input} value={role} onChange={(e) => setRole(e.target.value as EventRole | '')}>
+        <Inset className="grid gap-3 p-3 sm:col-span-2 sm:grid-cols-2">
+          <label className={field}>Rolle im Plan ({block.race.name})
+            <select className={select} value={role} onChange={(e) => setRole(e.target.value as EventRole | '')}>
               <option value="">Vorschlag: {ROLE_LABEL[suggested!]}</option>
               {(['test', 'build', 'fun'] as const).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
             </select>
           </label>
           {chosen === 'test' && (
-            <label className="text-xs text-muted-foreground">Testtempo /km (leer = Zieltempo {goalPace})
-              <input className={cn(input, 'tabular-nums')} placeholder={goalPace} value={pace} onChange={(e) => setPace(e.target.value)} />
+            <label className={field}>Testtempo /km (leer = Zieltempo {goalPace})
+              <Input className="font-normal tabular-nums" placeholder={goalPace} value={pace} onChange={(e) => setPace(e.target.value)} />
             </label>
           )}
-          <p className="sm:col-span-2 text-xs text-muted-foreground">
+          <p className="text-caption text-muted-foreground sm:col-span-2">
             {blockError ?? (km ? eventEffect(chosen!, km, eventRules(block)) : 'Für die Planung braucht das Rennen eine Strecke.')}
           </p>
           {warning && !blockError && (
-            <p className="sm:col-span-2 flex items-center gap-1.5 text-xs text-amber-700"><AlertTriangle className="h-3.5 w-3.5 shrink-0" />{warning}</p>
+            <p className="flex items-center gap-1.5 text-caption text-warning sm:col-span-2"><AlertTriangle className="h-3.5 w-3.5 shrink-0" />{warning}</p>
           )}
-        </div>
+        </Inset>
       )}
       {handWritten && (
-        <p className="sm:col-span-2 text-xs text-muted-foreground">{fixedBlock!.race.shortName}-Block bleibt unverändert: das Rennen steht nur hier in der Saison, nicht im Plan.</p>
+        <p className="text-caption text-muted-foreground sm:col-span-2">{fixedBlock!.race.shortName}-Block bleibt unverändert: das Rennen steht nur hier in der Saison, nicht im Plan.</p>
       )}
       {priority === 'A' && (
-        <p className="sm:col-span-2 text-xs text-muted-foreground">Hauptrennen bekommen einen eigenen Aufbaublock.</p>
+        <p className="text-caption text-muted-foreground sm:col-span-2">Hauptrennen bekommen einen eigenen Aufbaublock.</p>
       )}
       {(local ?? error) && (
-        <p className="sm:col-span-2 flex items-center gap-1.5 text-sm text-brand"><AlertTriangle className="h-4 w-4 shrink-0" />{local ?? error}</p>
+        <p className="flex items-center gap-1.5 text-body-sm text-error sm:col-span-2"><AlertTriangle className="h-4 w-4 shrink-0" />{local ?? error}</p>
       )}
-      <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={busy} className="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white disabled:opacity-60">
+      <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+        <Button type="submit" variant="primary" disabled={busy}>
           {busy ? 'Speichert …' : goal ? 'Speichern' : 'Hinzufügen'}
-        </button>
-        <button type="button" onClick={onCancel} className="rounded-lg border border-border px-3.5 py-2 text-sm">Abbrechen</button>
+        </Button>
+        <Button onClick={onCancel}>Abbrechen</Button>
         {goal && (confirmDelete
-          ? <span className="ml-auto flex items-center gap-2 text-sm">
+          ? <span className="ml-auto flex flex-wrap items-center gap-2 text-body-sm">
               Wirklich löschen?
-              <button type="button" disabled={busy} onClick={() => onDelete(goal.id)} className="rounded-lg bg-brand px-3 py-1.5 text-white disabled:opacity-60">Ja, löschen</button>
-              <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-lg border border-border px-3 py-1.5">Nein</button>
+              <Button variant="destructive" size="sm" disabled={busy} onClick={() => onDelete(goal.id)}>Ja, löschen</Button>
+              <Button size="sm" onClick={() => setConfirmDelete(false)}>Nein</Button>
             </span>
-          : <button type="button" onClick={() => setConfirmDelete(true)} className="ml-auto text-sm text-muted-foreground hover:text-brand">Löschen</button>)}
+          : <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} className="ml-auto">Löschen</Button>)}
       </div>
     </form>
   )
@@ -365,16 +371,16 @@ function GoalForm({ goal, onCancel, onSave, onDelete, busy, error, today }: Form
 
 function BlockRow({ item, card }: { item: BlockItem; card: (g: GoalItem) => React.ReactNode }) {
   return (
-    <div className={cn('ml-5 border-l-2 pl-5 py-2 text-sm', item.current ? 'border-brand' : 'border-border')}>
+    <div className={cn('ml-5 border-l-2 py-2 pl-5 text-body-sm', item.current ? 'border-brand' : 'border-border')}>
       <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
-        {item.current && <Pill className="border-brand/20 bg-brand-soft text-brand font-medium">Jetzt</Pill>}
+        {item.current && <Chip tone="brand">Jetzt</Chip>}
         <span>Erholung bis {shortDate(item.recoveryEnd)}</span>
         <span>·</span>
         <span className="font-medium text-foreground">{item.buildWeeks} Wochen Aufbau</span>
         <span>bis {item.to.name}</span>
       </div>
       {item.short && (
-        <p className="mt-1 flex items-center gap-1.5 text-amber-700">
+        <p className="mt-1 flex items-center gap-1.5 text-warning">
           <AlertTriangle className="h-4 w-4 shrink-0" /> Kurzer Aufbau für {KIND_LABEL[item.to.kind]}: lieber ein späteres Rennen wählen.
         </p>
       )}
