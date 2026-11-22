@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useAppHref } from '@/components/AppBase'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { cn } from '@/lib/utils'
+import { Inset } from '@/components/ui/card'
+import { ChipButton } from '@/components/ui/chip'
 import { fmtNum, fmtPace, percentile } from './format'
 
 export interface SimilarRun { id: string; date: string; km: number; paceS: number | null; hr: number | null; effMpb: number | null }
@@ -30,7 +31,7 @@ export function Comparison({ runId, runType, km, similar }: { runId: string; run
   const pts = similar.filter((s) => s[metric] != null).map((s) => ({ ...s, t: parseISO(s.date).getTime(), v: s[metric] as number }))
   const me = pts.find((p) => p.id === runId)
   if (pts.length < 3 || !me) {
-    return <p className="text-sm text-muted-foreground">Noch zu wenige vergleichbare Läufe ({runType}, {fmtNum(km * 0.8, 0)}–{fmtNum(km * 1.2, 0)} km) für einen Vergleich.</p>
+    return <p className="text-body-sm text-muted-foreground">Noch zu wenige vergleichbare Läufe ({runType}, {fmtNum(km * 0.8, 0)}–{fmtNum(km * 1.2, 0)} km) für einen Vergleich.</p>
   }
 
   const t0 = Math.min(...pts.map((p) => p.t)) - 20 * DAY, t1 = Math.max(...pts.map((p) => p.t)) + 20 * DAY
@@ -66,20 +67,17 @@ export function Comparison({ runId, runType, km, similar }: { runId: string; run
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-1.5" role="group" aria-label="Kennzahl">
           {METRICS.map((m) => (
-            <button key={m.key} aria-pressed={metric === m.key} onClick={() => setMetric(m.key)}
-              className={cn('rounded-full border px-3 py-1 text-xs', metric === m.key ? 'border-foreground bg-foreground text-background' : 'border-border text-muted-foreground hover:text-foreground')}>
-              {m.label}
-            </button>
+            <ChipButton key={m.key} selected={metric === m.key} onClick={() => setMetric(m.key)}>{m.label}</ChipButton>
           ))}
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />andere {runType}-Läufe</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-brand" />dieser Lauf</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3.5 bg-teal" />Trend 12 Monate</span>
         </div>
       </div>
 
-      <div className="min-h-[18px] text-xs text-muted-foreground tabular-nums">
+      <div className="min-h-[18px] text-caption text-muted-foreground tabular-nums">
         {hover ? <>{format(parseISO(hover.date), 'd. MMM yyyy', { locale: de })} · {fmtNum(hover.km, 1)} km · {fmtPace(hover.paceS)} /km · HF {hover.hr ?? '–'} · {hover.effMpb != null ? fmtNum(hover.effMpb, 2) : '–'} m/Schlag · Klick öffnet den Lauf</>
           : `Oben ist besser. ${pts.length} ${runType}-Läufe mit ${fmtNum(km * 0.8, 0)}–${fmtNum(km * 1.2, 0)} km.`}
       </div>
@@ -107,11 +105,11 @@ export function Comparison({ runId, runType, km, similar }: { runId: string; run
           onPointerEnter={() => setHover(me)} onPointerLeave={() => setHover(null)} />
       </svg>
 
-      <p className="rounded-xl bg-secondary/60 px-3.5 py-2.5 text-sm">
+      <Inset className="text-body-sm tabular-nums">
         {M.label}: <b>{M.fmt(me.v)} {M.unit}</b>, Platz <b>{rank} von {pts.length}</b> (Mittel {M.fmt(median)}).
         {' '}{betterThanTrend ? 'Besser' : 'Schwächer'} als dein Trend zu diesem Zeitpunkt
         {tr === recent && Math.abs(perMonth) > 0 && <> · Trend: {M.better === 'up' ? (perMonth > 0 ? 'steigend' : 'fallend') : (perMonth < 0 ? 'besser werdend' : 'schlechter werdend')}</>}.
-      </p>
+      </Inset>
     </div>
   )
 }

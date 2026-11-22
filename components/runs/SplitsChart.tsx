@@ -9,7 +9,7 @@ const W = 640, H = 190, L = 44, R = 8, T = 12, B = 24
 export function SplitsChart({ splits }: { splits: Split[] }) {
   const [hover, setHover] = useState<number | null>(null)
   const [table, setTable] = useState(false)
-  if (!splits.length) return <p className="text-sm text-muted-foreground">Keine Kilometerzeiten für diesen Lauf.</p>
+  if (!splits.length) return <p className="text-body-sm text-muted-foreground">Keine Kilometerzeiten für diesen Lauf.</p>
 
   const full = splits.filter((s) => s.distM >= 900)
   const paces = full.map((s) => s.paceS)
@@ -25,7 +25,7 @@ export function SplitsChart({ splits }: { splits: Split[] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="min-h-[18px] text-xs text-muted-foreground tabular-nums">
+      <div className="min-h-[18px] text-caption text-muted-foreground tabular-nums">
         {h ? <>km <b className="text-foreground">{h.km}</b>{h.distM < 990 ? ` (${h.distM} m)` : ''} · <b className="text-foreground">{fmtPace(h.paceS)}</b> /km · HF <b className="text-foreground">{h.hr ?? '–'}</b>{h.cadence ? ` · Kadenz ${h.cadence}` : ''}{h.gainM ? ` · +${h.gainM} m` : ''}</>
           : <>Schnellster km <b className="text-foreground">{fmtPace(fastest)}</b> · langsamster <b className="text-foreground">{fmtPace(slowest)}</b> · Ø {fmtPace(avg)}</>}
       </div>
@@ -53,13 +53,13 @@ export function SplitsChart({ splits }: { splits: Split[] }) {
         })}
         <line x1={L} x2={W - R} y1={y(avg)} y2={y(avg)} stroke="hsl(var(--foreground))" strokeDasharray="4 3" />
       </svg>
-      <button onClick={() => setTable(!table)} className="self-start text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
+      <button onClick={() => setTable(!table)} className="tap self-start text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground">
         {table ? 'Tabelle ausblenden' : 'Als Tabelle anzeigen'}
       </button>
       {table && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] text-sm tabular-nums">
-            <thead><tr className="text-left text-xs text-muted-foreground border-b border-border">
+          <table className="w-full text-body-sm tabular-nums">
+            <thead><tr className="border-b border-border text-left text-caption text-muted-foreground">
               <th className="py-1.5 pr-3 font-medium">km</th><th className="py-1.5 pr-3 font-medium">Pace</th><th className="py-1.5 pr-3 font-medium">Ø HF</th>
               <th className="py-1.5 pr-3 font-medium">Kadenz</th><th className="py-1.5 font-medium">Anstieg</th>
             </tr></thead>

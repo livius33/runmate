@@ -56,9 +56,9 @@ export function RunMap({ route }: { route: RoutePoint[] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div ref={el} className="h-[300px] sm:h-[360px] rounded-xl overflow-hidden border border-border z-0" />
+      <div ref={el} className="z-0 h-[300px] overflow-hidden rounded-card shadow-hairline sm:h-[360px]" />
       {bands && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground tabular-nums">
           {[`schneller als ${fmtPace(bands[0])}`, `${fmtPace(bands[0])}–${fmtPace(bands[1])}`, `${fmtPace(bands[1])}–${fmtPace(bands[2])}`, `langsamer als ${fmtPace(bands[2])}`]
             .map((label, i) => (
               <span key={label} className="inline-flex items-center gap-1.5">

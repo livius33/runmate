@@ -64,12 +64,12 @@ export function StreamCharts({ points }: { points: StreamPoint[] }) {
     setCursor(Math.max(0, Math.min(maxKm, ((p.x - L) / (W - L - R)) * maxKm)))
   }
 
-  if (!data.length) return <p className="text-sm text-muted-foreground">Für diesen Lauf gibt es keine Verlaufsdaten.</p>
+  if (!data.length) return <p className="text-body-sm text-muted-foreground">Für diesen Lauf gibt es keine Verlaufsdaten.</p>
   const cur = idx != null ? data[idx] : null
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="min-h-[18px] text-xs text-muted-foreground tabular-nums">
+      <div className="min-h-[18px] text-caption text-muted-foreground tabular-nums">
         {cur ? (
           <>km <b className="text-foreground">{fmtNum(cur.km, 1)}</b> · Pace <b className="text-foreground">{fmtPace(cur.pace)}</b> /km
             · HF <b className="text-foreground">{cur.hr ?? '–'}</b> · Höhe <b className="text-foreground">{cur.alt != null ? fmtNum(cur.alt) : '–'} m</b>

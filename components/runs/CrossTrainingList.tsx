@@ -7,6 +7,7 @@ import { Plus } from 'lucide-react'
 import type { CrossSummary } from '@/lib/analytics/cross-view'
 import { CROSS_LOAD_FROM } from '@/lib/analytics/load'
 import { CrossEntryForm, RpeChips, SportPill, useCrossMutations } from '@/components/plan/CrossTrainingLog'
+import { Button } from '@/components/ui/button'
 import { fmtNum } from './format'
 
 const PAGE = 50
@@ -19,29 +20,28 @@ export function CrossTrainingList({ rows, today }: { rows: CrossSummary[]; today
   const [shown, setShown] = useState(PAGE)
   const rpe = (r: CrossSummary) => <RpeChips value={r.rpe} onChange={(v) => setRpe.mutate({ id: r.id, rpe: v })} disabled={setRpe.isPending} />
   const del = (r: CrossSummary) => r.manual && (
-    <button type="button" onClick={() => remove.mutate(r.id)} className="text-[11px] text-muted-foreground hover:text-brand">Löschen</button>
+    <button type="button" onClick={() => remove.mutate(r.id)} className="tap text-caption text-muted-foreground hover:text-error">Löschen</button>
   )
 
   return (
     <>
       {adding
         ? <CrossEntryForm date={today} onDone={() => setAdding(false)} onCancel={() => setAdding(false)} />
-        : <button type="button" onClick={() => setAdding(true)}
-            className="tap inline-flex w-fit items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-secondary">
-            <Plus className="h-3.5 w-3.5" /> Einheit eintragen
-          </button>}
+        : <Button size="action" onClick={() => setAdding(true)} className="w-fit">
+            <Plus /> Einheit eintragen
+          </Button>}
 
       {/* Phones: one card per session */}
       <ul className="flex flex-col gap-2 md:hidden">
-        {!rows.length && <li className="text-sm text-muted-foreground">Noch keine Einheiten.</li>}
+        {!rows.length && <li className="text-body-sm text-muted-foreground">Noch keine Einheiten.</li>}
         {rows.slice(0, shown).map((r) => (
-          <li key={r.id} className="rounded-xl border border-border bg-card px-3.5 py-3 tabular-nums">
+          <li key={r.id} className="rounded-card bg-card px-4 py-3 shadow-raised tabular-nums">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium">{fmtDate(r.date)}</span>
+              <span className="min-w-0 text-body-sm font-medium">{fmtDate(r.date)}</span>
               <SportPill type={r.type} />
             </div>
-            <div className="mt-1 text-sm">{r.name}</div>
-            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <div className="mt-1 break-words text-body-sm">{r.name}</div>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-body-sm">
               <span className="font-semibold">{r.minutes} Min.</span>
               {r.km != null && <span>{fmtNum(r.km, 1)} km</span>}
               <span className="text-muted-foreground">HF {r.hr ?? '–'}</span>
@@ -52,10 +52,10 @@ export function CrossTrainingList({ rows, today }: { rows: CrossSummary[]; today
         ))}
       </ul>
 
-      <div className="hidden rounded-2xl border border-border bg-card overflow-x-auto md:block">
-        <table className="w-full min-w-[760px] text-sm">
+      <div className="hidden overflow-x-auto rounded-card bg-card shadow-raised md:block">
+        <table className="w-full min-w-[760px] text-body-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+            <tr className="border-b border-border text-left text-caption text-muted-foreground">
               {['Datum', 'Sport', 'Name', 'Dauer', 'Distanz', 'Ø HF', 'RPE', 'Belastung', ''].map((h, i) => (
                 <th key={h || i} className={`px-3 py-2.5 font-medium whitespace-nowrap ${i >= 3 && i <= 5 || i === 7 ? 'text-right' : ''}`}>{h}</th>
               ))}
@@ -81,12 +81,11 @@ export function CrossTrainingList({ rows, today }: { rows: CrossSummary[]; today
       </div>
 
       {rows.length > shown && (
-        <button onClick={() => setShown(shown + PAGE)}
-          className="self-center rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-secondary">
+        <Button onClick={() => setShown(shown + PAGE)} className="self-center">
           Weitere {Math.min(PAGE, rows.length - shown)} von {rows.length - shown} anzeigen
-        </button>
+        </Button>
       )}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-caption text-muted-foreground">
         Belastung in TRIMP wie bei den Läufen: Kraft und Schwimmen aus Minuten × RPE, Rad und Gym aus dem Puls (ohne Puls aus Minuten × RPE).
         Zählt in Fitness und Form ab dem {format(parseISO(CROSS_LOAD_FROM), 'd.M.yyyy')}, nie in den Lauf-km.
       </p>

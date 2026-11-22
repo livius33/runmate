@@ -1,22 +1,22 @@
 import { AlertTriangle, Check, X } from 'lucide-react'
 import type { InsightLine, InsightTone } from '@/lib/insights/run'
 import { cn } from '@/lib/utils'
-import { Panel } from './format'
+import { Card } from '@/components/ui/card'
 
 const ICON: Record<InsightTone, { icon: typeof Check; tone: string }> = {
   ok: { icon: Check, tone: 'text-teal' },
-  warn: { icon: AlertTriangle, tone: 'text-amber-700' },
+  warn: { icon: AlertTriangle, tone: 'text-warning' },
   bad: { icon: X, tone: 'text-brand' },
 }
 
 // The run in a few rated sentences: plan, intensity, drift, comparison.
-export function RunInsights({ lines, hasMetrics }: { lines: InsightLine[]; hasMetrics: boolean }) {
+export function RunInsights({ lines, hasMetrics, className }: { lines: InsightLine[]; hasMetrics: boolean; className?: string }) {
   return (
-    <Panel title="Fazit" className="border-l-4 border-l-brand">
+    <Card title="Fazit" className={className}>
       {!hasMetrics ? (
-        <p className="text-sm text-muted-foreground">Noch keine Detaildaten, erneut synchronisieren.</p>
+        <p className="text-body-sm text-muted-foreground">Noch keine Detaildaten, erneut synchronisieren.</p>
       ) : (
-        <ul className="grid gap-2 text-sm">
+        <ul className="grid gap-2 text-body-sm">
           {lines.map((l) => {
             const { icon: Icon, tone } = ICON[l.tone]
             return (
@@ -28,6 +28,6 @@ export function RunInsights({ lines, hasMetrics }: { lines: InsightLine[]; hasMe
           })}
         </ul>
       )}
-    </Panel>
+    </Card>
   )
 }
