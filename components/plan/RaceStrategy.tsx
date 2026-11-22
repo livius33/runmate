@@ -39,7 +39,7 @@ export function RaceStrategy({ course, race: RACE }: { course: Course | null; ra
             {rows.map((s) => (
               <tr key={s.from} className="border-t border-border">
                 <td className="px-1 py-2.5 tabular-nums whitespace-nowrap">{fmtKm(s.from)}–{fmtKm(s.to)} km</td>
-                <td className="px-1 py-2.5 tabular-nums font-semibold text-brand whitespace-nowrap">{fmtPace(s.paceS)}/km</td>
+                <td className="px-1 py-2.5 tabular-nums font-semibold text-brand-text whitespace-nowrap">{fmtPace(s.paceS)}/km</td>
                 <td className="px-1 py-2.5 tabular-nums text-muted-foreground">{fmtClock(s.at, true)}</td>
                 <td className="px-1 py-2.5 tabular-nums">{s.hrCap ?? '—'}</td>
                 <td className="px-1 py-2.5 text-muted-foreground">{s.focus}</td>

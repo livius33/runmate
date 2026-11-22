@@ -50,7 +50,7 @@ export function RunFeedback({ id, value, onSaved, title = 'Wie war’s?', classN
         <span className="text-body-sm font-medium">{title}</span>
         {m.isPending ? <span className="text-caption text-muted-foreground">Speichert…</span>
           : m.isError ? <span className="inline-flex items-center gap-1 text-caption text-error"><AlertTriangle className="h-3.5 w-3.5" />{(m.error as Error).message}</span>
-          : m.isSuccess ? <span className="inline-flex items-center gap-1 text-caption text-teal"><Check className="h-3.5 w-3.5" />Gespeichert</span> : null}
+          : m.isSuccess ? <span className="inline-flex items-center gap-1 text-caption text-teal-text"><Check className="h-3.5 w-3.5 text-teal" />Gespeichert</span> : null}
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-caption">
         <label className="flex flex-wrap items-center gap-1.5">

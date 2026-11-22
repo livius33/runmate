@@ -146,7 +146,7 @@ export default function AnalysePage() {
               return (
                 <Card key={t.label} as="div" className="sm:p-4">
                   <Figure size="lg" label={t.label} value={t.value} sub={
-                    <span className={cn(d == null || d === 0 ? undefined : d > 0 ? 'text-teal' : 'text-brand')}>
+                    <span className={cn(d == null || d === 0 ? undefined : d > 0 ? 'text-teal-text' : 'text-brand-text')}>
                       {d == null ? (period === 'all' ? `seit ${format(parseISO(runs[0].date), 'MMMM yyyy', { locale: de })}` : 'kein Vergleich')
                         : d === 0 ? `unverändert ${P.prevLabel}` : `${d > 0 ? '▲' : '▼'} ${Math.abs(d)} % ${P.prevLabel}`}
                     </span>} />

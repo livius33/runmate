@@ -205,8 +205,8 @@ export default function PlanPage() {
           heutige Einheit und Rennbereitschaft.
         </p>
         <div className="mt-3 flex flex-wrap gap-4 text-body-sm font-medium">
-          <Link href="/season" className="text-brand hover:underline">Zur Saison →</Link>
-          <Link href="/plan/neu" className="text-brand hover:underline">Plan erstellen →</Link>
+          <Link href="/season" className="text-brand-text hover:underline">Zur Saison →</Link>
+          <Link href="/plan/neu" className="text-brand-text hover:underline">Plan erstellen →</Link>
         </div>
       </Card>
     </div>
@@ -254,7 +254,7 @@ export default function PlanPage() {
           {withCourse && <div className="min-w-0 max-lg:order-3">{afterRace
             ? <Card title={`Rennanalyse ${race.shortName}`}>
                 <p className="text-body-sm text-muted-foreground">Dein Rennen gegen den Pacing-Plan, Abschnitt für Abschnitt.</p>
-                <Link href="/race" className="mt-3 inline-block text-body-sm font-medium text-brand hover:underline">Zur Rennanalyse →</Link>
+                <Link href="/race" className="mt-3 inline-block text-body-sm font-medium text-brand-text hover:underline">Zur Rennanalyse →</Link>
               </Card>
             : <RaceStrategy race={race} course={course ?? null} />}</div>}
           {showPrediction && <div className="min-w-0 max-lg:order-8"><PredictionCard prediction={prediction} today={today} /></div>}

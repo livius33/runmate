@@ -219,7 +219,7 @@ function CrossPills({ pills = [], kb, wide, className }: { pills?: CrossPill[]; 
       )}
       {pills.map((p, i) => (
         <span key={i} title={i === doneAt ? `${KB_LABEL.done} · ${p.label}` : p.label} aria-label={i === doneAt ? `${KB_LABEL.done} · ${p.label}` : p.label}
-          className={cn(pill, i === doneAt ? 'bg-teal-soft text-teal' : 'bg-secondary text-foreground')}>
+          className={cn(pill, i === doneAt ? 'bg-teal-soft text-teal-text' : 'bg-secondary text-foreground')}>
           {p.letter}
         </span>
       ))}
@@ -250,7 +250,7 @@ function DayCell({ day, today, edited, auto, cross, kb, selected, onSelect }: {
       <span className="font-mono text-caption uppercase text-muted-foreground">{format(parseISO(day.date), 'EEEEEE', { locale: de })}</span>
       <span className="h-4 grid place-items-center">
         {mark.ran ? <RunTick diffKm={mark.diffKm} />
-          : status === 'missed' ? <span className="text-caption font-medium text-brand">offen</span>
+          : status === 'missed' ? <span className="text-caption font-medium text-brand-text">offen</span>
           : status === 'paused' ? <span className="text-caption font-medium text-warning">{day.session?.paused === 'krank' ? 'krank' : 'Pause'}</span>
           : <span className={cn('h-1.5 w-1.5 rounded-full', day.plannedKm ? 'bg-muted-foreground/40' : 'bg-transparent')} />}
       </span>
@@ -301,7 +301,7 @@ function DayPanel({ day, why, edited, today, sessions, actualKm, actual, saving,
       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground tabular-nums">
         <span>Plan {fmtKm(day.plannedKm)} km</span>
         <span>Gelaufen {fmtKm(day.actualKm)} km</span>
-        {day.openKm > 0 && <span className="font-medium text-brand">Offen {fmtKm(day.openKm)} km</span>}
+        {day.openKm > 0 && <span className="font-medium text-brand-text">Offen {fmtKm(day.openKm)} km</span>}
         {actual?.runs[0] && (
           <Link href={`/running/activities/${actual.runs[0].id}`} className="underline underline-offset-2 hover:text-foreground">Lauf ansehen</Link>
         )}
@@ -332,7 +332,7 @@ function DayPanel({ day, why, edited, today, sessions, actualKm, actual, saving,
               </button>
             ))}
           </div>
-          {kb === 'done' && <span className="font-medium text-teal">erledigt</span>}
+          {kb === 'done' && <span className="font-medium text-teal-text">erledigt</span>}
           {kb === 'skipped' && <span className="font-medium text-warning">ausgelassen</span>}
           {kb === 'optional' && <span className="text-muted-foreground">optional</span>}
           {s.strength && s.type === 'rest' && <span className="text-muted-foreground">{strengthDetail(s)}</span>}
@@ -467,7 +467,7 @@ function RunTick({ diffKm, className }: { diffKm: number | null; className?: str
     <span className={cn('inline-flex items-center gap-0.5', className)} aria-label={label}>
       <Check className="h-3.5 w-3.5 text-teal" aria-hidden />
       {diffKm != null && (
-        <span className={cn('text-caption font-medium tabular-nums', diffKm < 0 ? 'text-brand' : 'text-muted-foreground')}>
+        <span className={cn('text-caption font-medium tabular-nums', diffKm < 0 ? 'text-brand-text' : 'text-muted-foreground')}>
           {diffKm < 0 ? '−' : '+'}{fmtKm(Math.abs(diffKm))}
         </span>
       )}
@@ -511,7 +511,7 @@ function DayRow({ day, today, edited, auto, cross, kb, selected, onSelect }: {
         <span className="block text-body-sm font-medium">{day.actualKm || day.plannedKm ? `${fmtKm(day.actualKm || day.plannedKm)} km` : '–'}</span>
         <span className="block text-caption text-muted-foreground">
           {mark.ran ? <RunTick diffKm={mark.diffKm} className="justify-end" />
-            : status === 'missed' ? <span className="text-brand">offen</span>
+            : status === 'missed' ? <span className="text-brand-text">offen</span>
             : status === 'paused' ? <span className="text-warning">{session?.paused === 'krank' ? 'krank' : 'Pause'}</span>
             : ' '}
         </span>

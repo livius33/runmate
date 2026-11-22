@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 
 // A figure with its label (replaces the plan's Stat): label in caption, value in tabular figures, unit quiet.
 // `size`: md 20 px (inside cards), lg 24 px (headline figures). `tone` colours the value only.
-const TONE = { default: '', brand: 'text-brand', teal: 'text-teal', warning: 'text-warning', error: 'text-error' } as const
+const TONE = { default: '', brand: 'text-brand-text', teal: 'text-teal-text', warning: 'text-warning', error: 'text-error' } as const
 
 export function Figure({ label, value, unit, sub, tone = 'default', size = 'md', className }: {
   label: React.ReactNode

@@ -84,8 +84,8 @@ function Row({ s, c, ranOn }: { s: PlanSession; c: PaceCheck; ranOn: string | nu
         <div className="mt-0.5 text-caption text-muted-foreground">
           Ziel {fmtPace(c.targetS)} · Ist {c.actualS != null ? fmtPace(c.actualS) : '–'}
           {c.actualS != null && <> ({KIND_LABEL[c.kind]})</>}
-          {c.blockHr != null && <> · Block-HF <span className={c.blockHr >= athlete().raceHrCap ? 'text-brand' : undefined}>{c.blockHr}</span></>}
-          {c.hr && c.hr.avg != null && <> · Ø HF <span className={c.hr.avg > c.hr.cap ? 'text-brand' : undefined}>{c.hr.avg}</span> / {c.hr.cap}</>}
+          {c.blockHr != null && <> · Block-HF <span className={c.blockHr >= athlete().raceHrCap ? 'text-brand-text' : undefined}>{c.blockHr}</span></>}
+          {c.hr && c.hr.avg != null && <> · Ø HF <span className={c.hr.avg > c.hr.cap ? 'text-brand-text' : undefined}>{c.hr.avg}</span> / {c.hr.cap}</>}
           {ranOn && <> · gelaufen am {format(parseISO(ranOn), 'd.M.')}</>}
         </div>
       </div>
@@ -107,7 +107,7 @@ function Strip({ c }: { c: PaceCheck }) {
         <line x1={x(0)} x2={x(0)} y1={3} y2={H - 3} stroke="hsl(var(--muted-foreground))" />
         <circle cx={x(c.deltaS)} cy={H / 2} r={5} fill={ok ? 'hsl(var(--teal))' : 'hsl(var(--brand))'} />
       </svg>
-      <span className={cn('w-[44px] whitespace-nowrap text-right text-caption font-medium', ok ? 'text-teal' : 'text-brand')}>
+      <span className={cn('w-[44px] whitespace-nowrap text-right text-caption font-medium', ok ? 'text-teal-text' : 'text-brand-text')}>
         {c.deltaS > 0 ? '+' : c.deltaS < 0 ? '−' : '±'}{Math.abs(c.deltaS)} s
       </span>
     </span>

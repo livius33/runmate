@@ -67,7 +67,7 @@ function BaseHeader({ today }: { today: string }) {
             <Chip tone="brand">
               {next.race.shortName} ab {format(parseISO(next.planStart), 'd. MMMM', { locale: de })}
             </Chip>
-          ) : <Link href="/plan/neu" className="text-brand hover:underline">noch nicht geplant</Link>}
+          ) : <Link href="/plan/neu" className="text-brand-text hover:underline">noch nicht geplant</Link>}
         </div>
       </div>
       {next && (

@@ -61,7 +61,7 @@ export function RaceWeekCard({ today, className }: { today: string; className?: 
                 <div className="flex flex-wrap items-baseline gap-x-2 text-body-sm">
                   <span className="font-semibold tabular-nums">{format(parseISO(d.date), 'EEEEEE d.M.', { locale: de })}</span>
                   <span className={cn(isToday && 'font-medium')}>{d.title}</span>
-                  {isToday && <span className="text-caption font-medium text-brand">heute</span>}
+                  {isToday && <span className="text-caption font-medium text-brand-text">heute</span>}
                 </div>
                 {(isToday || !past) && (
                   <ul className="mt-1 grid gap-0.5 text-body-sm text-muted-foreground">
@@ -84,7 +84,7 @@ export function RaceWeekCard({ today, className }: { today: string; className?: 
                     <span className={cn('mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border', on ? 'border-teal bg-teal text-white' : due ? 'border-brand' : 'border-border')}>
                       {on && <Check className="h-3 w-3" />}
                     </span>
-                    <span className={cn(on && 'text-muted-foreground line-through', due && 'text-brand')}>
+                    <span className={cn(on && 'text-muted-foreground line-through', due && 'text-brand-text')}>
                       {c.label} <span className="text-caption text-muted-foreground no-underline">· bis {format(parseISO(c.due), 'EEEEEE', { locale: de })}</span>
                     </span>
                   </button>

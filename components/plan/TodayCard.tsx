@@ -17,8 +17,8 @@ export function TodayCard({ today, insight, className, children }: { today: stri
     <Card className={cn('relative overflow-hidden', className)}>
       <span className="absolute inset-y-0 left-0 w-1 bg-brand" aria-hidden />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-brand">
-          <Sun className="h-4 w-4" /> Heute · {format(parseISO(today), 'EEEE d.M.', { locale: de })}
+        <span className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-brand-text">
+          <Sun className="h-4 w-4 text-brand" /> Heute · {format(parseISO(today), 'EEEE d.M.', { locale: de })}
         </span>
         {s ? (
           <span className="flex min-w-0 flex-wrap items-center gap-2">

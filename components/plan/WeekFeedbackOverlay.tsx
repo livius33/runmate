@@ -124,7 +124,7 @@ function WeekDetails({ overview, feel }: { overview: WeekOverview; feel?: RunFee
           tone={load.acwr != null && load.acwr > 1.5 ? 'brand' : 'default'} />
       </div>
       <p className="-mt-1 text-caption text-muted-foreground">
-        Belastung {acwrText(load.acwr)}{feel && feel.n > 0 && <> · Gefühl Ø {feel.avgFeel.toLocaleString('de-DE', { maximumFractionDigits: 1 })}/5 bei {feel.n} {feel.n === 1 ? 'Lauf' : 'Läufen'}{feel.pain > 0 && <span className="text-brand">, {feel.pain}× Schmerz</span>}</>}
+        Belastung {acwrText(load.acwr)}{feel && feel.n > 0 && <> · Gefühl Ø {feel.avgFeel.toLocaleString('de-DE', { maximumFractionDigits: 1 })}/5 bei {feel.n} {feel.n === 1 ? 'Lauf' : 'Läufen'}{feel.pain > 0 && <span className="text-brand-text">, {feel.pain}× Schmerz</span>}</>}
       </p>
 
       {r.keys.length > 0 && (
@@ -201,7 +201,7 @@ function WeekStrip({ days }: { days: DayStrip[] }) {
             </div>
             <div className="mt-1 text-center text-caption" aria-hidden>
               <div className="font-medium">{d.label}</div>
-              <div className={cn('tabular-nums', d.ran ? 'text-foreground' : missed ? 'text-brand' : 'text-muted-foreground')}>
+              <div className={cn('tabular-nums', d.ran ? 'text-foreground' : missed ? 'text-brand-text' : 'text-muted-foreground')}>
                 {d.ran ? fmtKm(d.actualKm) : d.plannedKm ? fmtKm(d.plannedKm) : '–'}
               </div>
             </div>

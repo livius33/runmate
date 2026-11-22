@@ -11,7 +11,7 @@ export function RulesCard({ today }: { today: string }) {
         ))}
       </ul>
 
-      <h3 className="mb-2 mt-4 text-body-sm font-semibold text-brand">Abbruchkriterien</h3>
+      <h3 className="mb-2 mt-4 text-body-sm font-semibold text-brand-text">Abbruchkriterien</h3>
       <ul className="space-y-2 text-body-sm">
         {stopRules.map((r) => (
           <li key={r} className="flex gap-2.5"><span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-brand" />{r}</li>

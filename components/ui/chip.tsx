@@ -4,16 +4,17 @@ import { cn } from '@/lib/utils'
 
 // Small labels (DESIGN.md badge-secondary in the control radius, 6 px): session types, states, figures. Colour roles:
 // teal = on plan / done, brand = today and key sessions, warning = needs a look, solid = the one emphasised label.
+// race is ink too: small white text on brand red stays under 4.5 : 1.
 export const chipVariants = cva('inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-control px-2 text-caption font-medium', {
   variants: {
     tone: {
       outline: 'bg-card text-muted-foreground shadow-hairline',
       neutral: 'bg-secondary text-muted-foreground',
-      brand: 'bg-brand-soft text-brand',
-      teal: 'bg-teal-soft text-teal',
+      brand: 'bg-brand-soft text-brand-text',
+      teal: 'bg-teal-soft text-teal-text',
       warning: 'bg-warning-soft text-warning',
       solid: 'bg-foreground text-background',
-      race: 'bg-brand text-white',
+      race: 'bg-foreground text-background',
     },
   },
   defaultVariants: { tone: 'outline' },

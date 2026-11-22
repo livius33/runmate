@@ -20,7 +20,7 @@ export function HealthPanel({ className }: { className?: string }) {
   return (
     <Card stack title="Apple Health" aside="letzte 7 Tage · Kurzbefehl" className={className}>
       {!days.length && !data.workouts.length ? (
-        <p className="text-body-sm text-muted-foreground">Noch keine Daten. <Link href="/settings" className="text-brand hover:underline">Kurzbefehl einrichten →</Link></p>
+        <p className="text-body-sm text-muted-foreground">Noch keine Daten. <Link href="/settings" className="text-brand-text hover:underline">Kurzbefehl einrichten →</Link></p>
       ) : (
         <>
           <div className="overflow-x-auto">

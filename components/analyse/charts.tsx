@@ -310,7 +310,7 @@ export function FitnessForm({ points, target }: { points: FitnessPoint[]; target
         {target && (
           <g>
             <line x1={L} x2={W - R} y1={y1(target.ctl)} y2={y1(target.ctl)} stroke="hsl(var(--brand))" strokeDasharray="5 4" />
-            <text x={W - R + 4} y={y1(target.ctl) + 4} className="fill-brand text-[10px] font-medium">{target.label}</text>
+            <text x={W - R + 4} y={y1(target.ctl) + 4} className="fill-brand-text text-[10px] font-medium">{target.label}</text>
           </g>
         )}
         <polyline points={line('atl')} fill="none" stroke="hsl(var(--muted-foreground) / 0.6)" strokeWidth={1.5} />
@@ -326,8 +326,8 @@ export function FitnessForm({ points, target }: { points: FitnessPoint[]; target
           <rect key={p.date} x={x(i) - bw / 2} width={bw} y={Math.min(y2(0), y2(p.tsb))} height={Math.abs(y2(p.tsb) - y2(0))}
             fill={p.tsb >= 0 ? 'hsl(var(--teal))' : 'hsl(var(--brand))'} opacity={hover == null || hover === i ? 0.85 : 0.45} />
         ))}
-        <text x={W - R + 4} y={y2(tMax * 0.6)} className="fill-teal text-[10px]">frisch</text>
-        <text x={W - R + 4} y={y2(-tMax * 0.6)} className="fill-brand text-[10px]">müde</text>
+        <text x={W - R + 4} y={y2(tMax * 0.6)} className="fill-teal-text text-[10px]">frisch</text>
+        <text x={W - R + 4} y={y2(-tMax * 0.6)} className="fill-brand-text text-[10px]">müde</text>
         {points.map((p, i) => i % labelEvery === 0 && (
           <text key={p.date} x={x(i)} y={H2 - 4} textAnchor="middle" className="fill-muted-foreground text-[10px]">{format(parseISO(p.date), 'd. MMM', { locale: de })}</text>
         ))}

@@ -59,7 +59,7 @@ function LeafletCourse({ course }: { course: Course }) {
             className: '',
             iconSize: [30, 20],
             iconAnchor: [15, 10],
-            html: `<div style="height:20px;display:grid;place-items:center;background:hsl(358 75% 59%);color:#fff;border:2px solid #fff;border-radius:999px;font:600 10px/1 system-ui;box-shadow:0 1px 3px rgba(0,0,0,.25)">${km}k</div>`,
+            html: `<div style="height:20px;display:grid;place-items:center;background:hsl(var(--brand-soft));color:hsl(var(--brand-text));border:2px solid hsl(var(--brand));border-radius:999px;font:600 10px/1 system-ui;box-shadow:0 1px 3px rgba(0,0,0,.25)">${km}k</div>`,
           }),
           keyboard: false,
         }).addTo(map)
