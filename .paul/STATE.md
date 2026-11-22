@@ -17,9 +17,9 @@ See: .paul/PROJECT.md (updated 2026-11-18)
 
 Milestone: v1.1 Shipping-ready (v1.1.0)
 Phase: 12 (Launch)
-Plan: 12-01 in APPLY — repo public (2026-11-19), PR #4 merged (2026-11-20), Vercel project `runmate` prepared; waits for Livius (keys, GitHub access for Vercel, domain). 12-04 built (PR #8, not merged), 12-05 built (PR #9, not merged), 12-06 after their merge, 12-07 waits for decisions; 12-02 (redesign) in APPLY: tasks 1 and 2 (tokens, primitives, three reference screens) built and on the branch, at the checkpoint with Livius (task 3); the rollout waits for their word; 13-01 tasks 2–4 built locally, tasks 5–8 wait for the account
+Plan: 12-01 in APPLY — repo public (2026-11-19), PR #4 merged (2026-11-20), Vercel project `runmate` prepared; waits for Livius (keys, GitHub access for Vercel, domain). 12-04 built (PR #8, not merged), 12-05 built (PR #9, not merged), 12-06 after their merge, 12-07 waits for decisions; 12-02 (redesign) in APPLY: tasks 1 to 5 built and on the branch `design/12-02-design-md` (rollout over all pages on 2026-11-22 after Livius's "Continue", with the recommended defaults); task 6 (held-back files) waits for PR #8 and #9 on `main`, task 7 (close, pull request) after that; 13-01 tasks 2–4 built locally, tasks 5–8 wait for the account
 Status: Phases 8–11 on `main`; runmate.dev still serves the personal dashboard (404 for visitors)
-Last activity: 2026-11-21 — 12-05 reviewed, fixed and in PR #9; redesign plan 12-02; 12-04 summary, 13-01 progress note
+Last activity: 2026-11-22 — redesign rollout (12-02 tasks 4 and 5) built, reviewed in the browser, one fix round, branch pushed
 Progress:
 - v1.1 Shipping-ready: [████████░░] 80%
 
@@ -48,7 +48,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 ### Open questions for Livius
 
 - "Feature card" = the week review overlay? (11-02 was built on that reading)
-- Redesign (12-02), checkpoint: the three reference screens are built (Inter → Geist, radius 6/8/12 px, smallest text 12 px, app stays light). To decide before the rollout: go or changes; text-only tokens for brand red and teal (as text on white they reach 3.9:1 and 3.3:1, the rule is 4.5:1); the overlay has no "Später" button any more (the close button does it); the active tab is ink instead of brand red
+- Redesign (12-02): the rollout ran on 2026-11-22 with the defaults from the checkpoint, all still open to change: darker text-only tokens for brand red and teal; the overlay without a "Später" button; the active tab in ink; app page titles 24 px (marketing 32/48). Also open: race chip in ink instead of red; header call to action secondary or ink; the "Bestzeit" label and the proper `pb_distance` fix; Garmin disconnect in red without a confirmation step
+- Landing page text: the headline says "Sieben Methoden", the tabs and the facts row show eight method templates. Text change, outside the redesign
 - Two overlapping profiles (Plan anpassen → Alltag and Settings → Mein Profil): merge them? Not part of 12-02
 - Waitlist: wire a mail provider or open sign-up without billing (docs/launch/DEPLOY.md step 8)
 - Rule decisions from the sweep (08-02 SUMMARY): low-volume long-run share, 4-run low weeks, floors and caps

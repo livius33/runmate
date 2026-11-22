@@ -285,3 +285,10 @@ phase = 12
 plan = "12-02"
 at = "2026-11-21T20:27:00Z"
 note = "tasks 1 and 2 built (11 commits, one review round), checks green, branch pushed; at the checkpoint (task 3), rollout not started"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-02"
+at = "2026-11-22T10:15:00Z"
+note = "tasks 4 and 5 built (rollout over all pages, 17 commits, one fix round); tsc, 965 tests, build and gitleaks green; branch pushed at 4471807; task 6 waits for #8 and #9, no pull request yet"
