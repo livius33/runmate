@@ -9,7 +9,11 @@ import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react'
 import { BEST_EFFORTS, RUN_TYPES, type RunMetrics, type RunType } from '@/lib/analytics/run-metrics'
 import type { RunSummary } from '@/lib/analytics/run-view'
 import type { PlanSession } from '@/lib/plan/types'
-import { Panel, RunTypeTag, fmtClock, fmtNum, fmtPace } from '@/components/runs/format'
+import { fmtClock, fmtNum, fmtPace } from '@/components/runs/format'
+import { RunTypeTag } from '@/components/runs/tags'
+import { Button } from '@/components/ui/button'
+import { Card, Inset } from '@/components/ui/card'
+import { Figure } from '@/components/ui/figure'
 import { StreamCharts, type StreamPoint } from '@/components/runs/StreamCharts'
 import { RunMap } from '@/components/runs/RunMap'
 import { SplitsChart } from '@/components/runs/SplitsChart'
@@ -64,8 +68,8 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
     onSuccess: () => qc.invalidateQueries({ queryKey: ['run', id] }),
   })
 
-  if (isLoading) return <div className="flex flex-col gap-4 animate-pulse"><div className="h-8 w-72 rounded bg-secondary" /><div className="h-24 rounded-2xl bg-card border border-border" /><div className="h-80 rounded-2xl bg-card border border-border" /></div>
-  if (isError || !data) return <p className="text-sm text-brand">Dieser Lauf konnte nicht geladen werden. <Link href="/running/activities" className="underline">Zur Liste</Link></p>
+  if (isLoading) return <div className="flex animate-pulse flex-col gap-4"><div className="h-8 w-72 rounded-control bg-secondary" /><div className="h-24 rounded-card bg-card shadow-raised" /><div className="h-80 rounded-card bg-card shadow-raised" /></div>
+  if (isError || !data) return <p className="text-body-sm text-error">Dieser Lauf konnte nicht geladen werden. <Link href="/running/activities" className="underline">Zur Liste</Link></p>
 
   const { run, metrics: m, planned, plannedDate } = data
   const insights = runInsights({ run, metrics: m, planned, plannedDate, temperature: data.temperature, similar: data.similar })
@@ -76,123 +80,118 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
 
   return (
     <div className="flex flex-col gap-4 pb-10">
-      <Link href="/running/activities" className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/running/activities" className="tap inline-flex w-fit items-center gap-1.5 text-body-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Alle Läufe
       </Link>
 
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="text-2xl font-semibold tracking-tight">{format(parseISO(run.date), 'EEEE, d. MMMM yyyy', { locale: de })}</h1>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <h1 className="text-title">{format(parseISO(run.date), 'EEEE, d. MMMM yyyy', { locale: de })}</h1>
+          <div className="flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
             <RunTypeTag type={run.runType} />
             <label className="sr-only" htmlFor="run-type">Lauftyp korrigieren</label>
             <select id="run-type" value={run.runTypeSource === 'manual' ? run.runType : ''} disabled={setType.isPending}
               onChange={(e) => setType.mutate((e.target.value || null) as RunType | null)}
-              className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground">
+              className="h-8 max-w-full rounded-control bg-card px-2 text-caption text-foreground shadow-hairline outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
               <option value="">{run.runTypeSource === 'plan' ? 'Typ aus dem Plan' : 'Typ automatisch erkannt'}</option>
               {RUN_TYPES.map((t) => <option key={t} value={t}>Korrigieren: {t}</option>)}
             </select>
-            <span>{run.name}{run.startTime ? ` · ${run.startTime.slice(0, 5)} Uhr` : ''}{data.temperature != null ? ` · ${data.temperature} °C` : ''}</span>
+            <span className="min-w-0 break-words">{run.name}{run.startTime ? ` · ${run.startTime.slice(0, 5)} Uhr` : ''}{data.temperature != null ? ` · ${fmtNum(data.temperature)} °C` : ''}</span>
           </div>
         </div>
-        <div className="flex gap-2">
-          {data.external && (
-            <a href={data.external.url} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-secondary">
-              <ExternalLink className="h-3.5 w-3.5" /> {data.external.label}
-            </a>
-          )}
-          {data.canReload && (
-            <button onClick={() => reload.mutate()} disabled={reload.isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-50">
-              <RefreshCw className={cn('h-3.5 w-3.5', reload.isPending && 'animate-spin')} /> {reload.isPending ? 'Lädt…' : 'Neu laden'}
-            </button>
-          )}
-        </div>
+        {(data.external || data.canReload) && (
+          <div className="flex flex-wrap gap-2">
+            {data.external && (
+              <Button asChild size="action">
+                <a href={data.external.url} target="_blank" rel="noreferrer"><ExternalLink /> {data.external.label}</a>
+              </Button>
+            )}
+            {data.canReload && (
+              <Button size="action" onClick={() => reload.mutate()} disabled={reload.isPending}>
+                <RefreshCw className={cn(reload.isPending && 'animate-spin')} /> {reload.isPending ? 'Lädt…' : 'Neu laden'}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
-      {reload.isError && <p className="text-sm text-brand">Detaildaten konnten nicht geladen werden. Später noch einmal versuchen.</p>}
+      {reload.isError && <p className="text-body-sm text-error">Detaildaten konnten nicht geladen werden. Später noch einmal versuchen.</p>}
 
       {planned && (
-        <div className={cn('max-w-2xl rounded-xl px-4 py-3 text-sm', planMatches ? 'bg-teal-soft/70' : 'bg-amber-50')}>
+        <div className={cn('rounded-card px-4 py-3 text-body-sm', planMatches ? 'bg-teal-soft' : 'bg-warning-soft')}>
           <b>{planMatches ? 'Wie geplant.' : 'Anders als geplant.'}</b>{' '}
           Geplant: {planned.title ?? plannedType ?? planned.type}{planned.km ? `, ${fmtNum(planned.km, 1)} km` : ''}{planned.pace ? ` @ ${planned.pace}` : ''}
           {plannedDate && plannedDate !== run.date ? ` (geplant für ${dayLabel(plannedDate)})` : ''}.
           {' '}Gelaufen: {run.runType}, {fmtNum(run.km, 1)} km.
-          {planned.notes && <span className="block mt-1 text-muted-foreground">{planned.notes}</span>}
+          {planned.notes && <span className="mt-1 block text-muted-foreground">{planned.notes}</span>}
         </div>
       )}
 
-      <Panel sub="RPE, Gefühl, Schmerzen – fließt in „Plan anpassen“ ein">
+      <Card>
         <RunFeedback id={run.id} value={data.feedback} onSaved={() => ['run-feedback', 'workshop'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }))} />
-      </Panel>
+      </Card>
 
       <RunInsights lines={insights} hasMetrics={!!m} />
       {run.km >= 41 && <RaceAnalysis runId={run.id} />}
 
-      <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-4 lg:grid-cols-7 tabular-nums">
-        {[
-          ['Distanz', `${fmtNum(run.km, 2)} km`],
-          ['Zeit', fmtClock(run.movingS)],
-          ['Pace', `${fmtPace(run.paceS)} /km`],
-          ['Ø HF', run.hr ? <>{run.hr}<span className="ml-1 text-xs font-normal text-muted-foreground">max {run.maxHr}</span></> : '–'],
-          ['Kadenz', run.cadence ? `${run.cadence} spm` : '–'],
-          ['Höhenmeter', run.elevationM != null ? `${run.elevationM} m` : '–'],
-          ['Effizienz', run.effMpb != null ? `${fmtNum(run.effMpb, 2)} m/Schlag` : '–'],
-        ].map(([label, value]) => (
-          <div key={label as string}>
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="mt-0.5 text-lg font-semibold tracking-tight">{value}</div>
-          </div>
-        ))}
-      </div>
+      <Card as="div" className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-4 lg:grid-cols-7">
+        <Figure label="Distanz" value={fmtNum(run.km, 2)} unit="km" />
+        <Figure label="Zeit" value={fmtClock(run.movingS)} />
+        <Figure label="Pace" value={fmtPace(run.paceS)} unit="/km" />
+        <Figure label="Ø HF" value={run.hr ?? '–'} unit={run.hr && run.maxHr ? `max ${run.maxHr}` : undefined} />
+        <Figure label="Kadenz" value={run.cadence ?? '–'} unit={run.cadence ? 'spm' : undefined} />
+        <Figure label="Höhenmeter" value={fmtNum(run.elevationM)} unit={run.elevationM != null ? 'm' : undefined} />
+        <Figure label="Effizienz" value={fmtNum(run.effMpb, 2)} unit={run.effMpb != null ? 'm/Schlag' : undefined} />
+      </Card>
 
       {!m && (
-        <p className="rounded-xl bg-secondary px-4 py-3 text-sm">Für diesen Lauf fehlen noch die Detaildaten.{data.canReload && ' „Neu laden“ holt sie von der Quelle.'}</p>
+        <Inset className="px-4 py-3 text-body-sm">Für diesen Lauf fehlen noch die Detaildaten.{data.canReload && ' „Neu laden“ holt sie von der Quelle.'}</Inset>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <Panel title="Verlauf" sub="über die Distanz" className="lg:col-span-7">
-          <StreamCharts points={data.series} />
-        </Panel>
-        <Panel title="Strecke" sub="gefärbt nach Tempo" className="lg:col-span-5">
-          {data.route && data.route.length > 1 ? <RunMap route={data.route} /> : <p className="text-sm text-muted-foreground">Keine GPS-Daten (z. B. Laufband).</p>}
-        </Panel>
-
-        <Panel title="Kilometer" sub="Balken = Tempo, höher ist schneller" className="lg:col-span-7">
-          <SplitsChart splits={m?.splits ?? []} />
-        </Panel>
-        <div className="flex flex-col gap-4 lg:col-span-5">
-          <Panel title="Herzfrequenz" sub="Zeit in Zonen · HFmax 200">
+      {/* Phones: one column in reading order (order-*). From lg: two independent columns, each card at its own height. */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start">
+        <div className="contents lg:col-span-7 lg:flex lg:flex-col lg:gap-4">
+          <Card stack title="Verlauf" aside="über die Distanz" className="order-1">
+            <StreamCharts points={data.series} />
+          </Card>
+          <Card stack title="Kilometer" aside="Balken = Tempo, höher ist schneller" className="order-3">
+            <SplitsChart splits={m?.splits ?? []} />
+          </Card>
+        </div>
+        <div className="contents lg:col-span-5 lg:flex lg:flex-col lg:gap-4">
+          <Card stack title="Strecke" aside="gefärbt nach Tempo" className="order-2">
+            {data.route && data.route.length > 1 ? <RunMap route={data.route} /> : <p className="text-body-sm text-muted-foreground">Keine GPS-Daten (z. B. Laufband).</p>}
+          </Card>
+          <Card stack title="Herzfrequenz" aside="Zeit in Zonen · HFmax 200" className="order-4">
             <ZonesBar seconds={m?.zonesS ?? []} />
             {m?.decouplingPct != null && (
-              <p className={cn('rounded-xl px-3.5 py-2.5 text-sm', m.decouplingPct < 5 ? 'bg-teal-soft/70' : 'bg-amber-50')}>
+              <p className={cn('rounded-card px-3 py-2.5 text-body-sm', m.decouplingPct < 5 ? 'bg-teal-soft' : 'bg-warning-soft')}>
                 <b>Drift {fmtNum(m.decouplingPct, 1)} %</b>{' '}
                 {steady
                   ? m.decouplingPct < 5
                     ? 'Puls und Tempo blieben bis zum Ende im Gleichgewicht: aerob stabil.'
-                    : `In der zweiten Hälfte brauchtest du mehr Puls für dasselbe Tempo.${data.temperature != null && data.temperature >= 22 ? ` Bei ${data.temperature} °C ist das normal.` : ''}`
+                    : `In der zweiten Hälfte brauchtest du mehr Puls für dasselbe Tempo.${data.temperature != null && data.temperature >= 22 ? ` Bei ${fmtNum(data.temperature)} °C ist das normal.` : ''}`
                   : 'Bei Tempo- und Intervalleinheiten wenig aussagekräftig.'}
               </p>
             )}
-          </Panel>
+          </Card>
           {bests.length > 0 && (
-            <Panel title="Schnellste Abschnitte" sub="in diesem Lauf">
-              <ul className="grid gap-1.5 text-sm tabular-nums">
+            <Card title="Schnellste Abschnitte" aside="in diesem Lauf" className="order-5">
+              <ul className="grid gap-1.5 text-body-sm tabular-nums">
                 {bests.map((b) => (
-                  <li key={b.key} className="flex justify-between gap-3">
+                  <li key={b.key} className="flex flex-wrap justify-between gap-x-3">
                     <span>{b.label}</span>
                     <span><b>{fmtClock(m!.best[b.key]!)}</b> <span className="text-muted-foreground">({fmtPace(m!.best[b.key]! / (b.m / 1000))} /km)</span></span>
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </Card>
           )}
         </div>
-
-        <Panel title={`Im Vergleich: deine ${run.runType}-Läufe`} className="lg:col-span-12">
-          <Comparison runId={run.id} runType={run.runType} km={run.km} similar={data.similar} />
-        </Panel>
       </div>
+
+      <Card stack title={`Im Vergleich: deine ${run.runType}-Läufe`}>
+        <Comparison runId={run.id} runType={run.runType} km={run.km} similar={data.similar} />
+      </Card>
     </div>
   )
 }

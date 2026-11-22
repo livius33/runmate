@@ -10,7 +10,11 @@ import { de } from 'date-fns/locale'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { RUN_TYPES, type RunType } from '@/lib/analytics/run-metrics'
 import type { RunSummary } from '@/lib/analytics/run-view'
-import { RunTypeTag, fmtClock, fmtNum, fmtPace, percentile } from '@/components/runs/format'
+import { fmtClock, fmtNum, fmtPace, percentile } from '@/components/runs/format'
+import { RunTypeTag } from '@/components/runs/tags'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { ChipButton } from '@/components/ui/chip'
 import { CrossTrainingList } from '@/components/runs/CrossTrainingList'
 import { useCrossTraining } from '@/components/plan/CrossTrainingLog'
 import { CROSS_SPORTS, CROSS_TYPES, type CrossType } from '@/lib/analytics/cross-training'
@@ -87,13 +91,13 @@ export default function RunsPage() {
   return (
     <div className="flex flex-col gap-4 pb-10">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{sport === 'Läufe' ? 'Läufe' : CROSS_SPORTS[sport].label}</h1>
+        <h1 className="text-title">{sport === 'Läufe' ? 'Läufe' : CROSS_SPORTS[sport].label}</h1>
         {sport !== 'Läufe' ? (
-          <span className="text-sm text-muted-foreground tabular-nums">
+          <span className="text-body-sm text-muted-foreground tabular-nums">
             {crossRows.length} Einheiten · {fmtNum(crossRows.reduce((t, r) => t + r.minutes, 0) / 60, 1)} h
           </span>
         ) : !isLoading && (
-          <span className="text-sm text-muted-foreground tabular-nums">
+          <span className="text-body-sm text-muted-foreground tabular-nums">
             {rows.length} Läufe · {fmtNum(totalKm)} km
           </span>
         )}
@@ -102,46 +106,44 @@ export default function RunsPage() {
       {cross.length > 0 && (
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Sport">
           {(['Läufe', ...CROSS_TYPES] as const).filter((s) => s === 'Läufe' || sportCounts[s]).map((s) => (
-            <button key={s} aria-pressed={sport === s} onClick={() => { setSport(s); setShown(PAGE) }}
-              className={cn('tap rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                sport === s ? 'border-brand bg-brand text-white' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
+            <ChipButton key={s} selected={sport === s} onClick={() => { setSport(s); setShown(PAGE) }}>
               {s === 'Läufe' ? 'Läufe' : CROSS_SPORTS[s].label} <span className="tabular-nums opacity-70">{s === 'Läufe' ? runs.length : sportCounts[s]}</span>
-            </button>
+            </ChipButton>
           ))}
         </div>
       )}
 
       {sport !== 'Läufe' ? <CrossTrainingList rows={crossRows} today={today} /> : !isLoading && !isError && runs.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-sm">
-          <p className="font-medium">Noch keine Läufe.</p>
+        <Card as="div" className="text-body-sm">
+          <p className="text-body font-semibold">Noch keine Läufe.</p>
           <p className="mt-1 max-w-prose text-muted-foreground">
             Verbinde eine Datenquelle oder lade Dateien von deiner Uhr hoch (FIT, GPX, TCX). Danach stehen hier deine Läufe, und der Plan rechnet mit dem, was du wirklich gelaufen bist.
           </p>
-          <Link href={href('/settings#datenquellen')} className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90">Datenquelle verbinden</Link>
-        </div>
+          <Button asChild variant="primary" className="mt-4">
+            <Link href={href('/settings#datenquellen')}>Datenquelle verbinden</Link>
+          </Button>
+        </Card>
       ) : <>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Lauftyp">
         {(['Alle', ...RUN_TYPES] as const).filter((t) => t === 'Alle' || counts[t]).map((t) => (
-          <button key={t} aria-pressed={type === t} onClick={() => { setType(t); setShown(PAGE) }}
-            className={cn('tap rounded-full border px-3 py-1 text-xs transition-colors',
-              type === t ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
+          <ChipButton key={t} selected={type === t} onClick={() => { setType(t); setShown(PAGE) }}>
             {t} <span className="tabular-nums opacity-70">{t === 'Alle' ? runs.length : counts[t]}</span>
-          </button>
+          </ChipButton>
         ))}
       </div>
 
       {/* Phones: one card per run */}
       <ul className="flex flex-col gap-2 md:hidden">
-        {isLoading && <li className="text-sm text-muted-foreground">Läufe werden geladen…</li>}
-        {isError && <li className="text-sm text-brand">Läufe konnten nicht geladen werden. Seite neu laden.</li>}
+        {isLoading && <li className="text-body-sm text-muted-foreground">Läufe werden geladen…</li>}
+        {isError && <li className="text-body-sm text-error">Läufe konnten nicht geladen werden. Seite neu laden.</li>}
         {rows.slice(0, shown).map((r) => (
           <li key={r.id}>
-            <Link href={`/running/activities/${r.id}`} className="block rounded-xl border border-border bg-card px-3.5 py-3 tabular-nums active:bg-secondary">
+            <Link href={`/running/activities/${r.id}`} className="block rounded-card bg-card px-4 py-3 shadow-raised tabular-nums active:bg-secondary">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium">{format(parseISO(r.date), 'EEE d. MMM yyyy', { locale: de })}</span>
+                <span className="min-w-0 text-body-sm font-medium">{format(parseISO(r.date), 'EEE d. MMM yyyy', { locale: de })}</span>
                 <RunTypeTag type={r.runType} />
               </div>
-              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-body-sm">
                 <span className="font-semibold">{fmtNum(r.km, 1)} km</span>
                 <span>{fmtPace(r.paceS)} /km</span>
                 <span className="text-muted-foreground">{fmtClock(r.movingS)}</span>
@@ -152,14 +154,14 @@ export default function RunsPage() {
         ))}
       </ul>
 
-      <div className="hidden rounded-2xl border border-border bg-card overflow-x-auto md:block">
-        <table className="w-full min-w-[760px] text-sm">
+      <div className="hidden overflow-x-auto rounded-card bg-card shadow-raised md:block">
+        <table className="w-full min-w-[760px] text-body-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+            <tr className="border-b border-border text-left text-caption text-muted-foreground">
               {COLUMNS.map((c) => (
                 <th key={c.label} className={cn('px-3 py-2.5 font-medium whitespace-nowrap', c.align === 'right' && 'text-right')}>
                   {c.key ? (
-                    <button onClick={() => toggleSort(c.key!)} className="inline-flex items-center gap-1 hover:text-foreground">
+                    <button onClick={() => toggleSort(c.key!)} className="tap inline-flex items-center gap-1 hover:text-foreground">
                       {c.label}
                       {sort.key === c.key && (sort.dir === 1 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                     </button>
@@ -170,7 +172,7 @@ export default function RunsPage() {
           </thead>
           <tbody>
             {isLoading && <tr><td colSpan={9} className="px-3 py-6 text-muted-foreground">Läufe werden geladen…</td></tr>}
-            {isError && <tr><td colSpan={9} className="px-3 py-6 text-brand">Läufe konnten nicht geladen werden. Seite neu laden.</td></tr>}
+            {isError && <tr><td colSpan={9} className="px-3 py-6 text-error">Läufe konnten nicht geladen werden. Seite neu laden.</td></tr>}
             {rows.slice(0, shown).map((r) => (
               <tr key={r.id} onClick={() => router.push(href(`/running/activities/${r.id}`))}
                 className="cursor-pointer border-b border-border last:border-0 hover:bg-secondary/50 tabular-nums">
@@ -185,7 +187,7 @@ export default function RunsPage() {
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">{fmtPace(r.paceS)} /km</td>
                 <td className="px-3 py-2.5 text-right">{r.hr ?? '–'}</td>
                 <td className="px-3 py-2.5 text-right text-muted-foreground">{r.cadence ?? '–'}</td>
-                <td className="px-3 py-2.5 text-right text-muted-foreground whitespace-nowrap">{r.elevationM != null ? `${r.elevationM} m` : '–'}</td>
+                <td className="px-3 py-2.5 text-right text-muted-foreground whitespace-nowrap">{r.elevationM != null ? `${fmtNum(r.elevationM)} m` : '–'}</td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   {r.effMpb != null ? (
                     <span className="inline-flex items-center gap-2">
@@ -202,12 +204,11 @@ export default function RunsPage() {
       </div>
 
       {rows.length > shown && (
-        <button onClick={() => setShown(shown + PAGE)}
-          className="self-center rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-secondary">
+        <Button onClick={() => setShown(shown + PAGE)} className="self-center">
           Weitere {Math.min(PAGE, rows.length - shown)} von {rows.length - shown} anzeigen
-        </button>
+        </Button>
       )}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-caption text-muted-foreground">
         Effizienz = Meter pro Herzschlag (Tempo geteilt durch Puls). Höher heißt: gleiches Tempo bei weniger Puls.
       </p>
       </>}
