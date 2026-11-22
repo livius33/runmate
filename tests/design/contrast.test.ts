@@ -1,7 +1,7 @@
 // AC-6 (12-02): text contrast of at least 4.5 : 1 (WCAG AA, normal text) for every text/background pair of the token
 // set, computed from the values in app/globals.css: the light set (the app) and the dark set (the marketing pages).
-// Pairs that fail with today's brand colours wait for a decision (KNOWN_FAILURES, with the measured ratio); the test
-// fails when a new pair fails, and when a listed pair passes (so the list cannot go stale).
+// Large text and graphic marks on the brand fills are held to 3 : 1 (LARGE_PAIRS). KNOWN_FAILURES would list pairs
+// allowed under 4.5 : 1 with their reason; a listed pair that passes fails the test, so the list cannot go stale.
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -41,26 +41,31 @@ const PAIRS: [string, string][] = [
   ['muted-foreground', 'background'], ['muted-foreground', 'card'], ['muted-foreground', 'muted'],
   ['error', 'background'], ['error', 'card'],
   ['warning', 'warning-soft'], ['warning', 'card'], ['warning', 'background'],
-  ['brand', 'card'], ['brand', 'background'], ['brand', 'brand-soft'],
-  ['teal', 'card'], ['teal', 'background'], ['teal', 'teal-soft'],
-  ['white', 'brand'], ['white', 'teal'],
+  // Brand red and teal as text use their text tokens; --brand / --teal are fills and marks only.
+  ['brand-text', 'card'], ['brand-text', 'background'], ['brand-text', 'brand-soft'],
+  ['teal-text', 'card'], ['teal-text', 'background'], ['teal-text', 'teal-soft'],
 ]
 
-// Measured on 2026-11-21 with today's brand colours; reported to Livius, not changed silently (see 12-02 summary).
-const KNOWN_FAILURES: Record<string, number> = {
-  'light brand/card': 3.92, 'light brand/background': 3.57, 'light brand/brand-soft': 3.43,
-  'light teal/card': 3.32, 'light teal/background': 3.02, 'light teal/teal-soft': 3.0,
-  'light white/brand': 3.92, 'light white/teal': 3.32,
-  'dark destructive-foreground/destructive': 4.27, 'dark brand/brand-soft': 4.17, 'dark teal/teal-soft': 4.43,
-  'dark white/brand': 3.7, 'dark white/teal': 2.96,
-}
+// Large text (at least 24 px, or 18.66 px semibold) and graphic marks need 3 : 1 (WCAG 1.4.3 / 1.4.11). White on the
+// brand and teal fills occurs only there: the 56 px block badges in components/plan/PlanHeader.tsx (20 px semibold
+// race code, "GL") and the tick in the checked race-week checklist box (RaceWeekCard). Both are dashboard-only, and
+// the dashboard has no dark set, so these pairs are checked in the light set.
+const LARGE_PAIRS: { fg: string; bg: string; sets: (keyof typeof SETS)[] }[] = [
+  { fg: 'white', bg: 'brand', sets: ['light'] },
+  { fg: 'white', bg: 'teal', sets: ['light'] },
+]
+
+// Pairs that may stay under 4.5 : 1, each with its reason. Empty since the text tokens (12-02).
+const KNOWN_FAILURES: Record<string, number> = {}
+
+const color = (set: Record<string, Hsl>, name: string) => (name === 'white' ? ([0, 0, 100] as Hsl) : set[name])
 
 function measure() {
   const out: { key: string; ratio: number }[] = []
   for (const [name, set] of Object.entries(SETS)) {
     if (name === 'auto') continue
     for (const [fg, bg] of PAIRS) {
-      const a = fg === 'white' ? ([0, 0, 100] as Hsl) : set[fg], b = set[bg]
+      const a = color(set, fg), b = color(set, bg)
       expect(a, `${name}: --${fg} fehlt`).toBeDefined()
       expect(b, `${name}: --${bg} fehlt`).toBeDefined()
       out.push({ key: `${name} ${fg}/${bg}`, ratio: Math.round(contrast(a, b) * 100) / 100 })
@@ -70,7 +75,7 @@ function measure() {
 }
 
 describe('Kontrast der Tokens', () => {
-  it('jedes Text/Hintergrund-Paar hat mindestens 4,5 : 1 (bis auf die offenen Markenfarben)', () => {
+  it('jedes Text/Hintergrund-Paar hat mindestens 4,5 : 1', () => {
     const failing = measure().filter((p) => p.ratio < 4.5 && !(p.key in KNOWN_FAILURES))
     expect(failing.map((p) => `${p.key} ${p.ratio}`)).toEqual([])
   })
@@ -78,6 +83,12 @@ describe('Kontrast der Tokens', () => {
   it('die offenen Paare scheitern noch (sonst aus KNOWN_FAILURES streichen)', () => {
     const m = new Map(measure().map((p) => [p.key, p.ratio]))
     expect(Object.keys(KNOWN_FAILURES).filter((k) => !m.has(k) || m.get(k)! >= 4.5)).toEqual([])
+  })
+
+  it('große Schrift und Zeichen auf den Markenflächen haben mindestens 3 : 1', () => {
+    const failing = LARGE_PAIRS.flatMap(({ fg, bg, sets }) => sets.map((n) => ({ key: `${n} ${fg}/${bg}`, ratio: contrast(color(SETS[n], fg), color(SETS[n], bg)) })))
+      .filter((p) => p.ratio < 3)
+    expect(failing.map((p) => `${p.key} ${p.ratio.toFixed(2)}`)).toEqual([])
   })
 
   it('der dunkle Satz der Marketing-Seiten ist derselbe wie .dark', () => {

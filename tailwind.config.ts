@@ -31,12 +31,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: { DEFAULT: 'hsl(var(--brand))', soft: 'hsl(var(--brand-soft))' },
+        // `text` (12-02, AC-6): brand red / teal as text colour; DEFAULT and soft stay for marks and fills
+        brand: { DEFAULT: 'hsl(var(--brand))', soft: 'hsl(var(--brand-soft))', text: 'hsl(var(--brand-text))' },
         // DESIGN.md colors.warning-deep / warning-soft (text, soft fill, border); replaces the amber classes
         warning: { DEFAULT: 'hsl(var(--warning))', soft: 'hsl(var(--warning-soft))', border: 'hsl(var(--warning-border))' },
         // DESIGN.md colors.error: error text (the destructive fill stays `destructive`)
         error: 'hsl(var(--error))',
-        teal: { DEFAULT: 'hsl(var(--teal))', soft: 'hsl(var(--teal-soft))' },
+        teal: { DEFAULT: 'hsl(var(--teal))', soft: 'hsl(var(--teal-soft))', text: 'hsl(var(--teal-text))' },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
