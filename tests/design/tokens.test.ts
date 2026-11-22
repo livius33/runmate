@@ -20,6 +20,9 @@ const EXCEPTIONS: { file: string; rules: Rule[]; why: string }[] = [
   { file: 'components/analyse/charts.tsx', rules: ['px-font', 'hex'], why: 'chart internals: SVG axis labels scale with the viewBox; series colours' },
   { file: 'components/analyse/progress-charts.tsx', rules: ['px-font', 'hex'], why: 'chart internals: SVG axis labels scale with the viewBox; series colours' },
   { file: 'components/analyse/LoadBySport.tsx', rules: ['px-font', 'hex'], why: 'chart internals: SVG axis labels scale with the viewBox; series colours' },
+  { file: 'components/runs/Comparison.tsx', rules: ['px-font'], why: 'chart internals: SVG axis labels scale with the viewBox' },
+  { file: 'components/runs/SplitsChart.tsx', rules: ['px-font'], why: 'chart internals: SVG axis labels scale with the viewBox' },
+  { file: 'components/runs/StreamCharts.tsx', rules: ['px-font'], why: 'chart internals: SVG axis labels scale with the viewBox' },
 ]
 
 // Not yet on the tokens (12-02 rollout). Remove a file once it is migrated; never add one.
@@ -27,9 +30,6 @@ const NOT_YET_MIGRATED = [
   'components/HeaderSync.tsx',
   'components/legal/CancelForm.tsx',
   'components/plan/ui.tsx',
-  'components/runs/Comparison.tsx',
-  'components/runs/SplitsChart.tsx',
-  'components/runs/StreamCharts.tsx',
   'components/settings/BillingCard.tsx',
 ]
 
