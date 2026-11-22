@@ -78,7 +78,7 @@ export function WaitlistForm({ t, className }: { t: Dict; className?: string }) 
       <label htmlFor="wl-email" className="text-body-sm font-medium">{t.waitlist.label}</label>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input id="wl-email" name="email" type="email" required maxLength={254} autoComplete="email" placeholder={t.waitlist.placeholder}
-          className="h-11 min-w-0 flex-1 text-body" />
+          className="h-11 w-full min-w-0 text-body sm:flex-1" />
         <button type="submit" data-track="waitlist_submit" className={CTA.md}>{t.waitlist.submit}</button>
       </div>
       <p className="text-caption text-muted-foreground">{t.waitlist.privacy}</p>

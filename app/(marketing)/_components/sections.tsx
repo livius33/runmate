@@ -48,11 +48,12 @@ export function MethodTabs({ methods, t }: { methods: MethodEntry[]; t: Dict }) 
   return (
     <div className="mk-methods">
       <style>{css}</style>
-      <fieldset>
+      {/* min-w-0: a fieldset defaults to min-content width, which would let the scrolling tab row widen the page */}
+      <fieldset className="min-w-0">
         <legend className="sr-only">{t.methods.pick}</legend>
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
           {methods.map((m, i) => (
-            <label key={m.id} className="shrink-0 cursor-pointer">
+            <label key={m.id} className="relative shrink-0 cursor-pointer">
               <input type="radio" name="method" id={`mt-${m.id}`} defaultChecked={i === 0} className="peer sr-only" data-track="method_tab" />
               <span className="inline-flex h-9 items-center whitespace-nowrap rounded-control bg-card px-3 text-body-sm text-muted-foreground shadow-hairline transition-colors hover:text-foreground peer-checked:bg-foreground peer-checked:text-background peer-checked:shadow-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background">
                 {m.family} · {t.methods.distances[m.distances[0]]}
@@ -99,7 +100,7 @@ export function Pricing({ t }: { t: Dict }) {
       <fieldset className="inline-flex gap-1 rounded-control bg-card p-1 text-body-sm shadow-hairline">
         <legend className="sr-only">{p.month} / {p.year}</legend>
         {(['month', 'year'] as const).map((k) => (
-          <label key={k} className="cursor-pointer">
+          <label key={k} className="relative cursor-pointer">
             <input type="radio" name="bill" id={`bill-${k}`} defaultChecked={k === 'month'} className="peer sr-only" data-track={`pricing_${k}`} />
             <span className="inline-flex h-9 items-center rounded-[4px] px-3 text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-foreground peer-checked:text-background peer-focus-visible:ring-2 peer-focus-visible:ring-ring">{p[k]}</span>
           </label>

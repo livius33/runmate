@@ -23,6 +23,14 @@ function Section({ id, className, children }: { id?: string; className?: string;
   return <section id={id} className={cn('scroll-mt-16 py-16 lg:py-24', className)}><div className={WRAP}>{children}</div></section>
 }
 
+// Grid cells of the four facts (value, label): 2 × 2 on phones, one row of four from sm up.
+const FACT_CELL = [
+  ['col-start-1 row-start-1', 'col-start-1 row-start-2'],
+  ['col-start-2 row-start-1', 'col-start-2 row-start-2'],
+  ['col-start-1 row-start-3 mt-5 sm:col-start-3 sm:row-start-1 sm:mt-0', 'col-start-1 row-start-4 sm:col-start-3 sm:row-start-2'],
+  ['col-start-2 row-start-3 mt-5 sm:col-start-4 sm:row-start-1 sm:mt-0', 'col-start-2 row-start-4 sm:col-start-4 sm:row-start-2'],
+]
+
 function researchCount() {
   try { return readdirSync(path.join(process.cwd(), 'methodologies', 'research')).filter((f) => f.endsWith('.md') && !/^(README|RESEARCH)\.md$/.test(f)).length } catch { return 0 }
 }
@@ -73,12 +81,14 @@ export function Landing({ t }: { t: Dict }) {
               <h2 className="text-title">{t.open.title}</h2>
               <p className="mt-2 max-w-[52ch] text-body-sm text-muted-foreground">{t.open.body}</p>
             </div>
-            <dl className="grid grid-cols-2 gap-6 sm:grid-cols-4 lg:col-span-5">
-              {facts.map((f) => (
-                <div key={f.label}>
+            {/* Values and labels sit in their own grid rows (the item wrappers are display: contents), so the rows align
+                on one baseline even though "AGPL-3.0" is set smaller than the figures */}
+            <dl className="grid grid-cols-2 items-baseline gap-x-6 gap-y-1 sm:grid-cols-4 lg:col-span-5">
+              {facts.map((f, i) => (
+                <div key={f.label} className="contents">
                   <dt className="sr-only">{f.label}</dt>
-                  <dd className={cn('flex h-10 items-end whitespace-nowrap tabular-nums', f.n.length > 3 ? 'text-title-sm' : 'text-display')}>{f.n}</dd>
-                  <dd className="mt-1 text-caption text-muted-foreground">{f.label}</dd>
+                  <dd className={cn('whitespace-nowrap tabular-nums', FACT_CELL[i][0], f.n.length > 3 ? 'text-title-sm' : 'text-display')}>{f.n}</dd>
+                  <dd className={cn('text-caption text-muted-foreground', FACT_CELL[i][1])}>{f.label}</dd>
                 </div>
               ))}
             </dl>

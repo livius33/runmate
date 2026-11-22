@@ -107,9 +107,6 @@
     --error: 0 85% 70%;
     color-scheme: dark;
   }
-  /* The app's long-run tag uses fixed amber; keep it readable on the dark marketing panels */
-  .theme-auto .bg-amber-50 { background-color: hsl(38 60% 16%); }
-  .theme-auto .text-amber-700 { color: hsl(38 85% 64%); }
 }
 
 @layer base {
