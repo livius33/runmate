@@ -16,8 +16,19 @@ export const waitlist = pgTable('waitlist', {
 
 // Deleted accounts (Phase 5): a tombstone per deleted user id, so a late Paddle webhook cannot recreate a subscription
 // row for it (lib/billing/webhook.ts). Written by lib/account/delete.ts after every row of the user is gone; holds
-// nothing but the id and the time, and outlives the deletion on purpose.
+// the id and the time, and outlives the deletion on purpose. 12-05: when Paddle could not cancel during the deletion,
+// also the Paddle ids still running, until the daily reconcile job has cancelled them (never an e-mail address).
 export const deletedUsers = pgTable('deleted_users', {
   userId: text('user_id').primaryKey(),
   deletedAt: integer('deleted_at').notNull(),
+  paddleCustomerId: text('paddle_customer_id'),
+  paddleSubscriptionIds: text('paddle_subscription_ids').array(),     // null = nothing left to cancel
+})
+
+// State of a scheduled job across runs (12-05): the billing reconcile job keeps the user id it stopped at, so a run
+// that hits its time budget is continued by the next one. One row per job name.
+export const jobState = pgTable('job_state', {
+  name: text('name').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: integer('updated_at').notNull(),
 })

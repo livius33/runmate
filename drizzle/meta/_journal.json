@@ -43,6 +43,41 @@
       "when": 1793819866838,
       "tag": "0005_wellness_days",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795284593694,
+      "tag": "0006_second_subscription",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795284757565,
+      "tag": "0007_tombstone_paddle_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795285170150,
+      "tag": "0008_subscription_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795286141081,
+      "tag": "0009_other_subscription_seen",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795286365888,
+      "tag": "0010_job_state",
+      "breakpoints": true
     }
   ]
 }

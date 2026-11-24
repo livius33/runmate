@@ -1,0 +1,1 @@
+ALTER TABLE "subscription" ADD COLUMN "other_subscription_seen" jsonb;

@@ -70,6 +70,7 @@ const fake = useFakeDb((q) => {
   if (/^select .* from "deleted_users"/.test(q.sql)) return st.tomb.has(String(q.params[0])) ? [[q.params[0]]] : []
   if (/^select .* from "subscription"$/.test(q.sql.trim())) return st.subs.map((s) => rowOf(subscription, s))
   if (/^select .* from "subscription"/.test(q.sql)) return st.subs.filter((s) => s.userId === q.params[0]).map((s) => rowOf(subscription, s))
+  if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
   return []
 })
 afterAll(() => fake.restore())
@@ -143,13 +144,16 @@ describe('Grabstein gegen späte Paddle-Webhooks', async () => {
     expect(fake.log.some((q) => q.sql.startsWith('insert into "subscription"'))).toBe(true)
   })
 
-  it('Konto löschen schreibt den Grabstein nach den Daten', async () => {
+  // 12-05 review 2: the tombstone comes first, so a failure while deleting loses no Paddle id and no late webhook can
+  // recreate a row in between.
+  it('Konto löschen schreibt den Grabstein vor den Daten', async () => {
     const { runAsUser } = await import('@/lib/server/scope')
     const { deleteAccount } = await import('@/lib/account/delete')
     delete process.env.BILLING_ENABLED
     await runAsUser('user-x', () => deleteAccount({ deleteClerkUser: false, strictBilling: true }), { profile: null })
     const i = fake.log.findIndex((q) => q.sql.startsWith('insert into "deleted_users"'))
-    expect(i).toBeGreaterThan(fake.log.findLastIndex((q) => q.sql.startsWith('delete from')))
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(i).toBeLessThan(fake.log.findIndex((q) => q.sql.startsWith('delete from')))
     expect(fake.log[i].params[0]).toBe('user-x')
   })
 })

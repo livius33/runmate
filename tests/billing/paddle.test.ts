@@ -13,13 +13,14 @@ vi.mock('@clerk/nextjs/server', () => ({ auth: async () => ({ userId: clerk.user
 
 const SECRET = 'pdl_ntfset_test_secret'
 const IDS: PriceIds = { plus: { month: 'pri_pm', year: 'pri_py' } }
-const env = { BILLING_ENABLED: '1', PADDLE_WEBHOOK_SECRET: SECRET, PADDLE_API_KEY: 'pdl_sdbx_apikey_test', PADDLE_ENV: 'sandbox', PADDLE_PRICE_PLUS_MONTH: 'pri_pm', PADDLE_PRICE_PLUS_YEAR: 'pri_py' }
+const env = { BILLING_ENABLED: '1', PADDLE_WEBHOOK_SECRET: SECRET, PADDLE_API_KEY: 'pdl_sdbx_apikey_test', PADDLE_ENV: 'sandbox', PADDLE_PRICE_PLUS_MONTH: 'pri_pm', PADDLE_PRICE_PLUS_YEAR: 'pri_py', NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: 'test_tok' }
 
 const db = { sub: null as Record<string, unknown> | null, seen: new Set<string>() }
 const fake = useFakeDb((q) => {
   if (/^select .* from "billing_events"/.test(q.sql)) return db.seen.has(String(q.params[0])) ? [[q.params[0]]] : []
   if (/^select .* from "subscription"/.test(q.sql) && db.sub) return [rowOf(subscription, db.sub)]
   if (/^insert into "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [rowOf(subscription, { userId: q.params[0], status: 'trialing', trialEndsAt: q.params[2], cancelAtPeriodEnd: false, updatedAt: 0 })]
+  if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
   return []
 })
 afterAll(() => fake.restore())
@@ -160,7 +161,7 @@ describe('Zustandsübergänge (rein)', () => {
   })
 
   it('transaction.completed vor dem Abo-Ereignis: verknüpft und aktiviert; danach nur noch die Kundenkennung', () => {
-    const trial: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null }
+    const trial: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null, otherSubscriptionIds: null, otherSubscriptionSeen: null }
     const tx = { event_id: 'txn', event_type: 'transaction.completed', occurred_at: iso(T0), data: { subscription_id: 'sub_9', customer_id: 'ctm_9', items: [{ price: { id: 'pri_py' } }] } }
     const row = applyPaddleEvent(trial, tx, IDS)
     expect(row).toMatchObject({ status: 'active', tier: 'plus', interval: 'year', paddleSubscriptionId: 'sub_9', trialEndsAt: T0 + 86_400 })
@@ -169,7 +170,7 @@ describe('Zustandsübergänge (rein)', () => {
   })
 
   it('nach der Kündigung lebt die Testphase nicht wieder auf', () => {
-    const trialRow: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 20 * 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null }
+    const trialRow: SubState = { status: 'trialing', tier: null, interval: null, trialEndsAt: T0 + 20 * 86_400, paddleCustomerId: null, paddleSubscriptionId: null, priceId: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, canceledAt: null, eventAt: null, otherSubscriptionIds: null, otherSubscriptionSeen: null }
     const row = step(trialRow, subEvent('subscription.canceled', T0 + 86_400, { status: 'canceled' }))
     expect(state(row, T0 + 2 * 86_400)).toBe('free')
   })

@@ -24,6 +24,7 @@ const tableOf = (sql: string) => sql.match(/(?:from|into|update|delete from) "(\
 const st = { sub: false }
 const fake = useFakeDb((q) => {
   const t = tableOf(q.sql)
+  if (/^(insert into|update) "subscription"/.test(q.sql) && /returning/.test(q.sql)) return [[q.params[0]]]     // 12-05 compare-and-set: the write landed
   if (!q.sql.startsWith('select') || !t) return []
   if (t === 'subscription') return st.sub ? [rowOf(subscription, { userId: USER, status: 'active', tier: 'plus', paddleSubscriptionId: 'sub_d', paddleCustomerId: 'ctm_d', cancelAtPeriodEnd: false, updatedAt: 0 })] : []
   const table = Object.values(schema).find((v) => is(v, PgTable) && getTableName(v as PgTable) === t) as PgTable
@@ -33,8 +34,12 @@ const fake = useFakeDb((q) => {
   return [rowOf(table, values)]
 })
 afterAll(() => fake.restore())
-beforeEach(() => { fake.log.length = 0; clerk.deleted = []; st.sub = false })
-afterEach(() => { for (const k of ['BILLING_ENABLED', 'PADDLE_API_KEY', 'PADDLE_PRICE_PLUS_MONTH']) delete process.env[k]; vi.unstubAllGlobals() })
+beforeEach(async () => {
+  fake.log.length = 0; clerk.deleted = []; st.sub = false
+  const { CANCEL_RETRY_MS } = await import('@/lib/account/delete')
+  CANCEL_RETRY_MS.splice(0, CANCEL_RETRY_MS.length, 1, 1)          // 12-05 retries: keep the test fast
+})
+afterEach(() => { for (const k of ['BILLING_ENABLED', 'PADDLE_API_KEY', 'PADDLE_ENV', 'PADDLE_PRICE_PLUS_MONTH']) delete process.env[k]; vi.unstubAllGlobals() })
 
 const { runAsUser } = await import('@/lib/server/scope')
 const asUser = <T,>(fn: () => Promise<T>) => runAsUser(USER, fn, { profile: null })
@@ -120,7 +125,7 @@ describe('Konto löschen', async () => {
   })
 
   it('mit Abo: Paddle sofort beendet, alle Tabellen geleert, Clerk-Nutzer gelöscht', async () => {
-    Object.assign(process.env, { BILLING_ENABLED: '1', PADDLE_API_KEY: 'k', PADDLE_PRICE_PLUS_MONTH: 'pri_pm' })
+    Object.assign(process.env, { BILLING_ENABLED: '1', PADDLE_API_KEY: 'k', PADDLE_ENV: 'sandbox', PADDLE_PRICE_PLUS_MONTH: 'pri_pm' })
     st.sub = true
     stub(true)
     expect((await del('LÖSCHEN')).status).toBe(200)
@@ -130,7 +135,7 @@ describe('Konto löschen', async () => {
   })
 
   it('Paddle nicht erreichbar: 502, nichts gelöscht (erneut versuchen)', async () => {
-    Object.assign(process.env, { BILLING_ENABLED: '1', PADDLE_API_KEY: 'k' })
+    Object.assign(process.env, { BILLING_ENABLED: '1', PADDLE_API_KEY: 'k', PADDLE_ENV: 'sandbox' })
     st.sub = true
     stub(false)
     expect((await del('LÖSCHEN')).status).toBe(502)
