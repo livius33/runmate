@@ -74,3 +74,17 @@ scripts/                 — backfill-run-metrics.mts, check-methodologies.mts, 
   GET route the dashboard reads must be added to `lib/demo/routes.ts` or excluded in `tests/demo/serve.test.ts`.
 - Legal pages are templates: operator details only as `<Ph>…</Ph>` (`[PLATZHALTER: …]`), never invented.
 - Every change on its own branch (`feature/…`, `fix/…`, `chore/…`) with a pull request to `main`.
+
+## Pull requests and CI
+
+- Check locally first: `npm run check -- --pr <nr>` posts the result as a PR comment (`--build` adds `next build`).
+  Review pull requests locally with `npm run dev`; Vercel builds only `main`, there are no preview builds for branches.
+- GitHub checks a pull request once, right before the merge: `gh pr edit <nr> --add-label bereit`. Without the label
+  the jobs are "skipped" — that is NOT green; merge only on "pass" (`gh pr checks <nr>`).
+- Set other labels before `bereit`: a label added after a green run starts a new run whose jobs are skipped, and
+  `gh pr checks` then shows skipped (fix: remove and re-add `bereit`).
+- Merge by rebase: `gh pr merge <nr> --rebase`. The PR must be on current `main` first: when
+  `gh pr view <nr> --json mergeStateStatus` says `BEHIND`, rebase, push, and wait for the check again.
+- Never `gh pr merge --auto`: without required checks it merges immediately, before green.
+- No run on push to `main`; one weekly run on `main` (Monday night) and a manual `workflow_dispatch`.
+- No pull requests for docs only: text and plan changes ride with the next code pull request.

@@ -9,7 +9,8 @@ Garmin login is unofficial and experimental; Runmate is no medical device.
 2. Legal templates filled (`grep -rn "PLATZHALTER" "app/(legal)"` is empty) — only needed if a public instance runs.
 3. Set `NEXT_PUBLIC_REPO_URL=https://github.com/livius33/runmate` on the landing-page deployment.
 4. GitHub: Settings → General → Danger Zone → **Change visibility → Public**. Then enable: Issues, Discussions
-   (Q&A), private vulnerability reporting (Security → Advisories), branch protection on `main` (CI required).
+   (Q&A), private vulnerability reporting (Security → Advisories), branch protection on `main` (no required CI
+   checks: the label-gated jobs count as passed when skipped; see CLAUDE.md, "Pull requests and CI").
 5. Repository topics: `running`, `training-plan`, `marathon`, `self-hosted`, `garmin`, `nextjs`, `agpl`.
 6. Post in this order, a day or two apart, and answer comments the same day: r/selfhosted → Show HN →
    r/AdvancedRunning → r/Garmin → r/laufen → intervals.icu forum. Product Hunt once hosted billing is live.

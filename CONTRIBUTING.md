@@ -8,6 +8,9 @@ Thanks for helping. Runmate is pre-release, so please open an issue before a lar
 2. `npm ci`, then keep these green before you open a pull request:
    - `npx tsc --noEmit`
    - `npm test` (Vitest; pure plan/analytics logic, no database or network)
+
+   `npm run check` runs both plus a gitleaks scan of your branch. GitHub CI runs once a maintainer labels the pull
+   request as ready to merge; until then its checks show as skipped.
 3. One topic per pull request, against `main`, with a short description of what changes for the runner.
 
 ## Ground rules
