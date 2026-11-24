@@ -6,3 +6,6 @@ export const ACTIVITY_EXTENSIONS = ['.fit', '.gpx', '.tcx']
 // One upload request (Vercel caps a body at 4.5 MB). The browser batches below both limits.
 export const MAX_FILES_PER_REQUEST = 25
 export const MAX_REQUEST_BYTES = 4 * 1024 * 1024
+// What the server reads of one request at most (12-04): one full-size file sent as is (self-host, curl) plus the
+// multipart overhead. The browser stays below MAX_REQUEST_BYTES.
+export const MAX_IMPORT_BODY_BYTES = MAX_FILE_BYTES + 1024 * 1024

@@ -78,6 +78,12 @@ export class UnauthorizedError extends Error {
   constructor() { super('Not signed in') }
 }
 
+// Signed in, but not on ALLOWED_EMAILS (lib/server/allowlist.ts).
+export class NotAllowedError extends Error {
+  readonly status = 403
+  constructor() { super('Not on the allowlist') }
+}
+
 // A write attempted in a read-only scope (the demo): the demo routes answer it with 403.
 export class ReadOnlyError extends Error {
   readonly status = 403

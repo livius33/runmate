@@ -14,6 +14,7 @@ import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
 import { NOTE_MAX, RPE_MAX, RPE_MIN, withEntry, type Feel } from '@/lib/feedback/run'
 import { loadRunFeedback, saveRunFeedback } from '@/lib/feedback/run-store'
 import { withUser } from '@/lib/server/scope'
+import { consentBlocked, given } from '@/lib/legal/intake'
 
 type Params = { params: Promise<{ id: string }> }
 type Series = (number | null)[]
@@ -118,6 +119,9 @@ export const PATCH = withUser(async (req: Request, { params }: Params) => {
   const body = Patch.safeParse(await req.json().catch(() => null))
   if (!body.success) return NextResponse.json({ error: 'Ungültige Eingabe' }, { status: 400 })
   const b = body.data
+  // RPE, Gefühl, Schmerzen and the note are health data (Art. 9); the run type and clearing a field are not.
+  const blocked = await consentBlocked([b.rpe, b.feel, b.pain, b.note].some(given))
+  if (blocked) return blocked
   const [row] = await db.select({ id: activities.id }).from(activities).where(own(activities, eq(activities.id, id))).limit(1)
   if (!row) return NextResponse.json({ error: 'Lauf nicht gefunden' }, { status: 404 })
 

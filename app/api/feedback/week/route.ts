@@ -7,6 +7,7 @@ import { planWeeks } from '@/lib/plan/effective'
 import { feedbackEntry, weekError, NOTE_MAX, Ymd, type Score } from '@/lib/feedback/week'
 import { loadWeekFeedback, saveWeekFeedback } from '@/lib/feedback/week-store'
 import { withUser } from '@/lib/server/scope'
+import { consentBlocked } from '@/lib/legal/intake'
 
 const score = z.number().int().min(1).max(5)
 const Body = z.object({
@@ -45,6 +46,9 @@ export const PUT = withUser(async (req: Request) => {
       : 'Ungültige Eingabe.'
     return NextResponse.json({ error: msg }, { status: 400 })
   }
+  // Rating and fatigue are always sent: health data (Art. 9).
+  const blocked = await consentBlocked()
+  if (blocked) return blocked
   const { week, rating, fatigue, note } = parsed.data
   const err = weekError(week, todayLocal(), planWeeks())
   if (err) return NextResponse.json({ error: err }, { status: 400 })

@@ -4,6 +4,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
 const VERSION = 'v1'
+const TAG_BYTES = 16                 // GCM tag length, pinned on decrypt so a shortened tag is refused
 
 export function encryptionKey(raw = process.env.ENCRYPTION_KEY): Buffer {
   if (!raw) throw new Error('ENCRYPTION_KEY is not set (32 bytes, base64 or hex; see .env.example)')
@@ -24,7 +25,7 @@ export function decrypt(sealed: string, key = encryptionKey()): string {
   const [v, iv, tag, body] = sealed.split('.')
   if (v !== VERSION || !iv || !tag || body == null) throw new Error('Encrypted value has an unknown format')
   try {
-    const d = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'))
+    const d = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'), { authTagLength: TAG_BYTES })
     d.setAuthTag(Buffer.from(tag, 'base64url'))
     return Buffer.concat([d.update(Buffer.from(body, 'base64url')), d.final()]).toString('utf8')
   } catch {

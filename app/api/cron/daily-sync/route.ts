@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { runSync } from '@/lib/sources/sync'
 import { usersToSync } from '@/lib/sources/registry'
 import { runAsUser } from '@/lib/server/scope'
+import { cronUnauthorized } from '@/lib/server/cron-auth'
 import { intakeAllowed } from '@/lib/legal/intake'
 
 export const runtime = 'nodejs'
@@ -13,10 +14,8 @@ const BUDGET_MS = 45_000        // start no new batch after this; the rest go fi
 // Daily: every user with a connected pull source (lib/sources/registry.ts), each in their own scope. One user's
 // failure never stops the others; the response lists counts only (no user data).
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const unauthorized = cronUnauthorized(req)
+  if (unauthorized) return unauthorized
 
   const started = Date.now()
   const users = await usersToSync()

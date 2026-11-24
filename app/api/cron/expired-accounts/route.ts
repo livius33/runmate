@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { subscription } from '@/lib/db/schema'
 import { own } from '@/lib/db/owned'
 import { runAsUser } from '@/lib/server/scope'
+import { cronUnauthorized } from '@/lib/server/cron-auth'
 import { billingEnabled } from '@/lib/billing/config'
 import { deletionDate, dueForDeletion, retentionMailer } from '@/lib/billing/retention'
 import { deleteAccount } from '@/lib/account/delete'
@@ -16,10 +17,8 @@ const MAX_DELETES = 20          // per run; the rest follow the next night
 // (lib/billing/retention.ts). Without a configured mailer no reminder is sent or stamped, so nothing is deleted.
 // The response lists counts only.
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const unauthorized = cronUnauthorized(req)
+  if (unauthorized) return unauthorized
   if (!billingEnabled()) return NextResponse.json({ ok: true, billing: false })
 
   const now = Math.floor(Date.now() / 1000)

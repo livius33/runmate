@@ -7,6 +7,7 @@ import { source } from '@/lib/sources/registry'
 import { enrichActivity } from '@/lib/sources/sync'
 import { sourceErrorResponse } from '@/lib/sources/http'
 import { withUser } from '@/lib/server/scope'
+import { LIMITS, throttle } from '@/lib/server/throttle'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -36,6 +37,9 @@ export const POST = withUser(async (
   }
 
   const force = new URL(req.url).searchParams.has('force')
+  // A forced re-import asks the source every time: once every 30 seconds per user (12-04).
+  const limited = force ? await throttle('enrich-force', LIMITS.enrichForce) : null
+  if (limited) return limited
   try {
     if (force || !act.hasDetailedData || !act.hasStreams) await enrichActivity(src, id, act.sourceActivityId)
     return NextResponse.json({ ok: true })

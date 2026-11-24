@@ -13,7 +13,9 @@ const PRODID = '-//Runmate//Trainingsplan//DE'
 // Escape text values and fold lines at 75 octets (continuation lines start with a space).
 // Older plan history (stored in the DB) can carry session types the labels do not know.
 const typeLabel = (t: string) => (TYPE_LABEL as Record<string, string>)[t] ?? 'Training'
-const esc = (s: string | undefined | null) => (s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
+// RFC 5545 §3.3.11: backslash, semicolon and comma escaped; every line break (CRLF, CR or LF) becomes a literal \n.
+export const esc = (s: string | undefined | null) =>
+  (s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n')
 function fold(line: string) {
   const bytes = Buffer.from(line, 'utf8')
   if (bytes.length <= 75) return line

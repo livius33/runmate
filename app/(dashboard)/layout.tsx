@@ -4,7 +4,7 @@ import { AppHeader, AppSidebar } from '@/components/AppHeader'
 import { ScopeReady, UserScope } from '@/components/UserScope'
 import { OfflineSupport } from '@/components/Offline'
 import { ensureLiveBlocks } from '@/lib/plan/live-blocks'
-import { currentScope, UnauthorizedError } from '@/lib/scope'
+import { currentScope, NotAllowedError, UnauthorizedError } from '@/lib/scope'
 import { getUserId, runAsUser } from '@/lib/server/scope'
 import { currentEntitlements, ensureSubscription } from '@/lib/billing/access'
 import { toClient } from '@/lib/billing/entitlements'
@@ -21,6 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     userId = await getUserId()
   } catch (err) {
     if (err instanceof UnauthorizedError) redirect('/sign-in')
+    if (err instanceof NotAllowedError) redirect('/sign-in?error=unauthorized')
     throw err
   }
   // This user's profile and live blocks, handed to the browser's scope (components/UserScope.tsx).

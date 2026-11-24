@@ -94,6 +94,17 @@ describe('Prüfungen je Schritt (AC-3)', () => {
     expect(stored('athlete_profile')).toMatchObject({ age: 40, weeklyKm: 32, availableDays: [1, 3, 5, 7], longRunDay: 7 })
   })
 
+  it('Profil bei widerrufener Einwilligung (12-04): neue Gesundheitswerte gesperrt, gespeicherte gehen durch', async () => {
+    process.env.REQUIRE_HEALTH_CONSENT = '1'
+    db.settings.set('onboarding', JSON.stringify({ v: 1, done: ['consent'], skipped: [], at: null, goal: null, startedAt: 'x', completedAt: null }))
+    // HFmax 180 (estimated from the age) is new: refused, nothing stored.
+    expect(await asUser(() => applyOnboarding({ type: 'complete', step: 'profile', profile: PROFILE as never }))).toMatchObject({ error: expect.stringContaining('einwilligen') })
+    expect(fake.log.some((q) => q.sql.startsWith('insert into "user_profile"'))).toBe(false)
+    // The same HFmax already stored: saving the step again needs no consent.
+    db.profile = true
+    expect(await asUser(() => applyOnboarding({ type: 'complete', step: 'profile', profile: PROFILE as never }))).toMatchObject({ state: { done: ['consent', 'profile'] } })
+  })
+
   it('Datenquelle: „Weiter“ ohne Quelle und ohne Läufe 400; überspringen geht', async () => {
     db.settings.set('onboarding', JSON.stringify({ v: 1, done: ['profile'], skipped: [], at: null, goal: null, startedAt: 'x', completedAt: null }))
     expect(await asUser(() => applyOnboarding({ type: 'complete', step: 'source' }))).toMatchObject({ error: expect.stringContaining('Noch keine Quelle') })

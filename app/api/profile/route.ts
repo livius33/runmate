@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { hrZones, raceHr } from '@/lib/analytics/hr'
-import { resolveProfile, validateProfile } from '@/lib/profile'
+import { HEALTH_PROFILE_FIELDS, resolveProfile, validateProfile } from '@/lib/profile'
 import { loadOwnProfile, saveUserProfile } from '@/lib/profile-store'
 import { withUser } from '@/lib/server/scope'
+import { consentBlocked, newHealthData } from '@/lib/legal/intake'
 
 export const runtime = 'nodejs'
 
@@ -18,6 +19,9 @@ export const GET = withUser(async () => NextResponse.json(view(await loadOwnProf
 export const PUT = withUser(async (req: Request) => {
   const parsed = validateProfile(await req.json().catch(() => null))
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
+  // The form sends the whole profile: health values already stored pass without consent, new or changed ones need it.
+  const blocked = await consentBlocked(newHealthData({ ...parsed.profile }, await loadOwnProfile() as Record<string, unknown> | null, HEALTH_PROFILE_FIELDS))
+  if (blocked) return blocked
   await saveUserProfile(parsed.profile)
   return NextResponse.json(view(parsed.profile))
 })
