@@ -188,3 +188,107 @@ phase = 8
 plan = "08-02"
 at = "2026-11-19T10:00:00Z"
 note = "third pass: remaining small findings fixed (15 commits)"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-03"
+at = "2026-11-21T17:00:00Z"
+note = "security review: no exposed secrets, tenant isolation holds; 15 findings"
+
+[[entry]]
+action = "plan"
+phase = 13
+plan = "13-01"
+at = "2026-11-21T17:00:00Z"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-04"
+at = "2026-11-21T19:00:00Z"
+note = "hardening before the first deployment"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-05"
+at = "2026-11-21T19:00:00Z"
+note = "billing hardening before stage B"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-06"
+at = "2026-11-21T19:00:00Z"
+note = "drizzle-orm behind a log helper; after 12-04/12-05 and PR #7"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-07"
+at = "2026-11-21T19:00:00Z"
+note = "mail and scheduled jobs; checkpoint"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-04"
+at = "2026-11-21T19:05:00Z"
+note = "Opus agent, branch fix/hardening-stage-a"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-05"
+at = "2026-11-21T19:05:00Z"
+note = "Opus agent, branch fix/billing-hardening"
+
+[[entry]]
+action = "apply"
+phase = 13
+plan = "13-01"
+at = "2026-11-21T19:05:00Z"
+note = "tasks 2-4 with defaults, local repo"
+
+[[entry]]
+action = "unify"
+phase = 12
+plan = "12-04"
+at = "2026-11-21T19:40:00Z"
+note = "PR #8 open, not merged; summary written"
+
+[[entry]]
+action = "plan"
+phase = 12
+plan = "12-02"
+at = "2026-11-21T19:40:00Z"
+note = "redesign after DESIGN.md; replaces the checkpoint-only plan"
+
+[[entry]]
+action = "unify"
+phase = 12
+plan = "12-05"
+at = "2026-11-21T19:50:00Z"
+note = "PR #9 open, not merged; AC-8 not built (decision); summary written"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-02"
+at = "2026-11-21T20:10:00Z"
+note = "Livius approved tasks 1 and 2; branch design/12-02-design-md pushed; rollout waits for the checkpoint"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-02"
+at = "2026-11-21T20:27:00Z"
+note = "tasks 1 and 2 built (11 commits, one review round), checks green, branch pushed; at the checkpoint (task 3), rollout not started"
+
+[[entry]]
+action = "apply"
+phase = 12
+plan = "12-02"
+at = "2026-11-22T10:15:00Z"
+note = "tasks 4 and 5 built (rollout over all pages, 17 commits, one fix round); tsc, 965 tests, build and gitleaks green; branch pushed at 4471807; task 6 waits for #8 and #9, no pull request yet"
