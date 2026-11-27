@@ -6,7 +6,8 @@ Two ways to run your own instance:
 - **[Neon + Vercel](#neon--vercel)**: serverless, nothing to maintain.
 
 Both need a free [Clerk](https://clerk.com) application for sign-in. Self-hosting needs no billing setup: without
-`BILLING_ENABLED` every feature is on and nothing is sold.
+`BILLING_ENABLED` every feature is on and nothing is sold. Every environment variable is listed in
+[HOSTING.md](HOSTING.md#environment-variables).
 
 ## Clerk (both ways)
 
@@ -101,7 +102,8 @@ npm run dev                       # http://localhost:3001
 
 Each user connects their own sources under **Settings → Datenquellen**: the Garmin login (unofficial, experimental, no
 MFA), the Apple Health shortcut, or file import (FIT/GPX/TCX/Garmin export ZIP). See the README's
-[Data sources](../README.md#data-sources). You are responsible for using each source within its terms.
+[Data sources](../README.md#data-sources) and, in more detail,
+[HOSTING.md](HOSTING.md#data-source-details). You are responsible for using each source within its terms.
 
 ## Troubleshooting
 
